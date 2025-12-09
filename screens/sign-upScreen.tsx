@@ -11,13 +11,14 @@ import {
   ActivityIndicator,
   Animated,
   Easing,
+  ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
 
 const { width, height } = Dimensions.get("window");
-const ORB_SIZE = width * 0.7;
+const ORB_SIZE = width * 0.5;
 
 // Twinkling Star Component
 const Star = ({
@@ -75,25 +76,30 @@ const generateStars = (count: number) => {
   return Array.from({ length: count }, (_, i) => ({
     id: i,
     size: Math.random() * 3 + 1.5,
-    top: Math.random() * height * 0.5,
+    top: Math.random() * height * 0.4,
     left: Math.random() * width,
     delay: Math.random() * 2000,
   }));
 };
 
-interface SignInScreenProps {
-  onSignIn?: (email: string, password: string) => Promise<void>;
-  onNavigateToRegister?: () => void;
-  onForgotPassword?: () => void;
+interface SignUpScreenProps {
+  onSignUp?: (
+    username: string,
+    email: string,
+    password: string,
+    coreValues?: string[]
+  ) => Promise<void>;
+  onNavigateToSignIn?: () => void;
 }
 
-export default function SignInScreen({
-  onSignIn,
-  onNavigateToRegister,
-  onForgotPassword,
-}: SignInScreenProps) {
+export default function SignUpScreen({
+  onSignUp,
+  onNavigateToSignIn,
+}: SignUpScreenProps) {
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -110,21 +116,18 @@ export default function SignInScreen({
   useEffect(() => {
     // Initial entrance animations
     Animated.parallel([
-      // Orb scale in
       Animated.spring(scaleAnim, {
         toValue: 1,
         tension: 20,
         friction: 7,
         useNativeDriver: true,
       }),
-      // Content fade in
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 800,
         delay: 300,
         useNativeDriver: true,
       }),
-      // Content slide up
       Animated.timing(slideAnim, {
         toValue: 0,
         duration: 800,
@@ -165,7 +168,7 @@ export default function SignInScreen({
 
   const floatTranslateY = floatAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, -15],
+    outputRange: [0, -12],
   });
 
   const spin = rotateAnim.interpolate({
@@ -173,9 +176,19 @@ export default function SignInScreen({
     outputRange: ["0deg", "360deg"],
   });
 
-  const handleSignIn = async () => {
-    if (!email.trim() || !password.trim()) {
-      setError("Please fill in all fields");
+  const handleSignUp = async () => {
+    if (!username.trim() || !email.trim() || !password.trim()) {
+      setError("Please fill in all required fields");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters");
       return;
     }
 
@@ -183,24 +196,31 @@ export default function SignInScreen({
     setIsLoading(true);
 
     try {
-      if (onSignIn) {
-        await onSignIn(email, password);
+      if (onSignUp) {
+        await onSignUp(username, email, password);
       } else {
-        const response = await fetch("http://localhost:3000/api/auth/login", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ email, password }),
-        });
+        const response = await fetch(
+          "http://localhost:3000/api/auth/register",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              username,
+              email,
+              password,
+            }),
+          }
+        );
 
         const data = await response.json();
 
         if (!response.ok) {
-          throw new Error(data.message || "Login failed");
+          throw new Error(data.message || "Registration failed");
         }
 
-        console.log("Login successful:", data);
+        console.log("Registration successful:", data);
       }
     } catch (err: any) {
       setError(err.message || "Something went wrong");
@@ -216,6 +236,15 @@ export default function SignInScreen({
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <StatusBar style="dark" />
+
+        {/* Back Button */}
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={onNavigateToSignIn}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.backIcon}>←</Text>
+        </TouchableOpacity>
 
         {/* Subtle background gradient */}
         <LinearGradient
@@ -238,115 +267,136 @@ export default function SignInScreen({
           ))}
         </View>
 
-        {/* Animated Orb */}
-        <Animated.View
-          style={[
-            styles.orbContainer,
-            {
-              transform: [
-                { translateY: floatTranslateY },
-                { scale: scaleAnim },
-              ],
-            },
-          ]}
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-          {/* Glowing border */}
-          <View style={styles.orbGlowBorder}>
-            <View style={styles.orbGlowInner} />
-          </View>
-          <Animated.Image
-            source={require("../assets/signinImage.png")}
-            style={[styles.orbImage, { transform: [{ rotate: spin }] }]}
-            resizeMode="contain"
-          />
-        </Animated.View>
+          {/* Animated Orb */}
+          <Animated.View
+            style={[
+              styles.orbContainer,
+              {
+                transform: [
+                  { translateY: floatTranslateY },
+                  { scale: scaleAnim },
+                ],
+              },
+            ]}
+          >
+            {/* Glowing border */}
+            <View style={styles.orbGlowBorder}>
+              <View style={styles.orbGlowInner} />
+            </View>
+            <Animated.Image
+              source={require("../assets/signinImage.png")}
+              style={[styles.orbImage, { transform: [{ rotate: spin }] }]}
+              resizeMode="contain"
+            />
+          </Animated.View>
 
-        {/* Content with fade animation */}
-        <Animated.View
-          style={[
-            styles.content,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
-          ]}
-        >
-          <Text style={styles.title}>Welcome Back</Text>
-          <Text style={styles.subtitle}>
-            Sign in so Musaad can assist you{"\n"}
-          </Text>
+          {/* Content with fade animation */}
+          <Animated.View
+            style={[
+              styles.content,
+              {
+                opacity: fadeAnim,
+                transform: [{ translateY: slideAnim }],
+              },
+            ]}
+          >
+            <Text style={styles.title}>Create Account</Text>
+            <Text style={styles.subtitle}>
+              Join us and let your AI Butler{"\n"}guide your journey.
+            </Text>
 
-          {/* Minimal Form */}
-          <View style={styles.form}>
-            <View style={styles.inputWrapper}>
-              <TextInput
-                style={styles.input}
-                placeholder="Email"
-                placeholderTextColor="#a1a1aa"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
+            {/* Form */}
+            <View style={styles.form}>
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Username"
+                  placeholderTextColor="#a1a1aa"
+                  value={username}
+                  onChangeText={setUsername}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </View>
+
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Email"
+                  placeholderTextColor="#a1a1aa"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </View>
+
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Password"
+                  placeholderTextColor="#a1a1aa"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry
+                  autoCapitalize="none"
+                />
+              </View>
+
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Confirm Password"
+                  placeholderTextColor="#a1a1aa"
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry
+                  autoCapitalize="none"
+                />
+              </View>
+
+              {error && <Text style={styles.errorText}>{error}</Text>}
             </View>
 
-            <View style={styles.inputWrapper}>
-              <TextInput
-                style={styles.input}
-                placeholder="Password"
-                placeholderTextColor="#a1a1aa"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-                autoCapitalize="none"
-              />
-            </View>
-
-            {/* Forgot Password */}
+            {/* Sign Up Button */}
             <TouchableOpacity
-              style={styles.forgotPassword}
-              onPress={onForgotPassword}
-              activeOpacity={0.6}
+              style={[
+                styles.signUpButton,
+                isLoading && styles.signUpButtonDisabled,
+              ]}
+              onPress={handleSignUp}
+              disabled={isLoading}
+              activeOpacity={0.7}
             >
-              <Text style={styles.forgotPasswordText}>Forgot password?</Text>
+              {isLoading ? (
+                <ActivityIndicator color="#18181b" size="small" />
+              ) : (
+                <>
+                  <Text style={styles.signUpButtonText}>Create Account</Text>
+                  <Text style={styles.signUpArrow}>→</Text>
+                </>
+              )}
             </TouchableOpacity>
 
-            {error && <Text style={styles.errorText}>{error}</Text>}
-          </View>
-
-          {/* Sign In Button */}
-          <TouchableOpacity
-            style={[
-              styles.signInButton,
-              isLoading && styles.signInButtonDisabled,
-            ]}
-            onPress={handleSignIn}
-            disabled={isLoading}
-            activeOpacity={0.7}
-          >
-            {isLoading ? (
-              <ActivityIndicator color="#18181b" size="small" />
-            ) : (
-              <>
-                <Text style={styles.signInButtonText}>Sign In</Text>
-                <Text style={styles.signInArrow}>→</Text>
-              </>
-            )}
-          </TouchableOpacity>
-
-          {/* Register link */}
-          <TouchableOpacity
-            style={styles.registerLink}
-            onPress={onNavigateToRegister}
-            activeOpacity={0.6}
-          >
-            <Text style={styles.registerText}>
-              Don't have an account?{" "}
-              <Text style={styles.registerHighlight}>Create one</Text>
-            </Text>
-          </TouchableOpacity>
-        </Animated.View>
+            {/* Sign In link */}
+            <TouchableOpacity
+              style={styles.signInLink}
+              onPress={onNavigateToSignIn}
+              activeOpacity={0.6}
+            >
+              <Text style={styles.signInText}>
+                Already have an account?{" "}
+                <Text style={styles.signInHighlight}>Sign In</Text>
+              </Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -359,6 +409,28 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
+  },
+  backButton: {
+    position: "absolute",
+    top: 10,
+    left: 20,
+    zIndex: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.8)",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  backIcon: {
+    fontSize: 20,
+    color: "#18181b",
+    fontWeight: "500",
   },
   backgroundGradient: {
     position: "absolute",
@@ -382,10 +454,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.8,
     shadowRadius: 4,
   },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 40,
+  },
   orbContainer: {
     alignItems: "center",
     justifyContent: "center",
-    marginTop: height * 0.08,
+    marginTop: height * 0.06,
     height: ORB_SIZE * 1.1,
   },
   orbGlowBorder: {
@@ -421,7 +497,7 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 40,
-    paddingTop: 20,
+    paddingTop: 16,
   },
   title: {
     fontSize: 26,
@@ -438,8 +514,8 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   form: {
-    marginTop: 28,
-    gap: 14,
+    marginTop: 24,
+    gap: 12,
   },
   inputWrapper: {
     backgroundColor: "#fafafa",
@@ -449,25 +525,17 @@ const styles = StyleSheet.create({
   },
   input: {
     paddingHorizontal: 18,
-    paddingVertical: 15,
+    paddingVertical: 14,
     fontSize: 15,
     color: "#18181b",
-  },
-  forgotPassword: {
-    alignSelf: "flex-end",
-    paddingVertical: 4,
-  },
-  forgotPasswordText: {
-    fontSize: 13,
-    color: "#a855f7",
-    fontWeight: "500",
   },
   errorText: {
     color: "#ef4444",
     fontSize: 13,
     textAlign: "center",
+    marginTop: 4,
   },
-  signInButton: {
+  signUpButton: {
     backgroundColor: "#fafafa",
     borderRadius: 14,
     paddingVertical: 16,
@@ -479,29 +547,29 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#e4e4e7",
   },
-  signInButtonDisabled: {
+  signUpButtonDisabled: {
     opacity: 0.6,
   },
-  signInButtonText: {
+  signUpButtonText: {
     fontSize: 15,
     fontWeight: "500",
     color: "#18181b",
   },
-  signInArrow: {
+  signUpArrow: {
     fontSize: 16,
     marginLeft: 8,
     color: "#18181b",
   },
-  registerLink: {
+  signInLink: {
     marginTop: 20,
     alignItems: "center",
     paddingVertical: 8,
   },
-  registerText: {
+  signInText: {
     fontSize: 14,
     color: "#a1a1aa",
   },
-  registerHighlight: {
+  signInHighlight: {
     color: "#a855f7",
     fontWeight: "500",
   },
