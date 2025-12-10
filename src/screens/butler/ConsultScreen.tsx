@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -16,8 +17,32 @@ import { StatusBar } from 'expo-status-bar';
 import { COLORS } from '../../constants/config';
 import * as butlerApi from '../../api/butler';
 
+const { width } = Dimensions.get('window');
+const CARD_PADDING = 40 * 2; // horizontal padding
+const CARD_GAP = 10;
+const CARD_COUNT = 5;
+// Calculate card width: (screen width - padding - gaps) / card count, with min width of 55
+const availableWidth = width - CARD_PADDING - (CARD_GAP * (CARD_COUNT - 1));
+const CARD_WIDTH = Math.max(55, availableWidth / CARD_COUNT);
+
+interface Mood {
+  id: string;
+  label: string;
+  emoji: string;
+  color: string;
+}
+
+const MOODS: Mood[] = [
+  { id: "happy", label: "Happy", emoji: "😊", color: "#FFD93D" },
+  { id: "calm", label: "Calm", emoji: "😌", color: "#6BCB77" },
+  { id: "neutral", label: "Neutral", emoji: "😐", color: "#95A5A6" },
+  { id: "stressed", label: "Stressed", emoji: "😰", color: "#FF6B9D" },
+  { id: "sad", label: "Sad", emoji: "😔", color: "#4D96FF" },
+];
+
 export default function ConsultScreen() {
   const [mood, setMood] = useState('');
+  const [selectedMoodId, setSelectedMoodId] = useState<string | null>(null);
   const [energy, setEnergy] = useState('5');
   const [rawInput, setRawInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -25,10 +50,15 @@ export default function ConsultScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const handleConsult = async () => {
-    if (!mood.trim()) {
-      setError('Please describe your current mood');
+    if (!selectedMoodId && !mood.trim()) {
+      setError('Please select your current mood');
       return;
     }
+    
+    // Use selected mood label if available, otherwise use custom mood text
+    const moodText = selectedMoodId 
+      ? MOODS.find(m => m.id === selectedMoodId)?.label || mood
+      : mood;
 
     const energyNum = parseInt(energy, 10);
     if (isNaN(energyNum) || energyNum < 1 || energyNum > 10) {
@@ -42,7 +72,7 @@ export default function ConsultScreen() {
 
     try {
       const response = await butlerApi.consult({
-        current_mood: mood,
+        current_mood: moodText,
         current_energy: energyNum,
         raw_input: rawInput || undefined,
       });
@@ -56,9 +86,16 @@ export default function ConsultScreen() {
 
   const resetForm = () => {
     setMood('');
+    setSelectedMoodId(null);
     setEnergy('5');
     setRawInput('');
     setRecommendation(null);
+    setError(null);
+  };
+
+  const handleMoodSelect = (moodId: string) => {
+    setSelectedMoodId(moodId);
+    setMood(''); // Clear custom mood text when selecting a card
     setError(null);
   };
 
@@ -93,13 +130,49 @@ export default function ConsultScreen() {
 
         <View style={styles.form}>
           <Text style={styles.label}>How are you feeling?</Text>
+          <View style={styles.moodCardsContainer}>
+            {MOODS.map((moodOption, index) => (
+              <TouchableOpacity
+                key={moodOption.id}
+                style={[
+                  styles.moodCard,
+                  selectedMoodId === moodOption.id && styles.moodCardSelected,
+                  { 
+                    borderColor: selectedMoodId === moodOption.id ? moodOption.color : COLORS.border,
+                    marginRight: index < MOODS.length - 1 ? CARD_GAP : 0,
+                  },
+                ]}
+                onPress={() => handleMoodSelect(moodOption.id)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.moodEmoji}>{moodOption.emoji}</Text>
+                <Text
+                  style={[
+                    styles.moodLabel,
+                    selectedMoodId === moodOption.id && styles.moodLabelSelected,
+                    selectedMoodId === moodOption.id && { color: moodOption.color },
+                  ]}
+                >
+                  {moodOption.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          
+          {/* Optional custom mood input */}
+          <Text style={styles.label}>Or describe your mood (optional)</Text>
           <View style={styles.inputWrapper}>
             <TextInput
               style={styles.input}
               placeholder="e.g., overwhelmed, tired, motivated"
               placeholderTextColor={COLORS.textMuted}
               value={mood}
-              onChangeText={setMood}
+              onChangeText={(text) => {
+                setMood(text);
+                if (text.trim()) {
+                  setSelectedMoodId(null); // Clear selection when typing custom mood
+                }
+              }}
             />
           </View>
 
@@ -218,6 +291,52 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     marginBottom: 8,
     marginTop: 12,
+  },
+  moodCardsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 16,
+  },
+  moodCard: {
+    width: CARD_WIDTH,
+    maxWidth: CARD_WIDTH,
+    backgroundColor: COLORS.backgroundSecondary,
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  moodCardSelected: {
+    borderWidth: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 8,
+    backgroundColor: COLORS.backgroundSecondary,
+  },
+  moodEmoji: {
+    fontSize: 38,
+    marginBottom: 8,
+  },
+  moodLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+  },
+  moodLabelSelected: {
+    fontWeight: '700',
+    fontSize: 13,
   },
   inputWrapper: {
     backgroundColor: COLORS.backgroundSecondary,
