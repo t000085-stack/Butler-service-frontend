@@ -1,7 +1,8 @@
 import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { Text, View, StyleSheet } from "react-native";
+import { StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { MaterialIcons } from "@expo/vector-icons";
 import ConsultScreen from "../screens/butler/ConsultScreen";
 import TaskListScreen from "../screens/tasks/TaskListScreen";
 import ProfileScreen from "../screens/profile/ProfileScreen";
@@ -9,7 +10,7 @@ import MoodStack from "./MoodStack";
 import { COLORS } from "../constants/config";
 
 export type MainTabsParamList = {
-  Butler: undefined;
+  Simi: undefined;
   Tasks: undefined;
   Mood: undefined;
   Profile: undefined;
@@ -18,17 +19,21 @@ export type MainTabsParamList = {
 const Tab = createBottomTabNavigator<MainTabsParamList>();
 
 function TabIcon({ label, focused }: { label: string; focused: boolean }) {
-  const icons: Record<string, string> = {
-    Butler: "🤵",
-    Tasks: "📋",
-    Mood: "😊",
-    Profile: "👤",
+  const iconMap: Record<string, keyof typeof MaterialIcons.glyphMap> = {
+    Simi: "support-agent",
+    Tasks: "checklist",
+    Mood: "mood",
+    Profile: "person",
   };
 
+  const iconName = iconMap[label] || "help";
+
   return (
-    <View style={styles.tabIcon}>
-      <Text style={styles.tabEmoji}>{icons[label]}</Text>
-    </View>
+    <MaterialIcons
+      name={iconName}
+      size={24}
+      color={focused ? COLORS.primary : COLORS.textMuted}
+    />
   );
 }
 
@@ -52,7 +57,7 @@ export default function MainTabs() {
         tabBarLabelStyle: styles.tabLabel,
       })}
     >
-      <Tab.Screen name="Butler" component={ConsultScreen} />
+      <Tab.Screen name="Simi" component={ConsultScreen} />
       <Tab.Screen name="Tasks" component={TaskListScreen} />
       <Tab.Screen name="Mood" component={MoodStack} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
@@ -70,12 +75,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "500",
     marginTop: 4,
-  },
-  tabIcon: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  tabEmoji: {
-    fontSize: 24,
   },
 });

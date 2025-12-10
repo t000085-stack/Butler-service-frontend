@@ -101,7 +101,7 @@ export default function HistoryScreen() {
             <View style={styles.empty}>
               <Text style={styles.emptyText}>No consultations yet.</Text>
               <Text style={styles.emptySubtext}>
-                Talk to your Butler to get started!
+                Talk to Simi to get started!
               </Text>
             </View>
           }

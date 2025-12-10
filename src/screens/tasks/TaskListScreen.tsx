@@ -15,6 +15,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { useTasks } from '../../contexts/TaskContext';
 import { COLORS, EMOTIONAL_FRICTION } from '../../constants/config';
@@ -168,8 +169,17 @@ export default function TaskListScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
+      
+      {/* Subtle background gradient */}
+      <LinearGradient
+        colors={['#ffffff', '#faf5ff', '#fdf4ff', '#ffffff']}
+        style={styles.backgroundGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      />
+
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>Your Tasks</Text>
@@ -317,6 +327,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
+  backgroundGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
   centered: {
     flex: 1,
     justifyContent: 'center',
@@ -324,36 +341,40 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   header: {
-    paddingHorizontal: 24,
-    paddingVertical: 16,
+    paddingHorizontal: 40,
+    paddingVertical: 20,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   title: {
-    fontSize: 24,
-    fontWeight: '700',
+    fontSize: 26,
+    fontWeight: '600',
     color: COLORS.text,
+    letterSpacing: -0.5,
   },
   subtitle: {
-    fontSize: 14,
-    color: COLORS.textMuted,
-    marginTop: 2,
+    fontSize: 15,
+    color: COLORS.textSecondary,
+    marginTop: 4,
   },
   addButton: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 10,
+    backgroundColor: COLORS.backgroundSecondary,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.borderDark,
   },
   addButtonText: {
-    color: COLORS.background,
-    fontSize: 14,
-    fontWeight: '600',
+    color: COLORS.text,
+    fontSize: 15,
+    fontWeight: '500',
   },
   list: {
-    padding: 24,
+    paddingHorizontal: 40,
     paddingTop: 8,
+    paddingBottom: 24,
   },
   card: {
     backgroundColor: COLORS.backgroundSecondary,
@@ -485,13 +506,13 @@ const styles = StyleSheet.create({
   },
   inputWrapper: {
     backgroundColor: COLORS.backgroundSecondary,
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
   input: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingHorizontal: 18,
+    paddingVertical: 15,
     fontSize: 15,
     color: COLORS.text,
   },
@@ -527,20 +548,25 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   createButton: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 12,
+    backgroundColor: COLORS.backgroundSecondary,
+    borderRadius: 14,
     paddingVertical: 16,
+    paddingHorizontal: 24,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     marginTop: 20,
     marginBottom: 20,
+    borderWidth: 1,
+    borderColor: COLORS.borderDark,
   },
   createButtonDisabled: {
     opacity: 0.6,
   },
   createButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.background,
+    fontSize: 15,
+    fontWeight: '500',
+    color: COLORS.text,
   },
 });
 

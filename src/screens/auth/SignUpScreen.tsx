@@ -351,7 +351,7 @@ export default function SignUpScreen() {
           >
             <Text style={styles.title}>Create Account</Text>
             <Text style={styles.subtitle}>
-              Join us and let your AI Butler{'\n'}guide your journey.
+              Join us and let Simi{'\n'}guide your journey.
             </Text>
 
             {/* Form */}

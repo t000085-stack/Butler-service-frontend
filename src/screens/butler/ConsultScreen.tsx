@@ -7,8 +7,11 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { COLORS } from '../../constants/config';
 import * as butlerApi from '../../api/butler';
@@ -60,17 +63,33 @@ export default function ConsultScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <StatusBar style="dark" />
-      <ScrollView
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+      <KeyboardAvoidingView
         style={styles.container}
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <Text style={styles.title}>Consult Your Butler</Text>
-        <Text style={styles.subtitle}>
-          Share how you're feeling and get a personalized task suggestion.
-        </Text>
+        <StatusBar style="dark" />
+        
+        {/* Subtle background gradient */}
+        <LinearGradient
+          colors={['#ffffff', '#faf5ff', '#fdf4ff', '#ffffff']}
+          style={styles.backgroundGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        />
+
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.header}>
+            <Text style={styles.title}>Consult Simi</Text>
+            <Text style={styles.subtitle}>
+              Share how you're feeling and get a personalized task suggestion.
+            </Text>
+          </View>
 
         <View style={styles.form}>
           <Text style={styles.label}>How are you feeling?</Text>
@@ -120,16 +139,19 @@ export default function ConsultScreen() {
             activeOpacity={0.7}
           >
             {isLoading ? (
-              <ActivityIndicator color={COLORS.background} size="small" />
+              <ActivityIndicator color={COLORS.text} size="small" />
             ) : (
-              <Text style={styles.buttonText}>Get Recommendation</Text>
+              <>
+                <Text style={styles.buttonText}>Get Recommendation</Text>
+                <Text style={styles.buttonArrow}>→</Text>
+              </>
             )}
           </TouchableOpacity>
         </View>
 
         {recommendation && (
           <View style={styles.recommendationCard}>
-            <Text style={styles.recommendationLabel}>Butler suggests:</Text>
+            <Text style={styles.recommendationLabel}>Simi suggests:</Text>
             <Text style={styles.recommendationText}>{recommendation}</Text>
             <TouchableOpacity
               style={styles.resetButton}
@@ -140,7 +162,8 @@ export default function ConsultScreen() {
             </TouchableOpacity>
           </View>
         )}
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -153,34 +176,52 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  scrollView: {
+    flex: 1,
+  },
+  backgroundGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
   content: {
-    padding: 24,
+    flexGrow: 1,
+    paddingHorizontal: 40,
+    paddingTop: 20,
     paddingBottom: 40,
   },
+  header: {
+    marginBottom: 28,
+  },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
+    fontSize: 26,
+    fontWeight: '600',
     color: COLORS.text,
-    marginBottom: 8,
+    textAlign: 'center',
+    letterSpacing: -0.5,
+    marginBottom: 10,
   },
   subtitle: {
     fontSize: 15,
     color: COLORS.textSecondary,
-    marginBottom: 24,
+    textAlign: 'center',
     lineHeight: 22,
   },
   form: {
-    gap: 16,
+    gap: 14,
   },
   label: {
     fontSize: 14,
     fontWeight: '600',
     color: COLORS.text,
-    marginBottom: -8,
+    marginBottom: 8,
+    marginTop: 12,
   },
   inputWrapper: {
     backgroundColor: COLORS.backgroundSecondary,
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
@@ -188,8 +229,8 @@ const styles = StyleSheet.create({
     minHeight: 100,
   },
   input: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingHorizontal: 18,
+    paddingVertical: 15,
     fontSize: 15,
     color: COLORS.text,
   },
@@ -202,27 +243,37 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   button: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 12,
+    backgroundColor: COLORS.backgroundSecondary,
+    borderRadius: 14,
     paddingVertical: 16,
+    paddingHorizontal: 24,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
+    justifyContent: 'center',
+    marginTop: 20,
+    borderWidth: 1,
+    borderColor: COLORS.borderDark,
   },
   buttonDisabled: {
     opacity: 0.6,
   },
   buttonText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: COLORS.text,
+  },
+  buttonArrow: {
     fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.background,
+    marginLeft: 8,
+    color: COLORS.text,
   },
   recommendationCard: {
     marginTop: 32,
-    backgroundColor: '#faf5ff',
+    backgroundColor: COLORS.backgroundSecondary,
     borderRadius: 16,
     padding: 20,
     borderWidth: 1,
-    borderColor: COLORS.primaryLight,
+    borderColor: COLORS.border,
   },
   recommendationLabel: {
     fontSize: 13,

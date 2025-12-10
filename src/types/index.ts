@@ -6,6 +6,12 @@ export interface User {
   baseline_energy?: number;
   core_values?: string[];
   created_at?: string;
+  profile_picture?: string;
+  health?: string;
+  career?: string;
+  relationship?: string;
+  preferences?: string[];
+  personal_value?: string;
 }
 
 export interface AuthResponse {
@@ -69,6 +75,7 @@ export interface ContextLog {
 export interface ButlerProfileInput {
   core_values?: string[];
   baseline_energy?: number;
+  personal_value?: string;
 }
 
 // API Error

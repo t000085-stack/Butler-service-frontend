@@ -258,7 +258,7 @@ export default function SignInScreen() {
           >
             <Text style={styles.title}>Welcome Back</Text>
             <Text style={styles.subtitle}>
-              Sign in so Butler can assist you{'\n'}
+              Sign in so Simi can assist you{'\n'}
             </Text>
 
             {/* Minimal Form */}
