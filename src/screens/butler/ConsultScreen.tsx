@@ -14,30 +14,32 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
+import { MaterialIcons } from '@expo/vector-icons';
 import { COLORS } from '../../constants/config';
 import * as butlerApi from '../../api/butler';
 
 const { width } = Dimensions.get('window');
 const CARD_PADDING = 40 * 2; // horizontal padding
 const CARD_GAP = 10;
-const CARD_COUNT = 5;
-// Calculate card width: (screen width - padding - gaps) / card count, with min width of 55
-const availableWidth = width - CARD_PADDING - (CARD_GAP * (CARD_COUNT - 1));
-const CARD_WIDTH = Math.max(55, availableWidth / CARD_COUNT);
+const CARDS_PER_ROW = 3;
+// Calculate card width: (screen width - padding - gaps) / cards per row, with min width of 80
+const availableWidth = width - CARD_PADDING - (CARD_GAP * (CARDS_PER_ROW - 1));
+const CARD_WIDTH = Math.max(80, availableWidth / CARDS_PER_ROW);
 
 interface Mood {
   id: string;
   label: string;
-  emoji: string;
+  iconName: keyof typeof MaterialIcons.glyphMap;
   color: string;
 }
 
 const MOODS: Mood[] = [
-  { id: "happy", label: "Happy", emoji: "😊", color: "#FFD93D" },
-  { id: "calm", label: "Calm", emoji: "😌", color: "#6BCB77" },
-  { id: "neutral", label: "Neutral", emoji: "😐", color: "#95A5A6" },
-  { id: "stressed", label: "Stressed", emoji: "😰", color: "#FF6B9D" },
-  { id: "sad", label: "Sad", emoji: "😔", color: "#4D96FF" },
+  { id: "happy", label: "Happy", iconName: "sentiment-satisfied", color: "#FFD93D" },
+  { id: "calm", label: "Calm", iconName: "self-improvement", color: "#6BCB77" },
+  { id: "neutral", label: "Neutral", iconName: "sentiment-neutral", color: "#95A5A6" },
+  { id: "stressed", label: "Stressed", iconName: "sentiment-dissatisfied", color: "#FF6B9D" },
+  { id: "sad", label: "Sad", iconName: "sentiment-very-dissatisfied", color: "#4D96FF" },
+  { id: "anger", label: "Anger", iconName: "mood-bad", color: "#FF4444" },
 ];
 
 export default function ConsultScreen() {
@@ -139,13 +141,18 @@ export default function ConsultScreen() {
                   selectedMoodId === moodOption.id && styles.moodCardSelected,
                   { 
                     borderColor: selectedMoodId === moodOption.id ? moodOption.color : COLORS.border,
-                    marginRight: index < MOODS.length - 1 ? CARD_GAP : 0,
+                    marginRight: (index % CARDS_PER_ROW) !== (CARDS_PER_ROW - 1) ? CARD_GAP : 0,
                   },
                 ]}
                 onPress={() => handleMoodSelect(moodOption.id)}
                 activeOpacity={0.7}
               >
-                <Text style={styles.moodEmoji}>{moodOption.emoji}</Text>
+                <MaterialIcons
+                  name={moodOption.iconName}
+                  size={36}
+                  color={selectedMoodId === moodOption.id ? moodOption.color : COLORS.textSecondary}
+                  style={styles.moodIcon}
+                />
                 <Text
                   style={[
                     styles.moodLabel,
@@ -324,8 +331,7 @@ const styles = StyleSheet.create({
     elevation: 8,
     backgroundColor: COLORS.backgroundSecondary,
   },
-  moodEmoji: {
-    fontSize: 38,
+  moodIcon: {
     marginBottom: 8,
   },
   moodLabel: {
