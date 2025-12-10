@@ -1,25 +1,29 @@
-import axios, { AxiosInstance, AxiosError } from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { API_URL } from '../constants/config';
-import type { ApiError } from '../types';
+import axios, { AxiosInstance, AxiosError } from "axios";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { API_URL } from "../constants/config";
+import type { ApiError } from "../types";
 
-const TOKEN_KEY = 'auth_token';
+const TOKEN_KEY = "auth_token";
 
-console.log('[API Client] Configured API URL:', API_URL);
+console.log("[API Client] Configured API URL:", API_URL);
 
 // Create axios instance
 const api: AxiosInstance = axios.create({
   baseURL: API_URL,
   timeout: 90000, // 90 seconds for AI responses
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
 });
 
 // Request interceptor to add auth token
 api.interceptors.request.use(
   async (config) => {
-    console.log('[API Client] Request:', config.method?.toUpperCase(), config.url);
+    console.log(
+      "[API Client] Request:",
+      config.method?.toUpperCase(),
+      config.url
+    );
     const token = await getToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -27,7 +31,7 @@ api.interceptors.request.use(
     return config;
   },
   (error) => {
-    console.log('[API Client] Request error:', error);
+    console.log("[API Client] Request error:", error);
     return Promise.reject(error);
   }
 );
@@ -35,19 +39,24 @@ api.interceptors.request.use(
 // Response interceptor for error handling
 api.interceptors.response.use(
   (response) => {
-    console.log('[API Client] Response:', response.status, response.config.url);
+    console.log("[API Client] Response:", response.status, response.config.url);
     return response;
   },
-  (error: AxiosError<{ message?: string }>) => {
-    console.log('[API Client] Error:', error.code, error.message);
-    console.log('[API Client] Error details:', JSON.stringify({
+  (error: AxiosError<{ message?: string; context_log_id?: string }>) => {
+    console.log("[API Client] Error:", error.code, error.message);
+    console.log(
+      "[API Client] Error details:",
+      JSON.stringify({
+        status: error.response?.status,
+        data: error.response?.data,
+        code: error.code,
+      })
+    );
+    const apiError: ApiError & { response?: { data?: any } } = {
+      message:
+        error.response?.data?.message || error.message || "Request failed",
       status: error.response?.status,
-      data: error.response?.data,
-      code: error.code,
-    }));
-    const apiError: ApiError = {
-      message: error.response?.data?.message || error.message || 'Request failed',
-      status: error.response?.status,
+      response: error.response ? { data: error.response.data } : undefined,
     };
     return Promise.reject(apiError);
   }
@@ -66,7 +75,7 @@ export async function removeToken(): Promise<void> {
 }
 
 interface RequestOptions {
-  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: unknown;
   requiresAuth?: boolean;
 }
@@ -75,7 +84,7 @@ export async function apiRequest<T>(
   endpoint: string,
   options: RequestOptions = {}
 ): Promise<T> {
-  const { method = 'GET', body, requiresAuth = true } = options;
+  const { method = "GET", body, requiresAuth = true } = options;
 
   // For non-auth requests, temporarily remove the token
   const config = requiresAuth ? {} : { headers: { Authorization: undefined } };

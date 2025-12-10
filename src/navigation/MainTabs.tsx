@@ -1,15 +1,17 @@
-import React from 'react';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Text, View, StyleSheet } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import ConsultScreen from '../screens/butler/ConsultScreen';
-import TaskListScreen from '../screens/tasks/TaskListScreen';
-import ProfileScreen from '../screens/profile/ProfileScreen';
-import { COLORS } from '../constants/config';
+import React from "react";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { Text, View, StyleSheet } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import ConsultScreen from "../screens/butler/ConsultScreen";
+import TaskListScreen from "../screens/tasks/TaskListScreen";
+import ProfileScreen from "../screens/profile/ProfileScreen";
+import MoodStack from "./MoodStack";
+import { COLORS } from "../constants/config";
 
 export type MainTabsParamList = {
   Butler: undefined;
   Tasks: undefined;
+  Mood: undefined;
   Profile: undefined;
 };
 
@@ -17,9 +19,10 @@ const Tab = createBottomTabNavigator<MainTabsParamList>();
 
 function TabIcon({ label, focused }: { label: string; focused: boolean }) {
   const icons: Record<string, string> = {
-    Butler: '🤵',
-    Tasks: '📋',
-    Profile: '👤',
+    Butler: "🤵",
+    Tasks: "📋",
+    Mood: "😊",
+    Profile: "👤",
   };
 
   return (
@@ -31,7 +34,7 @@ function TabIcon({ label, focused }: { label: string; focused: boolean }) {
 
 export default function MainTabs() {
   const insets = useSafeAreaInsets();
-  
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -51,6 +54,7 @@ export default function MainTabs() {
     >
       <Tab.Screen name="Butler" component={ConsultScreen} />
       <Tab.Screen name="Tasks" component={TaskListScreen} />
+      <Tab.Screen name="Mood" component={MoodStack} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
@@ -64,15 +68,14 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: "500",
     marginTop: 4,
   },
   tabIcon: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   tabEmoji: {
     fontSize: 24,
   },
 });
-
