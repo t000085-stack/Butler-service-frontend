@@ -45,7 +45,7 @@ export async function logMood(
     // Check if error message indicates AI model issue
     // Even without context_log_id, we'll treat AI errors as partial success
     // The backend might have saved the mood before the AI call failed
-    if (error?.message?.toLowerCase().includes("ai model")) {
+    if (error?.message?.toLowerCase()?.includes("ai model")) {
       // Return success message - mood logging endpoint should save regardless of AI
       return {
         message: "Mood logged successfully! (AI recommendation unavailable)",

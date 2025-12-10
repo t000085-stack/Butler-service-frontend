@@ -132,7 +132,8 @@ export default function MoodEntryScreen() {
       } else {
         // Check if error might indicate mood was still saved
         const errorMessage = error?.message || "";
-        const isAIModelError = errorMessage.toLowerCase().includes("ai model");
+        const isAIModelError =
+          errorMessage?.toLowerCase()?.includes("ai model") || false;
 
         if (isAIModelError) {
           Alert.alert(
