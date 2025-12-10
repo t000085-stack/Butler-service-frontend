@@ -10,7 +10,7 @@ console.log('[API Client] Configured API URL:', API_URL);
 // Create axios instance
 const api: AxiosInstance = axios.create({
   baseURL: API_URL,
-  timeout: 30000, // Increased timeout for remote server
+  timeout: 90000, // 90 seconds for AI responses
   headers: {
     'Content-Type': 'application/json',
   },
