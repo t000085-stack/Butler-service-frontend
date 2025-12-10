@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,13 +12,20 @@ import {
   Animated,
   Easing,
   ScrollView,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
-import { StatusBar } from "expo-status-bar";
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useAuth } from '../../contexts/AuthContext';
+import type { AuthStackParamList } from '../../navigation/AuthStack';
+import { COLORS } from '../../constants/config';
 
-const { width, height } = Dimensions.get("window");
-const ORB_SIZE = width * 0.5;
+const { width, height } = Dimensions.get('window');
+const ORB_SIZE = width * 0.7;
+
+type NavigationProp = NativeStackNavigationProp<AuthStackParamList, 'SignIn'>;
 
 // Twinkling Star Component
 const Star = ({
@@ -76,30 +83,18 @@ const generateStars = (count: number) => {
   return Array.from({ length: count }, (_, i) => ({
     id: i,
     size: Math.random() * 3 + 1.5,
-    top: Math.random() * height * 0.4,
+    top: Math.random() * height * 0.5,
     left: Math.random() * width,
     delay: Math.random() * 2000,
   }));
 };
 
-interface SignUpScreenProps {
-  onSignUp?: (
-    username: string,
-    email: string,
-    password: string,
-    coreValues?: string[]
-  ) => Promise<void>;
-  onNavigateToSignIn?: () => void;
-}
-
-export default function SignUpScreen({
-  onSignUp,
-  onNavigateToSignIn,
-}: SignUpScreenProps) {
-  const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+export default function SignInScreen() {
+  const navigation = useNavigation<NavigationProp>();
+  const { signIn } = useAuth();
+  
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -168,27 +163,17 @@ export default function SignUpScreen({
 
   const floatTranslateY = floatAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, -12],
+    outputRange: [0, -15],
   });
 
   const spin = rotateAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: ["0deg", "360deg"],
+    outputRange: ['0deg', '360deg'],
   });
 
-  const handleSignUp = async () => {
-    if (!username.trim() || !email.trim() || !password.trim()) {
-      setError("Please fill in all required fields");
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setError("Passwords do not match");
-      return;
-    }
-
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters");
+  const handleSignIn = async () => {
+    if (!email.trim() || !password.trim()) {
+      setError('Please fill in all fields');
       return;
     }
 
@@ -196,59 +181,25 @@ export default function SignUpScreen({
     setIsLoading(true);
 
     try {
-      if (onSignUp) {
-        await onSignUp(username, email, password);
-      } else {
-        const response = await fetch(
-          "http://localhost:3000/api/auth/register",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              username,
-              email,
-              password,
-            }),
-          }
-        );
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.message || "Registration failed");
-        }
-
-        console.log("Registration successful:", data);
-      }
+      await signIn(email, password);
     } catch (err: any) {
-      setError(err.message || "Something went wrong");
+      setError(err.message || 'Something went wrong');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <KeyboardAvoidingView
         style={styles.container}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <StatusBar style="dark" />
 
-        {/* Back Button */}
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={onNavigateToSignIn}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.backIcon}>←</Text>
-        </TouchableOpacity>
-
         {/* Subtle background gradient */}
         <LinearGradient
-          colors={["#ffffff", "#faf5ff", "#fdf4ff", "#ffffff"]}
+          colors={['#ffffff', '#faf5ff', '#fdf4ff', '#ffffff']}
           style={styles.backgroundGradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
@@ -289,7 +240,7 @@ export default function SignUpScreen({
               <View style={styles.orbGlowInner} />
             </View>
             <Animated.Image
-              source={require("../assets/signinImage.png")}
+              source={require('../../../assets/signinImage.png')}
               style={[styles.orbImage, { transform: [{ rotate: spin }] }]}
               resizeMode="contain"
             />
@@ -305,30 +256,18 @@ export default function SignUpScreen({
               },
             ]}
           >
-            <Text style={styles.title}>Create Account</Text>
+            <Text style={styles.title}>Welcome Back</Text>
             <Text style={styles.subtitle}>
-              Join us and let your AI Butler{"\n"}guide your journey.
+              Sign in so Butler can assist you{'\n'}
             </Text>
 
-            {/* Form */}
+            {/* Minimal Form */}
             <View style={styles.form}>
               <View style={styles.inputWrapper}>
                 <TextInput
                   style={styles.input}
-                  placeholder="Username"
-                  placeholderTextColor="#a1a1aa"
-                  value={username}
-                  onChangeText={setUsername}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-              </View>
-
-              <View style={styles.inputWrapper}>
-                <TextInput
-                  style={styles.input}
                   placeholder="Email"
-                  placeholderTextColor="#a1a1aa"
+                  placeholderTextColor={COLORS.textMuted}
                   value={email}
                   onChangeText={setEmail}
                   keyboardType="email-address"
@@ -341,7 +280,7 @@ export default function SignUpScreen({
                 <TextInput
                   style={styles.input}
                   placeholder="Password"
-                  placeholderTextColor="#a1a1aa"
+                  placeholderTextColor={COLORS.textMuted}
                   value={password}
                   onChangeText={setPassword}
                   secureTextEntry
@@ -349,50 +288,46 @@ export default function SignUpScreen({
                 />
               </View>
 
-              <View style={styles.inputWrapper}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Confirm Password"
-                  placeholderTextColor="#a1a1aa"
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                  secureTextEntry
-                  autoCapitalize="none"
-                />
-              </View>
+              {/* Forgot Password */}
+              <TouchableOpacity
+                style={styles.forgotPassword}
+                activeOpacity={0.6}
+              >
+                <Text style={styles.forgotPasswordText}>Forgot password?</Text>
+              </TouchableOpacity>
 
               {error && <Text style={styles.errorText}>{error}</Text>}
             </View>
 
-            {/* Sign Up Button */}
+            {/* Sign In Button */}
             <TouchableOpacity
               style={[
-                styles.signUpButton,
-                isLoading && styles.signUpButtonDisabled,
+                styles.signInButton,
+                isLoading && styles.signInButtonDisabled,
               ]}
-              onPress={handleSignUp}
+              onPress={handleSignIn}
               disabled={isLoading}
               activeOpacity={0.7}
             >
               {isLoading ? (
-                <ActivityIndicator color="#18181b" size="small" />
+                <ActivityIndicator color={COLORS.text} size="small" />
               ) : (
                 <>
-                  <Text style={styles.signUpButtonText}>Create Account</Text>
-                  <Text style={styles.signUpArrow}>→</Text>
+                  <Text style={styles.signInButtonText}>Sign In</Text>
+                  <Text style={styles.signInArrow}>→</Text>
                 </>
               )}
             </TouchableOpacity>
 
-            {/* Sign In link */}
+            {/* Register link */}
             <TouchableOpacity
-              style={styles.signInLink}
-              onPress={onNavigateToSignIn}
+              style={styles.registerLink}
+              onPress={() => navigation.navigate('SignUp')}
               activeOpacity={0.6}
             >
-              <Text style={styles.signInText}>
-                Already have an account?{" "}
-                <Text style={styles.signInHighlight}>Sign In</Text>
+              <Text style={styles.registerText}>
+                Don't have an account?{' '}
+                <Text style={styles.registerHighlight}>Create one</Text>
               </Text>
             </TouchableOpacity>
           </Animated.View>
@@ -405,87 +340,65 @@ export default function SignUpScreen({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#ffffff",
+    backgroundColor: COLORS.background,
   },
   container: {
     flex: 1,
   },
-  backButton: {
-    position: "absolute",
-    top: 10,
-    left: 20,
-    zIndex: 10,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.8)",
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  backIcon: {
-    fontSize: 20,
-    color: "#18181b",
-    fontWeight: "500",
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 40,
   },
   backgroundGradient: {
-    position: "absolute",
+    position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
   },
   starsContainer: {
-    position: "absolute",
+    position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
   },
   star: {
-    position: "absolute",
-    backgroundColor: "#c084fc",
-    shadowColor: "#a855f7",
+    position: 'absolute',
+    backgroundColor: COLORS.primaryLight,
+    shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
     shadowRadius: 4,
   },
-  scrollContent: {
-    flexGrow: 1,
-    paddingBottom: 40,
-  },
   orbContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: height * 0.06,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: height * 0.08,
     height: ORB_SIZE * 1.1,
   },
   orbGlowBorder: {
-    position: "absolute",
+    position: 'absolute',
     width: ORB_SIZE + 10,
     height: ORB_SIZE + 10,
     borderRadius: (ORB_SIZE + 10) / 2,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.5)",
-    shadowColor: "#ffffff",
+    borderColor: 'rgba(255, 255, 255, 0.5)',
+    shadowColor: '#ffffff',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.4,
     shadowRadius: 15,
     elevation: 8,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   orbGlowInner: {
     width: ORB_SIZE + 4,
     height: ORB_SIZE + 4,
     borderRadius: (ORB_SIZE + 4) / 2,
     borderWidth: 0.5,
-    borderColor: "rgba(255, 255, 255, 0.3)",
-    shadowColor: "#ffffff",
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    shadowColor: '#ffffff',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.6,
     shadowRadius: 10,
@@ -495,82 +408,90 @@ const styles = StyleSheet.create({
     height: ORB_SIZE,
   },
   content: {
-    flex: 1,
     paddingHorizontal: 40,
-    paddingTop: 16,
+    paddingTop: 20,
   },
   title: {
     fontSize: 26,
-    fontWeight: "600",
-    color: "#18181b",
-    textAlign: "center",
+    fontWeight: '600',
+    color: COLORS.text,
+    textAlign: 'center',
     letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 15,
-    color: "#71717a",
-    textAlign: "center",
+    color: COLORS.textSecondary,
+    textAlign: 'center',
     marginTop: 10,
     lineHeight: 22,
   },
   form: {
-    marginTop: 24,
-    gap: 12,
+    marginTop: 28,
+    gap: 14,
   },
   inputWrapper: {
-    backgroundColor: "#fafafa",
+    backgroundColor: COLORS.backgroundSecondary,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: "#f4f4f5",
+    borderColor: COLORS.border,
   },
   input: {
     paddingHorizontal: 18,
-    paddingVertical: 14,
+    paddingVertical: 15,
     fontSize: 15,
-    color: "#18181b",
+    color: COLORS.text,
+  },
+  forgotPassword: {
+    alignSelf: 'flex-end',
+    paddingVertical: 4,
+  },
+  forgotPasswordText: {
+    fontSize: 13,
+    color: COLORS.primary,
+    fontWeight: '500',
   },
   errorText: {
-    color: "#ef4444",
+    color: COLORS.error,
     fontSize: 13,
-    textAlign: "center",
-    marginTop: 4,
+    textAlign: 'center',
   },
-  signUpButton: {
-    backgroundColor: "#fafafa",
+  signInButton: {
+    backgroundColor: COLORS.backgroundSecondary,
     borderRadius: 14,
     paddingVertical: 16,
     paddingHorizontal: 24,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     marginTop: 20,
     borderWidth: 1,
-    borderColor: "#e4e4e7",
+    borderColor: COLORS.borderDark,
   },
-  signUpButtonDisabled: {
+  signInButtonDisabled: {
     opacity: 0.6,
   },
-  signUpButtonText: {
+  signInButtonText: {
     fontSize: 15,
-    fontWeight: "500",
-    color: "#18181b",
+    fontWeight: '500',
+    color: COLORS.text,
   },
-  signUpArrow: {
+  signInArrow: {
     fontSize: 16,
     marginLeft: 8,
-    color: "#18181b",
+    color: COLORS.text,
   },
-  signInLink: {
+  registerLink: {
     marginTop: 20,
-    alignItems: "center",
+    alignItems: 'center',
     paddingVertical: 8,
   },
-  signInText: {
+  registerText: {
     fontSize: 14,
-    color: "#a1a1aa",
+    color: COLORS.textMuted,
   },
-  signInHighlight: {
-    color: "#a855f7",
-    fontWeight: "500",
+  registerHighlight: {
+    color: COLORS.primary,
+    fontWeight: '500',
   },
 });
+
