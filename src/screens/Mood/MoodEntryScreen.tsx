@@ -14,7 +14,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import type { RouteProp } from "@react-navigation/native";
 import { COLORS } from "../../constants/config";
@@ -25,6 +25,13 @@ import type { ContextLog } from "../../types";
 
 const { width, height } = Dimensions.get("window");
 const ORB_SIZE = width * 0.4;
+
+// Card dimensions for mood cards (matching ConsultScreen)
+const CARD_PADDING = 40 * 2; // horizontal padding
+const CARD_GAP = 10;
+const CARDS_PER_ROW = 3;
+const availableWidth = width - CARD_PADDING - CARD_GAP * (CARDS_PER_ROW - 1);
+const CARD_WIDTH = Math.max(80, availableWidth / CARDS_PER_ROW);
 
 // Twinkling Star Component
 const Star = ({
@@ -88,165 +95,41 @@ const generateStars = (count: number) => {
   }));
 };
 
-// Small Animated Mood Orb Component
-const MoodOrb = ({
-  mood,
-  isSelected,
-  onPress,
-  delay,
-}: {
-  mood: Mood;
-  isSelected: boolean;
-  onPress: () => void;
-  delay: number;
-}) => {
-  const floatAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.8)).current;
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const rotateAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    // Entrance animation
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      tension: 15,
-      friction: 6,
-      delay,
-      useNativeDriver: true,
-    }).start();
-
-    // Continuous floating animation
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(floatAnim, {
-          toValue: 1,
-          duration: 2000 + Math.random() * 1000,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(floatAnim, {
-          toValue: 0,
-          duration: 2000 + Math.random() * 1000,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    // Slow rotation
-    Animated.loop(
-      Animated.timing(rotateAnim, {
-        toValue: 1,
-        duration: 15000 + Math.random() * 5000,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      })
-    ).start();
-
-    // Pulse animation when selected
-    if (isSelected) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1.15,
-            duration: 800,
-            easing: Easing.inOut(Easing.ease),
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 800,
-            easing: Easing.inOut(Easing.ease),
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-    } else {
-      pulseAnim.setValue(1);
-    }
-  }, [isSelected, delay]);
-
-  const floatTranslateY = floatAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -8],
-  });
-
-  const spin = rotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0deg", "360deg"],
-  });
-
-  // Combine scale animations using multiplication
-  const combinedScale = Animated.multiply(scaleAnim, pulseAnim);
-
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      activeOpacity={0.8}
-      style={styles.moodOrbWrapper}
-    >
-      <Animated.View
-        style={[
-          styles.moodOrbContainer,
-          {
-            transform: [
-              { translateY: floatTranslateY },
-              { scale: combinedScale },
-            ],
-          },
-        ]}
-      >
-        {/* Glowing border - similar to main orb */}
-        <View
-          style={[
-            styles.moodOrbGlowBorder,
-            {
-              opacity: isSelected ? 1 : 0.5,
-            },
-          ]}
-        >
-          <View style={styles.moodOrbGlowInner} />
-        </View>
-        <Animated.Image
-          source={require("../../../assets/signinImage.png")}
-          style={[
-            styles.moodOrb,
-            {
-              transform: [{ rotate: spin }],
-            },
-          ]}
-          resizeMode="contain"
-        />
-      </Animated.View>
-      <Text
-        style={[
-          styles.moodOrbLabel,
-          isSelected && { color: mood.color, fontWeight: "600" },
-        ]}
-      >
-        {mood.label}
-      </Text>
-    </TouchableOpacity>
-  );
-};
-
 interface Mood {
   id: string;
   label: string;
-  emoji: string;
+  iconName: keyof typeof MaterialIcons.glyphMap;
   color: string;
 }
 
 const MOODS: Mood[] = [
-  { id: "happy", label: "Happy", emoji: "😊", color: "#FFD93D" },
-  { id: "calm", label: "Calm", emoji: "😌", color: "#6BCB77" },
-  { id: "neutral", label: "Neutral", emoji: "😐", color: "#95A5A6" },
-  { id: "stressed", label: "Stressed", emoji: "😰", color: "#FF6B9D" },
-  { id: "sad", label: "Sad", emoji: "😔", color: "#4D96FF" },
-  { id: "excited", label: "Excited", emoji: "🤩", color: "#FF6B35" },
+  {
+    id: "happy",
+    label: "Happy",
+    iconName: "sentiment-satisfied",
+    color: "#FFD93D",
+  },
+  { id: "calm", label: "Calm", iconName: "self-improvement", color: "#6BCB77" },
+  {
+    id: "neutral",
+    label: "Neutral",
+    iconName: "sentiment-neutral",
+    color: "#95A5A6",
+  },
+  {
+    id: "stressed",
+    label: "Stressed",
+    iconName: "sentiment-dissatisfied",
+    color: "#FF6B9D",
+  },
+  {
+    id: "sad",
+    label: "Sad",
+    iconName: "sentiment-very-dissatisfied",
+    color: "#4D96FF",
+  },
+  { id: "anger", label: "Anger", iconName: "mood-bad", color: "#FF4444" },
 ];
-
-const MOOD_ORB_SIZE = width * 0.12;
 
 type MoodEntryRouteProp = RouteProp<MoodStackParamList, "MoodEntry">;
 
@@ -603,16 +486,51 @@ export default function MoodEntryScreen() {
               },
             ]}
           >
-            {/* Mood Selection - Animated Orbs */}
-            <View style={styles.moodOrbsContainer}>
-              {MOODS.map((mood, index) => (
-                <MoodOrb
-                  key={mood.id}
-                  mood={mood}
-                  isSelected={selectedMood === mood.id}
-                  onPress={() => setSelectedMood(mood.id)}
-                  delay={index * 100}
-                />
+            {/* Mood Selection - Cards */}
+            <View style={styles.moodCardsContainer}>
+              {MOODS.map((moodOption, index) => (
+                <TouchableOpacity
+                  key={moodOption.id}
+                  style={[
+                    styles.moodCard,
+                    selectedMood === moodOption.id && styles.moodCardSelected,
+                    {
+                      borderColor:
+                        selectedMood === moodOption.id
+                          ? moodOption.color
+                          : COLORS.border,
+                      marginRight:
+                        index % CARDS_PER_ROW !== CARDS_PER_ROW - 1
+                          ? CARD_GAP
+                          : 0,
+                    },
+                  ]}
+                  onPress={() => setSelectedMood(moodOption.id)}
+                  activeOpacity={0.7}
+                >
+                  <MaterialIcons
+                    name={moodOption.iconName}
+                    size={36}
+                    color={
+                      selectedMood === moodOption.id
+                        ? moodOption.color
+                        : COLORS.textSecondary
+                    }
+                    style={styles.moodIcon}
+                  />
+                  <Text
+                    style={[
+                      styles.moodLabel,
+                      selectedMood === moodOption.id &&
+                        styles.moodLabelSelected,
+                      selectedMood === moodOption.id && {
+                        color: moodOption.color,
+                      },
+                    ]}
+                  >
+                    {moodOption.label}
+                  </Text>
+                </TouchableOpacity>
               ))}
             </View>
 
@@ -715,61 +633,52 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#7F8C8D",
   },
-  moodOrbsContainer: {
+  moodCardsContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 30,
-    paddingHorizontal: 20,
-    gap: 20,
+    marginBottom: 16,
   },
-  moodOrbWrapper: {
-    alignItems: "center",
-    marginHorizontal: 8,
-    marginBottom: 20,
-  },
-  moodOrbContainer: {
+  moodCard: {
+    width: CARD_WIDTH,
+    maxWidth: CARD_WIDTH,
+    backgroundColor: COLORS.backgroundSecondary,
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 4,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    marginBottom: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  moodCardSelected: {
+    borderWidth: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 8,
+    backgroundColor: COLORS.backgroundSecondary,
+  },
+  moodIcon: {
     marginBottom: 8,
   },
-  moodOrbGlowBorder: {
-    position: "absolute",
-    width: MOOD_ORB_SIZE + 10,
-    height: MOOD_ORB_SIZE + 10,
-    borderRadius: (MOOD_ORB_SIZE + 10) / 2,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.5)",
-    shadowColor: "#ffffff",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.4,
-    shadowRadius: 15,
-    elevation: 8,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  moodOrbGlowInner: {
-    width: MOOD_ORB_SIZE + 4,
-    height: MOOD_ORB_SIZE + 4,
-    borderRadius: (MOOD_ORB_SIZE + 4) / 2,
-    borderWidth: 0.5,
-    borderColor: "rgba(255, 255, 255, 0.3)",
-    shadowColor: "#ffffff",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 10,
-  },
-  moodOrb: {
-    width: MOOD_ORB_SIZE,
-    height: MOOD_ORB_SIZE,
-  },
-  moodOrbLabel: {
+  moodLabel: {
     fontSize: 12,
-    color: "#7F8C8D",
     fontWeight: "500",
+    color: COLORS.textSecondary,
     textAlign: "center",
-    marginTop: 4,
+  },
+  moodLabelSelected: {
+    fontWeight: "700",
+    fontSize: 13,
   },
   energyContainer: {
     backgroundColor: "#FFFFFF",
