@@ -56,3 +56,36 @@ export async function deleteContextLog(id: string): Promise<void> {
     method: "DELETE",
   });
 }
+
+/**
+ * Get a single context log entry by ID
+ *
+ * Backend endpoint needed (following the router pattern):
+ *
+ * GET /api/butler/history/:id
+ * Authorization: Bearer <token>
+ *
+ * Response should include:
+ * {
+ *   _id: string,
+ *   user_id: string,
+ *   raw_input: string,
+ *   mood: string,
+ *   current_energy: number,
+ *   timestamp: string,
+ *   recommendation?: string  // AI recommendation (may be delayed)
+ * }
+ *
+ * This endpoint is used to poll for AI recommendations that are generated asynchronously.
+ */
+export async function getContextLog(id: string): Promise<ContextLog | null> {
+  try {
+    return await apiRequest<ContextLog>(`/butler/history/${id}`, {
+      method: "GET",
+    });
+  } catch (error) {
+    // If GET endpoint doesn't exist, return null
+    // Frontend will fall back to polling the history list
+    return null;
+  }
+}

@@ -49,6 +49,7 @@ export default function MoodEntryScreen() {
   const [energyLevel, setEnergyLevel] = useState<number>(5);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isWaitingForAI, setIsWaitingForAI] = useState(false);
 
   // Load existing entry if editing
   useEffect(() => {
@@ -73,6 +74,44 @@ export default function MoodEntryScreen() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Poll for AI recommendation
+  const pollForRecommendation = async (
+    contextLogId: string,
+    maxAttempts: number = 30,
+    intervalMs: number = 2000
+  ): Promise<string | undefined> => {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        // Wait before checking
+        if (attempt > 0) {
+          await new Promise((resolve) => setTimeout(resolve, intervalMs));
+        }
+
+        // Try to get the context log entry directly
+        const entry = await butlerApi.getContextLog(contextLogId);
+
+        // If we got the entry, check if it has a recommendation
+        // (even if not in the type definition, the backend might return it)
+        if (entry && (entry as any).recommendation) {
+          return (entry as any).recommendation;
+        }
+
+        // If direct GET doesn't work, try fetching from history
+        const history = await butlerApi.getHistory(10);
+        const historyEntry = history.find((e) => e._id === contextLogId);
+
+        // Check if the history entry has a recommendation field
+        if (historyEntry && (historyEntry as any).recommendation) {
+          return (historyEntry as any).recommendation;
+        }
+      } catch (error) {
+        // Continue polling on error
+        console.log("Polling attempt failed:", attempt, error);
+      }
+    }
+    return undefined;
   };
 
   const handleSubmit = async () => {
@@ -103,14 +142,41 @@ export default function MoodEntryScreen() {
         const response = await logMood({
           current_mood: selectedMood,
           current_energy: energyLevel,
+          raw_input:
+            "I am feeling " +
+            selectedMood +
+            " with an energy level of " +
+            energyLevel,
         });
 
         // Check if this is a partial success (mood saved but AI unavailable)
         const isPartialSuccess = response.message?.includes("unavailable");
+        let recommendation: string | undefined = response.recommendation;
+
+        // If we have a context_log_id but no recommendation, poll for it
+        if (response.context_log_id && !recommendation && !isPartialSuccess) {
+          setIsWaitingForAI(true);
+          try {
+            // Poll for the recommendation (max 30 attempts, 2 seconds apart = 60 seconds total)
+            recommendation = await pollForRecommendation(
+              response.context_log_id
+            );
+          } catch (error) {
+            console.error("Error polling for recommendation:", error);
+          } finally {
+            setIsWaitingForAI(false);
+          }
+        }
+
+        // Build the message to display
+        let alertMessage = response.message || "Mood logged successfully!";
+        if (recommendation) {
+          alertMessage += "\n\n" + recommendation;
+        }
 
         Alert.alert(
           isPartialSuccess ? "Mood Logged" : "Success",
-          response.message || "Mood logged successfully!",
+          alertMessage,
           [
             {
               text: "OK",
@@ -183,9 +249,14 @@ export default function MoodEntryScreen() {
         </Text>
       </View>
 
-      {isLoading ? (
+      {isLoading || isWaitingForAI ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.primary} />
+          {isWaitingForAI && (
+            <Text style={styles.loadingText}>
+              Waiting for AI recommendation...
+            </Text>
+          )}
         </View>
       ) : (
         <ScrollView
@@ -266,10 +337,12 @@ export default function MoodEntryScreen() {
             (!selectedMood || isSubmitting) && styles.submitButtonDisabled,
           ]}
           onPress={handleSubmit}
-          disabled={!selectedMood || isSubmitting || isLoading}
+          disabled={
+            !selectedMood || isSubmitting || isLoading || isWaitingForAI
+          }
           activeOpacity={0.8}
         >
-          {isSubmitting || isLoading ? (
+          {isSubmitting || isLoading || isWaitingForAI ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
             <Text style={styles.submitButtonText}>
@@ -455,5 +528,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: "#7F8C8D",
+    textAlign: "center",
   },
 });
