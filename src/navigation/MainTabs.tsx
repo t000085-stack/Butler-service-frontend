@@ -3,16 +3,18 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
-import ConsultScreen from "../screens/butler/ConsultScreen";
+import ConsultationScreen from "../screens/butler/ConsultationScreen";
 import TaskListScreen from "../screens/tasks/TaskListScreen";
-import ProfileScreen from "../screens/profile/ProfileScreen";
+import ChatScreen from "../screens/chat/ChatScreen";
 import MoodStack from "./MoodStack";
+import ProfileScreen from "../screens/profile/ProfileScreen";
 import { COLORS } from "../constants/config";
 
 export type MainTabsParamList = {
-  Simi: undefined;
+  Home: undefined;
+  "Check-in": undefined;
+  Chat: undefined;
   Tasks: undefined;
-  Mood: undefined;
   Profile: undefined;
 };
 
@@ -20,9 +22,10 @@ const Tab = createBottomTabNavigator<MainTabsParamList>();
 
 function TabIcon({ label, focused }: { label: string; focused: boolean }) {
   const iconMap: Record<string, keyof typeof MaterialIcons.glyphMap> = {
-    Simi: "support-agent",
+    Home: "home",
+    "Check-in": "mood",
+    Chat: "chat-bubble",
     Tasks: "checklist",
-    Mood: "mood",
     Profile: "person",
   };
 
@@ -57,10 +60,31 @@ export default function MainTabs() {
         tabBarLabelStyle: styles.tabLabel,
       })}
     >
-      <Tab.Screen name="Simi" component={ConsultScreen} />
-      <Tab.Screen name="Tasks" component={TaskListScreen} />
-      <Tab.Screen name="Mood" component={MoodStack} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
+      <Tab.Screen 
+        name="Home" 
+        component={ConsultationScreen}
+        options={{ tabBarLabel: "Home" }}
+      />
+      <Tab.Screen 
+        name="Check-in" 
+        component={MoodStack}
+        options={{ tabBarLabel: "Check-in" }}
+      />
+      <Tab.Screen 
+        name="Chat" 
+        component={ChatScreen}
+        options={{ tabBarLabel: "Chat" }}
+      />
+      <Tab.Screen 
+        name="Tasks" 
+        component={TaskListScreen}
+        options={{ tabBarLabel: "Tasks" }}
+      />
+      <Tab.Screen 
+        name="Profile" 
+        component={ProfileScreen}
+        options={{ tabBarLabel: "Profile" }}
+      />
     </Tab.Navigator>
   );
 }
@@ -72,8 +96,8 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   tabLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "500",
-    marginTop: 4,
+    marginTop: 2,
   },
 });

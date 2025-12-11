@@ -47,3 +47,22 @@ export async function completeTask(id: string): Promise<Task> {
   return response.task;
 }
 
+// Magic parse - uses AI to extract task details from natural language
+export async function parseTask(text: string): Promise<{
+  title: string;
+  energy_cost: number;
+  emotional_friction: 'Low' | 'Medium' | 'High';
+  due_date?: string;
+}> {
+  const response = await apiRequest<{
+    title: string;
+    energy_cost: number;
+    emotional_friction: 'Low' | 'Medium' | 'High';
+    due_date?: string;
+  }>('/tasks/magic-parse', {
+    method: 'POST',
+    body: { text },
+  });
+  return response;
+}
+

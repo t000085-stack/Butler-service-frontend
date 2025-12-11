@@ -78,6 +78,35 @@ export interface ButlerProfileInput {
   personal_value?: string;
 }
 
+// Magic Parse types
+export interface MagicParseResponse {
+  title: string;
+  energy_cost: number;
+  emotional_friction: EmotionalFriction;
+  due_date?: string;
+}
+
+// Chat types
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+}
+
+export interface ChatResponse {
+  response: string;
+}
+
+// Enhanced Consult Response with empathy and micro-step
+export interface EnhancedConsultResponse {
+  recommendation: string;
+  context_log_id: string;
+  empathy_statement?: string;
+  micro_step?: string;
+  suggested_task?: Task;
+}
+
 // API Error
 export interface ApiError {
   message: string;
