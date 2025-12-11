@@ -19,6 +19,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { useTasks } from '../../contexts/TaskContext';
 import { COLORS, EMOTIONAL_FRICTION } from '../../constants/config';
+import MagicTaskInput, { ParsedTaskData } from '../../components/MagicTaskInput';
 import type { Task, EmotionalFriction } from '../../types';
 
 const frictionColors: Record<string, string> = {
@@ -39,6 +40,7 @@ export default function TaskListScreen() {
   const [associatedValue, setAssociatedValue] = useState('');
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [isAIParsed, setIsAIParsed] = useState(false);
 
   useEffect(() => {
     fetchTasks();
@@ -50,6 +52,22 @@ export default function TaskListScreen() {
     setFriction('Medium');
     setAssociatedValue('');
     setFormError(null);
+    setIsAIParsed(false);
+  };
+
+  // Handle AI-parsed task data from MagicTaskInput
+  const handleMagicTaskParsed = (data: ParsedTaskData) => {
+    setTitle(data.title);
+    setEnergyCost(data.energy_cost.toString());
+    setFriction(data.emotional_friction);
+    setAssociatedValue('');
+    setFormError(null);
+    setIsAIParsed(true);
+    setShowModal(true);
+  };
+
+  const handleMagicError = (error: string) => {
+    Alert.alert('Magic Input Error', error);
   };
 
   const handleCreateTask = async () => {
@@ -190,9 +208,16 @@ export default function TaskListScreen() {
           onPress={() => setShowModal(true)}
           activeOpacity={0.7}
         >
-          <Text style={styles.addButtonText}>+ New</Text>
+          <Text style={styles.addButtonText}>+ Manual</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Magic Task Input - AI-powered voice/text task creation */}
+      <MagicTaskInput
+        onTaskParsed={handleMagicTaskParsed}
+        onError={handleMagicError}
+        placeholder="Describe your task... e.g., 'Call mom tomorrow, it's emotionally hard'"
+      />
 
       {error ? (
         <View style={styles.centered}>
@@ -235,7 +260,14 @@ export default function TaskListScreen() {
         >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>New Task</Text>
+              <View>
+                <Text style={styles.modalTitle}>
+                  {isAIParsed ? '✨ AI Parsed Task' : 'New Task'}
+                </Text>
+                {isAIParsed && (
+                  <Text style={styles.modalSubtitle}>Review and adjust if needed</Text>
+                )}
+              </View>
               <TouchableOpacity onPress={() => { setShowModal(false); resetForm(); }}>
                 <Text style={styles.modalClose}>✕</Text>
               </TouchableOpacity>
@@ -491,6 +523,11 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     color: COLORS.text,
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    color: COLORS.primary,
+    marginTop: 2,
   },
   modalClose: {
     fontSize: 20,
