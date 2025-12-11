@@ -126,7 +126,7 @@ export default function ChatScreen() {
       id: "welcome",
       role: "assistant",
       content:
-        "Hey there! I'm Simi, your butler. What's on your mind? You can vent, ask for advice, or just chat. I'm here for you. 💜",
+        "Hey there! I'm Simi. What's on your mind? You can vent, ask for advice, or just chat. I'm here for you. 💜",
       timestamp: new Date(),
     },
   ]);
