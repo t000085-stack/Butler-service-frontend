@@ -86,8 +86,8 @@ const generateStars = (count: number) => {
 interface ConsultationResult {
   empathyStatement: string;
   microStep: string;
-  fullRecommendation: string;
-  suggestedTask?: Task;
+  reasoning: string;
+  chosenTaskId: string | null;
   contextLogId: string;
 }
 
@@ -149,62 +149,6 @@ export default function ConsultationScreen() {
     ).start();
   };
 
-  const parseRecommendation = (
-    recommendation: string | undefined
-  ): { empathy: string; microStep: string } => {
-    // Try to extract empathy statement and micro-step from the AI response
-    // Common patterns: "I understand...", "It sounds like...", followed by "Try this:", "Start with:", etc.
-
-    // Handle undefined or empty recommendation
-    if (!recommendation) {
-      return {
-        empathy: "I'm here to help you get started.",
-        microStep: "Take a deep breath and just start with the smallest step.",
-      };
-    }
-
-    const lines = recommendation.split("\n").filter((l) => l.trim());
-    let empathy = "";
-    let microStep = "";
-
-    // Look for empathy patterns
-    const empathyPatterns = [
-      /^(I understand|I hear you|It sounds like|I know|That's|It's okay|It makes sense)/i,
-      /^(You're feeling|You seem|When you feel)/i,
-    ];
-
-    // Look for action patterns
-    const actionPatterns = [
-      /^(Try|Start|Just|First|Begin|How about|Consider|Maybe)/i,
-      /^(Step \d|The first step|To start)/i,
-      /^(\d+\.|•|-)/,
-    ];
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!empathy && empathyPatterns.some((p) => p.test(trimmed))) {
-        empathy = trimmed;
-      } else if (!microStep && actionPatterns.some((p) => p.test(trimmed))) {
-        microStep = trimmed.replace(/^(\d+\.|•|-)\s*/, "");
-      }
-    }
-
-    // Fallback: first sentence as empathy, look for actionable content
-    if (!empathy && lines.length > 0) {
-      empathy = lines[0];
-    }
-    if (!microStep && lines.length > 1) {
-      microStep = lines[1];
-    }
-
-    // Ultimate fallback
-    if (!microStep) {
-      microStep = "Take a deep breath and just start with the smallest step.";
-    }
-
-    return { empathy, microStep };
-  };
-
   const fetchConsultation = async () => {
     setIsLoading(true);
     setError(null);
@@ -216,14 +160,14 @@ export default function ConsultationScreen() {
         raw_input: "I need help deciding what to do next",
       });
 
-      const parsed = parseRecommendation(response.recommendation);
-
       setResult({
-        empathyStatement: parsed.empathy,
-        microStep: parsed.microStep,
-        fullRecommendation:
-          response.recommendation ||
-          "SIMI is thinking of the best next step for you.",
+        empathyStatement:
+          response.empathy_statement || "I'm here to help you get started.",
+        microStep:
+          response.micro_step ||
+          "Take a deep breath and just start with the smallest step.",
+        reasoning: response.reasoning || "",
+        chosenTaskId: response.chosen_task_id || null,
         contextLogId: response.context_log_id,
       });
     } catch (err: any) {
@@ -235,8 +179,8 @@ export default function ConsultationScreen() {
   };
 
   const handleComplete = async () => {
-    if (!result?.suggestedTask) {
-      // If no specific task, just reset and show success
+    if (!result?.chosenTaskId) {
+      // If no specific task, just reset and get new recommendation
       setResult(null);
       fetchConsultation();
       return;
@@ -244,7 +188,7 @@ export default function ConsultationScreen() {
 
     setIsCompleting(true);
     try {
-      await tasksApi.completeTask(result.suggestedTask._id);
+      await tasksApi.completeTask(result.chosenTaskId);
       setResult(null);
       fetchConsultation();
     } catch (err: any) {
@@ -266,14 +210,14 @@ export default function ConsultationScreen() {
           "Give me a different suggestion, I can't do the previous one right now",
       });
 
-      const parsed = parseRecommendation(response.recommendation);
-
       setResult({
-        empathyStatement: parsed.empathy,
-        microStep: parsed.microStep,
-        fullRecommendation:
-          response.recommendation ||
-          "SIMI is thinking of another option for you.",
+        empathyStatement:
+          response.empathy_statement ||
+          "I understand, let me suggest something else.",
+        microStep:
+          response.micro_step || "Take a deep breath and try this instead.",
+        reasoning: response.reasoning || "",
+        chosenTaskId: response.chosen_task_id || null,
         contextLogId: response.context_log_id,
       });
 
@@ -401,12 +345,12 @@ export default function ConsultationScreen() {
               <Text style={styles.microStepText}>{result.microStep}</Text>
             </View>
 
-            {/* Full Recommendation (collapsible could be added) */}
-            <View style={styles.fullRecommendation}>
-              <Text style={styles.fullRecommendationText}>
-                {result.fullRecommendation}
-              </Text>
-            </View>
+            {/* Reasoning */}
+            {result.reasoning ? (
+              <View style={styles.reasoningSection}>
+                <Text style={styles.reasoningText}>{result.reasoning}</Text>
+              </View>
+            ) : null}
           </Animated.View>
         ) : null}
 
@@ -591,12 +535,12 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     lineHeight: 28,
   },
-  fullRecommendation: {
+  reasoningSection: {
     backgroundColor: COLORS.backgroundSecondary,
     borderRadius: 12,
     padding: 16,
   },
-  fullRecommendationText: {
+  reasoningText: {
     fontSize: 14,
     color: COLORS.textSecondary,
     lineHeight: 21,

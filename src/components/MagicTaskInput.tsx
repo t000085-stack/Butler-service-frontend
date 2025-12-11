@@ -13,17 +13,22 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { COLORS } from '../constants/config';
 import * as tasksApi from '../api/tasks';
 
-// Note: expo-speech-recognition needs to be installed
+// expo-speech-recognition requires a development build (not Expo Go)
 // Run: npx expo install expo-speech-recognition
+// Then: npx expo run:android (or eas build)
 let ExpoSpeechRecognitionModule: any = null;
 let useSpeechRecognitionEvent: any = null;
+let voiceAvailable = false;
 
 try {
   const speechModule = require('expo-speech-recognition');
   ExpoSpeechRecognitionModule = speechModule.ExpoSpeechRecognitionModule;
   useSpeechRecognitionEvent = speechModule.useSpeechRecognitionEvent;
+  // Check if the native module is actually available
+  voiceAvailable = ExpoSpeechRecognitionModule != null && 
+    typeof ExpoSpeechRecognitionModule.requestPermissionsAsync === 'function';
 } catch (e) {
-  console.log('expo-speech-recognition not installed');
+  console.log('expo-speech-recognition not available (requires development build)');
 }
 
 export interface ParsedTaskData {
@@ -80,10 +85,10 @@ export default function MagicTaskInput({
   }, [isListening]);
 
   const startListening = async () => {
-    if (!ExpoSpeechRecognitionModule) {
+    if (!voiceAvailable) {
       Alert.alert(
         'Voice Not Available',
-        'Please install expo-speech-recognition:\nnpx expo install expo-speech-recognition'
+        'Voice input requires a development build.\n\nTo enable:\n1. Run: npx expo run:android\n\nFor now, type your task description instead.'
       );
       return;
     }
@@ -189,12 +194,13 @@ export default function MagicTaskInput({
         </View>
 
         <View style={styles.buttons}>
-          {/* Mic Button */}
+          {/* Mic Button - shown but disabled if voice not available */}
           <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
             <TouchableOpacity
               style={[
                 styles.micButton,
                 isListening && styles.micButtonActive,
+                !voiceAvailable && styles.micButtonDisabled,
               ]}
               onPress={isListening ? stopListening : startListening}
               disabled={isParsing}
@@ -202,7 +208,7 @@ export default function MagicTaskInput({
               <MaterialIcons
                 name={isListening ? 'mic' : 'mic-none'}
                 size={24}
-                color={isListening ? '#fff' : COLORS.primary}
+                color={isListening ? '#fff' : voiceAvailable ? COLORS.primary : COLORS.textMuted}
               />
             </TouchableOpacity>
           </Animated.View>
@@ -284,6 +290,10 @@ const styles = StyleSheet.create({
   micButtonActive: {
     backgroundColor: COLORS.primary,
     borderColor: COLORS.primary,
+  },
+  micButtonDisabled: {
+    borderColor: COLORS.textMuted,
+    opacity: 0.6,
   },
   sendButton: {
     width: 48,

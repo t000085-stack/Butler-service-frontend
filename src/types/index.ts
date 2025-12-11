@@ -61,6 +61,11 @@ export interface ConsultInput {
 export interface ConsultResponse {
   recommendation: string;
   context_log_id: string;
+  // Structured AI response fields
+  empathy_statement?: string;
+  chosen_task_id?: string | null;
+  reasoning?: string;
+  micro_step?: string;
 }
 
 export interface ContextLog {
