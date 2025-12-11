@@ -126,7 +126,7 @@ export default function ChatScreen() {
       id: "welcome",
       role: "assistant",
       content:
-        "Hey there! I'm Simi, your butler. What's on your mind? You can vent, ask for advice, or just chat. I'm here for you. 💜",
+        "Hey there! I'm SIMI, your AI butler. What's on your mind? You can vent, ask for advice, or just chat. I'm here for you. 💜",
       timestamp: new Date(),
     },
   ]);
@@ -171,7 +171,7 @@ export default function ChatScreen() {
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (error: any) {
       console.error("Chat error:", error);
-      
+
       // Add error message
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -456,4 +456,3 @@ const styles = StyleSheet.create({
     shadowOpacity: 0,
   },
 });
-

@@ -149,10 +149,12 @@ export default function ConsultationScreen() {
     ).start();
   };
 
-  const parseRecommendation = (recommendation: string | undefined): { empathy: string; microStep: string } => {
+  const parseRecommendation = (
+    recommendation: string | undefined
+  ): { empathy: string; microStep: string } => {
     // Try to extract empathy statement and micro-step from the AI response
     // Common patterns: "I understand...", "It sounds like...", followed by "Try this:", "Start with:", etc.
-    
+
     // Handle undefined or empty recommendation
     if (!recommendation) {
       return {
@@ -160,10 +162,10 @@ export default function ConsultationScreen() {
         microStep: "Take a deep breath and just start with the smallest step.",
       };
     }
-    
-    const lines = recommendation.split('\n').filter(l => l.trim());
-    let empathy = '';
-    let microStep = '';
+
+    const lines = recommendation.split("\n").filter((l) => l.trim());
+    let empathy = "";
+    let microStep = "";
 
     // Look for empathy patterns
     const empathyPatterns = [
@@ -171,7 +173,7 @@ export default function ConsultationScreen() {
       /^(You're feeling|You seem|When you feel)/i,
     ];
 
-    // Look for action patterns  
+    // Look for action patterns
     const actionPatterns = [
       /^(Try|Start|Just|First|Begin|How about|Consider|Maybe)/i,
       /^(Step \d|The first step|To start)/i,
@@ -180,10 +182,10 @@ export default function ConsultationScreen() {
 
     for (const line of lines) {
       const trimmed = line.trim();
-      if (!empathy && empathyPatterns.some(p => p.test(trimmed))) {
+      if (!empathy && empathyPatterns.some((p) => p.test(trimmed))) {
         empathy = trimmed;
-      } else if (!microStep && actionPatterns.some(p => p.test(trimmed))) {
-        microStep = trimmed.replace(/^(\d+\.|•|-)\s*/, '');
+      } else if (!microStep && actionPatterns.some((p) => p.test(trimmed))) {
+        microStep = trimmed.replace(/^(\d+\.|•|-)\s*/, "");
       }
     }
 
@@ -219,7 +221,9 @@ export default function ConsultationScreen() {
       setResult({
         empathyStatement: parsed.empathy,
         microStep: parsed.microStep,
-        fullRecommendation: response.recommendation || "Your butler is thinking of the best next step for you.",
+        fullRecommendation:
+          response.recommendation ||
+          "SIMI is thinking of the best next step for you.",
         contextLogId: response.context_log_id,
       });
     } catch (err: any) {
@@ -253,12 +257,13 @@ export default function ConsultationScreen() {
   const handleReroll = async () => {
     setIsRerolling(true);
     cardAnim.setValue(0);
-    
+
     try {
       const response = await butlerApi.consult({
         current_mood: "neutral",
         current_energy: 5,
-        raw_input: "Give me a different suggestion, I can't do the previous one right now",
+        raw_input:
+          "Give me a different suggestion, I can't do the previous one right now",
       });
 
       const parsed = parseRecommendation(response.recommendation);
@@ -266,7 +271,9 @@ export default function ConsultationScreen() {
       setResult({
         empathyStatement: parsed.empathy,
         microStep: parsed.microStep,
-        fullRecommendation: response.recommendation || "Your butler is thinking of another option for you.",
+        fullRecommendation:
+          response.recommendation ||
+          "SIMI is thinking of another option for you.",
         contextLogId: response.context_log_id,
       });
 
@@ -345,20 +352,27 @@ export default function ConsultationScreen() {
               resizeMode="contain"
             />
           </Animated.View>
-          <Text style={styles.title}>Your Butler Suggests</Text>
+          <Text style={styles.title}>SIMI Suggests</Text>
         </View>
 
         {/* Main Content */}
         {isLoading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={COLORS.primary} />
-            <Text style={styles.loadingText}>Consulting your butler...</Text>
+            <Text style={styles.loadingText}>Consulting SIMI...</Text>
           </View>
         ) : error ? (
           <View style={styles.errorContainer}>
-            <MaterialIcons name="error-outline" size={48} color={COLORS.error} />
+            <MaterialIcons
+              name="error-outline"
+              size={48}
+              color={COLORS.error}
+            />
             <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity style={styles.retryButton} onPress={fetchConsultation}>
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={fetchConsultation}
+            >
               <Text style={styles.retryButtonText}>Try Again</Text>
             </TouchableOpacity>
           </View>
@@ -621,4 +635,3 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 });
-
