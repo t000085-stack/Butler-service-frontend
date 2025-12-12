@@ -8,18 +8,23 @@ import {
   ActivityIndicator,
   Animated,
   Easing,
+  ScrollView,
+  Image,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
-import { MaterialIcons } from "@expo/vector-icons";
+import { MaterialIcons, Feather } from "@expo/vector-icons";
 import { COLORS } from "../../constants/config";
 import * as butlerApi from "../../api/butler";
 import * as tasksApi from "../../api/tasks";
 import type { Task } from "../../types";
+import { useAuth } from "../../contexts/AuthContext";
+import { useTasks } from "../../contexts/TaskContext";
+import { useNavigation } from "@react-navigation/native";
 
 const { width, height } = Dimensions.get("window");
-const ORB_SIZE = width * 0.28;
 
 // Twinkling Star Component
 const Star = ({
@@ -83,6 +88,26 @@ const generateStars = (count: number) => {
   }));
 };
 
+// Get greeting based on time of day
+const getGreeting = () => {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
+};
+
+// Format today's date
+const formatDate = () => {
+  const today = new Date();
+  const options: Intl.DateTimeFormatOptions = {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  };
+  return today.toLocaleDateString("en-US", options);
+};
+
 interface ConsultationResult {
   empathyStatement: string;
   microStep: string;
@@ -91,12 +116,223 @@ interface ConsultationResult {
   contextLogId: string;
 }
 
+// Mood options for tracker (using Feather icons for thin elegant style)
+const MOODS = [
+  { id: "happy", icon: "smile" as const, label: "Happy", color: "#FFD93D" },
+  { id: "calm", icon: "sun" as const, label: "Calm", color: "#6BCB77" },
+  { id: "neutral", icon: "meh" as const, label: "Okay", color: "#95A5A6" },
+  {
+    id: "stressed",
+    icon: "cloud" as const,
+    label: "Stressed",
+    color: "#FF6B9D",
+  },
+  { id: "sad", icon: "frown" as const, label: "Sad", color: "#4D96FF" },
+];
+
+// Face images for each mood
+const MOOD_FACES: Record<string, any> = {
+  happy: require("../../../assets/happy1.png"),
+  calm: require("../../../assets/normal1.png"),
+  neutral: require("../../../assets/normal1.png"),
+  stressed: require("../../../assets/normal1.png"),
+  sad: require("../../../assets/sad1.png"),
+};
+
+// Check if a task is for today
+const isTaskForToday = (task: Task) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  if (!task.due_date) {
+    // Tasks without due_date show on today
+    return true;
+  }
+
+  const taskDate = new Date(task.due_date);
+  taskDate.setHours(0, 0, 0, 0);
+  return taskDate.getTime() === today.getTime();
+};
+
+// Filter tasks based on current mood - be gentle when feeling down
+// Also filters to show only today's tasks
+const getFilteredTasks = (allTasks: Task[], mood: string | null) => {
+  // First filter for today's incomplete tasks only
+  const todayTasks = allTasks.filter(
+    (t) => !t.is_completed && isTaskForToday(t)
+  );
+
+  switch (mood) {
+    case "sad":
+      // When sad: only show very easy, low-friction tasks
+      return todayTasks.filter(
+        (t) => t.energy_cost <= 3 && t.emotional_friction === "Low"
+      );
+    case "stressed":
+      // When stressed: show easy to medium tasks, avoid high friction
+      return todayTasks.filter(
+        (t) => t.energy_cost <= 5 && t.emotional_friction !== "High"
+      );
+    case "calm":
+    case "happy":
+    case "neutral":
+    default:
+      // Show all today's tasks
+      return todayTasks;
+  }
+};
+
+// Get daily stats
+const getDailyStats = (allTasks: Task[]) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const todayTasks = allTasks.filter((t) => {
+    if (t.due_date) {
+      const taskDate = new Date(t.due_date);
+      taskDate.setHours(0, 0, 0, 0);
+      return taskDate.getTime() === today.getTime();
+    }
+    return true; // Tasks without due_date count as today
+  });
+
+  const completed = todayTasks.filter((t) => t.is_completed).length;
+  const total = todayTasks.length;
+  const energySpent = todayTasks
+    .filter((t) => t.is_completed)
+    .reduce((sum, t) => sum + t.energy_cost, 0);
+  const totalEnergy = todayTasks.reduce((sum, t) => sum + t.energy_cost, 0);
+
+  return { completed, total, energySpent, totalEnergy };
+};
+
+// Get AI suggestion based on mood
+const getAISuggestion = (
+  mood: string | null,
+  stats: { completed: number; total: number }
+) => {
+  const { completed, total } = stats;
+  const remaining = total - completed;
+
+  if (remaining === 0 && total > 0) {
+    return {
+      icon: "🎉",
+      title: "All done!",
+      message:
+        "Amazing work today! You've completed all your tasks. Time to relax!",
+    };
+  }
+
+  if (total === 0) {
+    return {
+      icon: "📝",
+      title: "Fresh start",
+      message:
+        "No tasks scheduled for today. Add some goals to stay productive!",
+    };
+  }
+
+  switch (mood) {
+    case "happy":
+      return {
+        icon: "🚀",
+        title: "You're on fire!",
+        message: `Great energy! Perfect time to tackle ${remaining} remaining task${
+          remaining > 1 ? "s" : ""
+        }. Go for the challenging ones!`,
+      };
+    case "calm":
+      return {
+        icon: "🧘",
+        title: "Steady progress",
+        message: `You're in a good flow. ${remaining} task${
+          remaining > 1 ? "s" : ""
+        } left - take them one at a time.`,
+      };
+    case "neutral":
+      return {
+        icon: "💪",
+        title: "Keep going",
+        message: `${remaining} task${
+          remaining > 1 ? "s" : ""
+        } remaining. Start with something easy to build momentum.`,
+      };
+    case "stressed":
+      return {
+        icon: "🌿",
+        title: "Take it slow",
+        message:
+          "Focus on just one small task. I've filtered out the overwhelming ones for you.",
+      };
+    case "sad":
+      return {
+        icon: "💜",
+        title: "Be gentle with yourself",
+        message:
+          "It's okay to do less today. I'm only showing gentle tasks. One small step is enough.",
+      };
+    default:
+      return {
+        icon: "✨",
+        title: "Ready to go",
+        message: `You have ${remaining} task${
+          remaining > 1 ? "s" : ""
+        } waiting. Pick what feels right!`,
+      };
+  }
+};
+
+// Generate week days for overview
+const getWeekDays = () => {
+  const days = [];
+  const today = new Date();
+
+  for (let i = 6; i >= 0; i--) {
+    const date = new Date(today);
+    date.setDate(today.getDate() - i);
+    date.setHours(0, 0, 0, 0);
+
+    days.push({
+      date,
+      dayName: date.toLocaleDateString("en-US", { weekday: "short" }),
+      dayNumber: date.getDate(),
+      isToday: i === 0,
+    });
+  }
+
+  return days;
+};
+
+// Get tasks for a specific day
+const getTasksForDay = (allTasks: Task[], date: Date) => {
+  const normalizedDate = new Date(date);
+  normalizedDate.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  return allTasks.filter((t) => {
+    if (t.due_date) {
+      const taskDate = new Date(t.due_date);
+      taskDate.setHours(0, 0, 0, 0);
+      return taskDate.getTime() === normalizedDate.getTime();
+    }
+    // Tasks without due_date only show on today
+    return normalizedDate.getTime() === today.getTime();
+  });
+};
+
 export default function ConsultationScreen() {
+  const { user } = useAuth();
+  const { tasks, fetchTasks, completeTask: completeTaskContext } = useTasks();
+  const navigation = useNavigation();
   const [isLoading, setIsLoading] = useState(true);
   const [result, setResult] = useState<ConsultationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isCompleting, setIsCompleting] = useState(false);
   const [isRerolling, setIsRerolling] = useState(false);
+  const [selectedMood, setSelectedMood] = useState<string | null>("neutral");
+  const [displayedMood, setDisplayedMood] = useState<string>("neutral");
+  const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
 
   // Memoize stars
   const stars = useMemo(() => generateStars(25), []);
@@ -105,11 +341,75 @@ export default function ConsultationScreen() {
   const cardAnim = useRef(new Animated.Value(0)).current;
   const floatAnim = useRef(new Animated.Value(0)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
+  const faceOpacity = useRef(new Animated.Value(1)).current;
+  const faceScale = useRef(new Animated.Value(1)).current;
+  const faceRotate = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     fetchConsultation();
     startAnimations();
+    fetchTasks(false); // Fetch incomplete tasks
   }, []);
+
+  // Smooth face transition when mood changes - realistic morph effect
+  useEffect(() => {
+    if (selectedMood && selectedMood !== displayedMood) {
+      // Phase 1: Shrink, fade, and rotate out
+      Animated.parallel([
+        Animated.timing(faceOpacity, {
+          toValue: 0,
+          duration: 180,
+          easing: Easing.bezier(0.4, 0, 0.2, 1),
+          useNativeDriver: true,
+        }),
+        Animated.timing(faceScale, {
+          toValue: 0.6,
+          duration: 200,
+          easing: Easing.bezier(0.4, 0, 0.2, 1),
+          useNativeDriver: true,
+        }),
+        Animated.timing(faceRotate, {
+          toValue: 1,
+          duration: 200,
+          easing: Easing.bezier(0.4, 0, 0.2, 1),
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        // Change the face image
+        setDisplayedMood(selectedMood);
+        // Reset rotation
+        faceRotate.setValue(-1);
+
+        // Phase 2: Grow back with elastic bounce
+        Animated.parallel([
+          Animated.spring(faceOpacity, {
+            toValue: 1,
+            tension: 60,
+            friction: 6,
+            useNativeDriver: true,
+          }),
+          Animated.spring(faceScale, {
+            toValue: 1,
+            tension: 80,
+            friction: 5,
+            useNativeDriver: true,
+          }),
+          Animated.spring(faceRotate, {
+            toValue: 0,
+            tension: 60,
+            friction: 6,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      });
+    }
+  }, [selectedMood]);
+
+  // Rotation interpolation for face transition
+  const faceRotateInterpolate = faceRotate.interpolate({
+    inputRange: [-1, 0, 1],
+    outputRange: ["-15deg", "0deg", "15deg"],
+  });
 
   const startAnimations = () => {
     // Card entrance
@@ -142,7 +442,7 @@ export default function ConsultationScreen() {
     Animated.loop(
       Animated.timing(rotateAnim, {
         toValue: 1,
-        duration: 30000,
+        duration: 12000,
         easing: Easing.linear,
         useNativeDriver: true,
       })
@@ -235,6 +535,18 @@ export default function ConsultationScreen() {
     }
   };
 
+  // Handle completing a task from the task list with proper error handling
+  const handleCompleteTask = async (taskId: string) => {
+    setCompletingTaskId(taskId);
+    try {
+      await completeTaskContext(taskId);
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Failed to complete task");
+    } finally {
+      setCompletingTaskId(null);
+    }
+  };
+
   const floatTranslateY = floatAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [0, -8],
@@ -280,23 +592,366 @@ export default function ConsultationScreen() {
         ))}
       </View>
 
-      <View style={styles.content}>
-        {/* Header with Orb */}
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
         <View style={styles.header}>
+          <Text style={styles.title}>SIMI</Text>
+        </View>
+
+        {/* Greeting Section */}
+        <View style={styles.greetingSection}>
+          <Text style={styles.greetingText}>
+            {getGreeting()}, {user?.username || "there"}
+          </Text>
+          <Text style={styles.dateText}>Today is {formatDate()}</Text>
+        </View>
+
+        {/* Mood Tracker */}
+        <View style={styles.moodSection}>
+          <LinearGradient
+            colors={[
+              "rgba(168, 85, 247, 0.08)",
+              "rgba(236, 72, 153, 0.05)",
+              "rgba(255, 255, 255, 0.9)",
+            ]}
+            style={styles.moodGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          />
+          <Text style={styles.moodQuestion}>How are you feeling today?</Text>
+
+          {/* Centered Orb Image with Face */}
           <Animated.View
             style={[
-              styles.orbContainer,
+              styles.moodOrbContainer,
               { transform: [{ translateY: floatTranslateY }] },
             ]}
           >
-            <View style={styles.orbGlow} />
             <Animated.Image
               source={require("../../../assets/signinImage.png")}
-              style={[styles.orbImage, { transform: [{ rotate: spin }] }]}
+              style={[styles.moodOrbImage, { transform: [{ rotate: spin }] }]}
+              resizeMode="contain"
+            />
+            {/* Face overlay - changes based on selected mood with smooth transition */}
+            <Animated.Image
+              source={MOOD_FACES[displayedMood]}
+              style={[
+                styles.moodFaceOverlay,
+                {
+                  opacity: faceOpacity,
+                  transform: [
+                    { scale: faceScale },
+                    { rotate: faceRotateInterpolate },
+                  ],
+                },
+              ]}
               resizeMode="contain"
             />
           </Animated.View>
-          <Text style={styles.title}>SIMI Suggests</Text>
+
+          <View style={styles.moodOptions}>
+            {MOODS.map((mood) => (
+              <TouchableOpacity
+                key={mood.id}
+                style={[
+                  styles.moodButton,
+                  selectedMood === mood.id && styles.moodButtonSelected,
+                  selectedMood === mood.id && { borderColor: mood.color },
+                ]}
+                onPress={() => setSelectedMood(mood.id)}
+                activeOpacity={0.7}
+              >
+                <Feather
+                  name={mood.icon}
+                  size={28}
+                  color={
+                    selectedMood === mood.id ? mood.color : COLORS.textSecondary
+                  }
+                  strokeWidth={1.5}
+                />
+                <Text
+                  style={[
+                    styles.moodLabel,
+                    selectedMood === mood.id && styles.moodLabelSelected,
+                    selectedMood === mood.id && { color: mood.color },
+                  ]}
+                >
+                  {mood.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* My Tasks Today Section */}
+        <View style={styles.tasksSection}>
+          <View style={styles.tasksSectionHeader}>
+            <View>
+              <Text style={styles.tasksSectionTitle}>My Tasks Today</Text>
+              {selectedMood === "sad" && (
+                <Text style={styles.moodTaskHint}>
+                  💜 Showing gentle tasks only
+                </Text>
+              )}
+              {selectedMood === "stressed" && (
+                <Text style={styles.moodTaskHint}>
+                  💛 Showing lighter tasks
+                </Text>
+              )}
+            </View>
+            <TouchableOpacity
+              style={styles.addTaskButton}
+              onPress={() => navigation.navigate("Tasks" as never)}
+              activeOpacity={0.7}
+            >
+              <Feather name="plus" size={18} color="#fff" />
+              <Text style={styles.addTaskButtonText}>Add Task</Text>
+            </TouchableOpacity>
+          </View>
+
+          {getFilteredTasks(tasks, selectedMood).length === 0 ? (
+            <View style={styles.noTasksContainer}>
+              <Feather name="check-circle" size={40} color={COLORS.textMuted} />
+              <Text style={styles.noTasksText}>No tasks for today</Text>
+              <Text style={styles.noTasksSubtext}>
+                Tap "Add Task" to create one
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.tasksList}>
+              {getFilteredTasks(tasks, selectedMood)
+                .slice(0, 5)
+                .map((task) => (
+                  <TouchableOpacity
+                    key={task._id}
+                    style={styles.taskItem}
+                    onPress={() => handleCompleteTask(task._id)}
+                    disabled={completingTaskId === task._id}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.taskCheckbox}>
+                      {completingTaskId === task._id ? (
+                        <ActivityIndicator
+                          size="small"
+                          color={COLORS.primary}
+                        />
+                      ) : (
+                        <Feather
+                          name="circle"
+                          size={22}
+                          color={COLORS.primary}
+                        />
+                      )}
+                    </View>
+                    <View style={styles.taskContent}>
+                      <Text style={styles.taskTitle} numberOfLines={1}>
+                        {task.title}
+                      </Text>
+                      <View style={styles.taskMeta}>
+                        <View
+                          style={[
+                            styles.taskEnergy,
+                            {
+                              backgroundColor:
+                                task.energy_cost <= 3
+                                  ? "#E8F5E9"
+                                  : task.energy_cost <= 6
+                                  ? "#FFF3E0"
+                                  : "#FFEBEE",
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.taskEnergyText,
+                              {
+                                color:
+                                  task.energy_cost <= 3
+                                    ? "#4CAF50"
+                                    : task.energy_cost <= 6
+                                    ? "#FF9800"
+                                    : "#F44336",
+                              },
+                            ]}
+                          >
+                            ⚡ {task.energy_cost}
+                          </Text>
+                        </View>
+                        <Text style={styles.taskFriction}>
+                          {task.emotional_friction}
+                        </Text>
+                      </View>
+                    </View>
+                    <Feather
+                      name="chevron-right"
+                      size={20}
+                      color={COLORS.textMuted}
+                    />
+                  </TouchableOpacity>
+                ))}
+              {getFilteredTasks(tasks, selectedMood).length > 5 && (
+                <TouchableOpacity
+                  style={styles.viewAllTasksButton}
+                  onPress={() => navigation.navigate("Tasks" as never)}
+                >
+                  <Text style={styles.viewAllTasksText}>
+                    View all {getFilteredTasks(tasks, selectedMood).length}{" "}
+                    tasks
+                  </Text>
+                  <Feather
+                    name="arrow-right"
+                    size={16}
+                    color={COLORS.primary}
+                  />
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+        </View>
+
+        {/* Daily Progress Section */}
+        <View style={styles.progressSection}>
+          <Text style={styles.progressSectionTitle}>Today's Progress</Text>
+
+          {/* Stats Row */}
+          <View style={styles.statsRow}>
+            <View style={styles.statCard}>
+              <View style={styles.statIconContainer}>
+                <Feather name="check-circle" size={20} color={COLORS.success} />
+              </View>
+              <Text style={styles.statValue}>
+                {getDailyStats(tasks).completed}/{getDailyStats(tasks).total}
+              </Text>
+              <Text style={styles.statLabel}>Tasks Done</Text>
+            </View>
+
+            <View style={styles.statCard}>
+              <View
+                style={[
+                  styles.statIconContainer,
+                  { backgroundColor: "#FFF3E0" },
+                ]}
+              >
+                <Feather name="zap" size={20} color="#FF9800" />
+              </View>
+              <Text style={styles.statValue}>
+                {getDailyStats(tasks).energySpent}
+              </Text>
+              <Text style={styles.statLabel}>Energy Spent</Text>
+            </View>
+
+            <View style={styles.statCard}>
+              <View
+                style={[
+                  styles.statIconContainer,
+                  { backgroundColor: "#E3F2FD" },
+                ]}
+              >
+                <Feather name="target" size={20} color="#2196F3" />
+              </View>
+              <Text style={styles.statValue}>
+                {Math.round(
+                  (getDailyStats(tasks).completed /
+                    Math.max(getDailyStats(tasks).total, 1)) *
+                    100
+                )}
+                %
+              </Text>
+              <Text style={styles.statLabel}>Complete</Text>
+            </View>
+          </View>
+
+          {/* AI Suggestion */}
+          <View style={styles.aiSuggestionCard}>
+            <Text style={styles.aiSuggestionIcon}>
+              {getAISuggestion(selectedMood, getDailyStats(tasks)).icon}
+            </Text>
+            <View style={styles.aiSuggestionContent}>
+              <Text style={styles.aiSuggestionTitle}>
+                {getAISuggestion(selectedMood, getDailyStats(tasks)).title}
+              </Text>
+              <Text style={styles.aiSuggestionMessage}>
+                {getAISuggestion(selectedMood, getDailyStats(tasks)).message}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Weekly Overview Section */}
+        <View style={styles.weeklySection}>
+          <Text style={styles.weeklySectionTitle}>This Week</Text>
+
+          <View style={styles.weekDaysRow}>
+            {getWeekDays().map((day, index) => {
+              const dayTasks = getTasksForDay(tasks, day.date);
+              const completedCount = dayTasks.filter(
+                (t) => t.is_completed
+              ).length;
+              const totalCount = dayTasks.length;
+              const progress = totalCount > 0 ? completedCount / totalCount : 0;
+
+              return (
+                <View
+                  key={index}
+                  style={[
+                    styles.weekDayCard,
+                    day.isToday && styles.weekDayCardToday,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.weekDayName,
+                      day.isToday && styles.weekDayNameToday,
+                    ]}
+                  >
+                    {day.dayName}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.weekDayNumber,
+                      day.isToday && styles.weekDayNumberToday,
+                    ]}
+                  >
+                    {day.dayNumber}
+                  </Text>
+
+                  {/* Progress indicator */}
+                  <View style={styles.weekDayProgress}>
+                    <View
+                      style={[
+                        styles.weekDayProgressFill,
+                        {
+                          height: `${Math.max(
+                            progress * 100,
+                            totalCount > 0 ? 10 : 0
+                          )}%`,
+                          backgroundColor:
+                            progress === 1 ? COLORS.success : COLORS.primary,
+                        },
+                      ]}
+                    />
+                  </View>
+
+                  <Text style={styles.weekDayTaskCount}>
+                    {totalCount > 0 ? `${completedCount}/${totalCount}` : "-"}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+
+          {/* Weekly Summary */}
+          <View style={styles.weeklySummary}>
+            <Feather name="trending-up" size={16} color={COLORS.primary} />
+            <Text style={styles.weeklySummaryText}>
+              {tasks.filter((t) => t.is_completed).length} tasks completed this
+              week
+            </Text>
+          </View>
         </View>
 
         {/* Main Content */}
@@ -390,7 +1045,7 @@ export default function ConsultationScreen() {
             </TouchableOpacity>
           </View>
         )}
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -424,30 +1079,15 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  contentContainer: {
     paddingHorizontal: 24,
+    paddingBottom: 40,
   },
   header: {
     alignItems: "center",
-    paddingTop: 20,
-    paddingBottom: 16,
-  },
-  orbContainer: {
-    width: ORB_SIZE,
-    height: ORB_SIZE,
-    marginBottom: 16,
-  },
-  orbGlow: {
-    position: "absolute",
-    width: ORB_SIZE + 20,
-    height: ORB_SIZE + 20,
-    borderRadius: (ORB_SIZE + 20) / 2,
-    backgroundColor: "rgba(168, 85, 247, 0.1)",
-    top: -10,
-    left: -10,
-  },
-  orbImage: {
-    width: ORB_SIZE,
-    height: ORB_SIZE,
+    paddingTop: 12,
+    paddingBottom: 8,
   },
   title: {
     fontSize: 22,
@@ -577,5 +1217,382 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontSize: 16,
     fontWeight: "600",
+  },
+  greetingSection: {
+    marginBottom: 20,
+    paddingHorizontal: 4,
+  },
+  greetingText: {
+    fontSize: 32,
+    fontWeight: "300",
+    color: COLORS.text,
+    marginBottom: 6,
+    letterSpacing: 0.5,
+    fontStyle: "italic",
+  },
+  dateText: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+  },
+  moodSection: {
+    marginBottom: 24,
+    borderRadius: 28,
+    padding: 24,
+    paddingTop: 20,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 10,
+    overflow: "hidden",
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "rgba(168, 85, 247, 0.1)",
+  },
+  moodGradient: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 28,
+  },
+  moodQuestion: {
+    fontSize: 18,
+    fontWeight: "300",
+    color: COLORS.text,
+    textAlign: "center",
+    letterSpacing: 0.5,
+    fontStyle: "italic",
+  },
+  moodOrbContainer: {
+    width: 240,
+    height: 240,
+    alignSelf: "center",
+    marginVertical: 24,
+  },
+  moodOrbImage: {
+    width: 240,
+    height: 240,
+  },
+  moodFaceOverlay: {
+    position: "absolute",
+    width: 220,
+    height: 220,
+    top: "50%",
+    left: "50%",
+    marginTop: -110,
+    marginLeft: -110,
+  },
+  moodOptions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 4,
+  },
+  moodButton: {
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.8)",
+    minWidth: 56,
+    borderWidth: 1.5,
+    borderColor: "rgba(168, 85, 247, 0.1)",
+  },
+  moodButtonSelected: {
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    borderColor: COLORS.primary,
+    transform: [{ scale: 1.08 }],
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  moodIcon: {
+    marginBottom: 6,
+  },
+  moodLabel: {
+    fontSize: 10,
+    color: COLORS.textSecondary,
+    fontWeight: "500",
+    letterSpacing: 0.3,
+  },
+  moodLabelSelected: {
+    color: COLORS.primary,
+    fontWeight: "700",
+  },
+  // Tasks Section Styles
+  tasksSection: {
+    marginBottom: 24,
+    backgroundColor: "#fff",
+    borderRadius: 24,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  tasksSectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  tasksSectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: COLORS.text,
+  },
+  moodTaskHint: {
+    fontSize: 12,
+    color: COLORS.primary,
+    marginTop: 4,
+    fontStyle: "italic",
+  },
+  addTaskButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 6,
+  },
+  addTaskButtonText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  noTasksContainer: {
+    alignItems: "center",
+    paddingVertical: 30,
+  },
+  noTasksText: {
+    fontSize: 16,
+    color: COLORS.textSecondary,
+    marginTop: 12,
+    fontWeight: "500",
+  },
+  noTasksSubtext: {
+    fontSize: 13,
+    color: COLORS.textMuted,
+    marginTop: 4,
+  },
+  tasksList: {
+    gap: 10,
+  },
+  taskItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.backgroundSecondary,
+    padding: 14,
+    borderRadius: 16,
+    gap: 12,
+  },
+  taskCheckbox: {
+    width: 24,
+    height: 24,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  taskContent: {
+    flex: 1,
+  },
+  taskTitle: {
+    fontSize: 15,
+    fontWeight: "500",
+    color: COLORS.text,
+    marginBottom: 4,
+  },
+  taskMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  taskEnergy: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  taskEnergyText: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  taskFriction: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+  },
+  viewAllTasksButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    gap: 6,
+  },
+  viewAllTasksText: {
+    fontSize: 14,
+    color: COLORS.primary,
+    fontWeight: "500",
+  },
+  // Daily Progress Section Styles
+  progressSection: {
+    marginBottom: 24,
+    backgroundColor: "#fff",
+    borderRadius: 24,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  progressSectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: COLORS.text,
+    marginBottom: 16,
+  },
+  statsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+  statCard: {
+    flex: 1,
+    alignItems: "center",
+    padding: 12,
+    marginHorizontal: 4,
+    backgroundColor: COLORS.backgroundSecondary,
+    borderRadius: 16,
+  },
+  statIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#E8F5E9",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: COLORS.text,
+  },
+  statLabel: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+  aiSuggestionCard: {
+    flexDirection: "row",
+    backgroundColor: "rgba(168, 85, 247, 0.08)",
+    borderRadius: 16,
+    padding: 16,
+    alignItems: "flex-start",
+    borderWidth: 1,
+    borderColor: "rgba(168, 85, 247, 0.15)",
+  },
+  aiSuggestionIcon: {
+    fontSize: 28,
+    marginRight: 12,
+  },
+  aiSuggestionContent: {
+    flex: 1,
+  },
+  aiSuggestionTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: COLORS.text,
+    marginBottom: 4,
+  },
+  aiSuggestionMessage: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    lineHeight: 18,
+  },
+  // Weekly Overview Section Styles
+  weeklySection: {
+    marginBottom: 24,
+    backgroundColor: "#fff",
+    borderRadius: 24,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  weeklySectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: COLORS.text,
+    marginBottom: 16,
+  },
+  weekDaysRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+  weekDayCard: {
+    alignItems: "center",
+    flex: 1,
+    marginHorizontal: 2,
+  },
+  weekDayCardToday: {
+    backgroundColor: "rgba(168, 85, 247, 0.08)",
+    borderRadius: 12,
+    paddingVertical: 8,
+  },
+  weekDayName: {
+    fontSize: 10,
+    color: COLORS.textSecondary,
+    fontWeight: "500",
+    marginBottom: 2,
+  },
+  weekDayNameToday: {
+    color: COLORS.primary,
+    fontWeight: "600",
+  },
+  weekDayNumber: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: COLORS.text,
+    marginBottom: 8,
+  },
+  weekDayNumberToday: {
+    color: COLORS.primary,
+  },
+  weekDayProgress: {
+    width: 8,
+    height: 40,
+    backgroundColor: COLORS.backgroundSecondary,
+    borderRadius: 4,
+    overflow: "hidden",
+    justifyContent: "flex-end",
+  },
+  weekDayProgressFill: {
+    width: "100%",
+    borderRadius: 4,
+  },
+  weekDayTaskCount: {
+    fontSize: 9,
+    color: COLORS.textMuted,
+    marginTop: 4,
+  },
+  weeklySummary: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+    gap: 6,
+  },
+  weeklySummaryText: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
   },
 });
