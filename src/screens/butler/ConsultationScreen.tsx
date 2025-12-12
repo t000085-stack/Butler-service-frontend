@@ -139,27 +139,46 @@ const MOOD_FACES: Record<string, any> = {
   sad: require("../../../assets/sad1.png"),
 };
 
+// Check if a task is for today
+const isTaskForToday = (task: Task) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  if (!task.due_date) {
+    // Tasks without due_date show on today
+    return true;
+  }
+
+  const taskDate = new Date(task.due_date);
+  taskDate.setHours(0, 0, 0, 0);
+  return taskDate.getTime() === today.getTime();
+};
+
 // Filter tasks based on current mood - be gentle when feeling down
+// Also filters to show only today's tasks
 const getFilteredTasks = (allTasks: Task[], mood: string | null) => {
-  const incompleteTasks = allTasks.filter((t) => !t.is_completed);
+  // First filter for today's incomplete tasks only
+  const todayTasks = allTasks.filter(
+    (t) => !t.is_completed && isTaskForToday(t)
+  );
 
   switch (mood) {
     case "sad":
       // When sad: only show very easy, low-friction tasks
-      return incompleteTasks.filter(
+      return todayTasks.filter(
         (t) => t.energy_cost <= 3 && t.emotional_friction === "Low"
       );
     case "stressed":
       // When stressed: show easy to medium tasks, avoid high friction
-      return incompleteTasks.filter(
+      return todayTasks.filter(
         (t) => t.energy_cost <= 5 && t.emotional_friction !== "High"
       );
     case "calm":
     case "happy":
     case "neutral":
     default:
-      // Show all tasks
-      return incompleteTasks;
+      // Show all today's tasks
+      return todayTasks;
   }
 };
 
