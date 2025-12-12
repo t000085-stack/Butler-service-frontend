@@ -10,6 +10,7 @@ import {
   Easing,
   ScrollView,
   Image,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -162,6 +163,145 @@ const getFilteredTasks = (allTasks: Task[], mood: string | null) => {
   }
 };
 
+// Get daily stats
+const getDailyStats = (allTasks: Task[]) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const todayTasks = allTasks.filter((t) => {
+    if (t.due_date) {
+      const taskDate = new Date(t.due_date);
+      taskDate.setHours(0, 0, 0, 0);
+      return taskDate.getTime() === today.getTime();
+    }
+    return true; // Tasks without due_date count as today
+  });
+
+  const completed = todayTasks.filter((t) => t.is_completed).length;
+  const total = todayTasks.length;
+  const energySpent = todayTasks
+    .filter((t) => t.is_completed)
+    .reduce((sum, t) => sum + t.energy_cost, 0);
+  const totalEnergy = todayTasks.reduce((sum, t) => sum + t.energy_cost, 0);
+
+  return { completed, total, energySpent, totalEnergy };
+};
+
+// Get AI suggestion based on mood
+const getAISuggestion = (
+  mood: string | null,
+  stats: { completed: number; total: number }
+) => {
+  const { completed, total } = stats;
+  const remaining = total - completed;
+
+  if (remaining === 0 && total > 0) {
+    return {
+      icon: "🎉",
+      title: "All done!",
+      message:
+        "Amazing work today! You've completed all your tasks. Time to relax!",
+    };
+  }
+
+  if (total === 0) {
+    return {
+      icon: "📝",
+      title: "Fresh start",
+      message:
+        "No tasks scheduled for today. Add some goals to stay productive!",
+    };
+  }
+
+  switch (mood) {
+    case "happy":
+      return {
+        icon: "🚀",
+        title: "You're on fire!",
+        message: `Great energy! Perfect time to tackle ${remaining} remaining task${
+          remaining > 1 ? "s" : ""
+        }. Go for the challenging ones!`,
+      };
+    case "calm":
+      return {
+        icon: "🧘",
+        title: "Steady progress",
+        message: `You're in a good flow. ${remaining} task${
+          remaining > 1 ? "s" : ""
+        } left - take them one at a time.`,
+      };
+    case "neutral":
+      return {
+        icon: "💪",
+        title: "Keep going",
+        message: `${remaining} task${
+          remaining > 1 ? "s" : ""
+        } remaining. Start with something easy to build momentum.`,
+      };
+    case "stressed":
+      return {
+        icon: "🌿",
+        title: "Take it slow",
+        message:
+          "Focus on just one small task. I've filtered out the overwhelming ones for you.",
+      };
+    case "sad":
+      return {
+        icon: "💜",
+        title: "Be gentle with yourself",
+        message:
+          "It's okay to do less today. I'm only showing gentle tasks. One small step is enough.",
+      };
+    default:
+      return {
+        icon: "✨",
+        title: "Ready to go",
+        message: `You have ${remaining} task${
+          remaining > 1 ? "s" : ""
+        } waiting. Pick what feels right!`,
+      };
+  }
+};
+
+// Generate week days for overview
+const getWeekDays = () => {
+  const days = [];
+  const today = new Date();
+
+  for (let i = 6; i >= 0; i--) {
+    const date = new Date(today);
+    date.setDate(today.getDate() - i);
+    date.setHours(0, 0, 0, 0);
+
+    days.push({
+      date,
+      dayName: date.toLocaleDateString("en-US", { weekday: "short" }),
+      dayNumber: date.getDate(),
+      isToday: i === 0,
+    });
+  }
+
+  return days;
+};
+
+// Get tasks for a specific day
+const getTasksForDay = (allTasks: Task[], date: Date) => {
+  const normalizedDate = new Date(date);
+  normalizedDate.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  return allTasks.filter((t) => {
+    if (t.due_date) {
+      const taskDate = new Date(t.due_date);
+      taskDate.setHours(0, 0, 0, 0);
+      return taskDate.getTime() === normalizedDate.getTime();
+    }
+    // Tasks without due_date only show on today
+    return normalizedDate.getTime() === today.getTime();
+  });
+};
+
 export default function ConsultationScreen() {
   const { user } = useAuth();
   const { tasks, fetchTasks, completeTask: completeTaskContext } = useTasks();
@@ -173,6 +313,7 @@ export default function ConsultationScreen() {
   const [isRerolling, setIsRerolling] = useState(false);
   const [selectedMood, setSelectedMood] = useState<string | null>("neutral");
   const [displayedMood, setDisplayedMood] = useState<string>("neutral");
+  const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
 
   // Memoize stars
   const stars = useMemo(() => generateStars(25), []);
@@ -375,6 +516,18 @@ export default function ConsultationScreen() {
     }
   };
 
+  // Handle completing a task from the task list with proper error handling
+  const handleCompleteTask = async (taskId: string) => {
+    setCompletingTaskId(taskId);
+    try {
+      await completeTaskContext(taskId);
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Failed to complete task");
+    } finally {
+      setCompletingTaskId(null);
+    }
+  };
+
   const floatTranslateY = floatAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [0, -8],
@@ -557,11 +710,23 @@ export default function ConsultationScreen() {
                   <TouchableOpacity
                     key={task._id}
                     style={styles.taskItem}
-                    onPress={() => completeTaskContext(task._id)}
+                    onPress={() => handleCompleteTask(task._id)}
+                    disabled={completingTaskId === task._id}
                     activeOpacity={0.7}
                   >
                     <View style={styles.taskCheckbox}>
-                      <Feather name="circle" size={22} color={COLORS.primary} />
+                      {completingTaskId === task._id ? (
+                        <ActivityIndicator
+                          size="small"
+                          color={COLORS.primary}
+                        />
+                      ) : (
+                        <Feather
+                          name="circle"
+                          size={22}
+                          color={COLORS.primary}
+                        />
+                      )}
                     </View>
                     <View style={styles.taskContent}>
                       <Text style={styles.taskTitle} numberOfLines={1}>
@@ -627,6 +792,147 @@ export default function ConsultationScreen() {
               )}
             </View>
           )}
+        </View>
+
+        {/* Daily Progress Section */}
+        <View style={styles.progressSection}>
+          <Text style={styles.progressSectionTitle}>Today's Progress</Text>
+
+          {/* Stats Row */}
+          <View style={styles.statsRow}>
+            <View style={styles.statCard}>
+              <View style={styles.statIconContainer}>
+                <Feather name="check-circle" size={20} color={COLORS.success} />
+              </View>
+              <Text style={styles.statValue}>
+                {getDailyStats(tasks).completed}/{getDailyStats(tasks).total}
+              </Text>
+              <Text style={styles.statLabel}>Tasks Done</Text>
+            </View>
+
+            <View style={styles.statCard}>
+              <View
+                style={[
+                  styles.statIconContainer,
+                  { backgroundColor: "#FFF3E0" },
+                ]}
+              >
+                <Feather name="zap" size={20} color="#FF9800" />
+              </View>
+              <Text style={styles.statValue}>
+                {getDailyStats(tasks).energySpent}
+              </Text>
+              <Text style={styles.statLabel}>Energy Spent</Text>
+            </View>
+
+            <View style={styles.statCard}>
+              <View
+                style={[
+                  styles.statIconContainer,
+                  { backgroundColor: "#E3F2FD" },
+                ]}
+              >
+                <Feather name="target" size={20} color="#2196F3" />
+              </View>
+              <Text style={styles.statValue}>
+                {Math.round(
+                  (getDailyStats(tasks).completed /
+                    Math.max(getDailyStats(tasks).total, 1)) *
+                    100
+                )}
+                %
+              </Text>
+              <Text style={styles.statLabel}>Complete</Text>
+            </View>
+          </View>
+
+          {/* AI Suggestion */}
+          <View style={styles.aiSuggestionCard}>
+            <Text style={styles.aiSuggestionIcon}>
+              {getAISuggestion(selectedMood, getDailyStats(tasks)).icon}
+            </Text>
+            <View style={styles.aiSuggestionContent}>
+              <Text style={styles.aiSuggestionTitle}>
+                {getAISuggestion(selectedMood, getDailyStats(tasks)).title}
+              </Text>
+              <Text style={styles.aiSuggestionMessage}>
+                {getAISuggestion(selectedMood, getDailyStats(tasks)).message}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Weekly Overview Section */}
+        <View style={styles.weeklySection}>
+          <Text style={styles.weeklySectionTitle}>This Week</Text>
+
+          <View style={styles.weekDaysRow}>
+            {getWeekDays().map((day, index) => {
+              const dayTasks = getTasksForDay(tasks, day.date);
+              const completedCount = dayTasks.filter(
+                (t) => t.is_completed
+              ).length;
+              const totalCount = dayTasks.length;
+              const progress = totalCount > 0 ? completedCount / totalCount : 0;
+
+              return (
+                <View
+                  key={index}
+                  style={[
+                    styles.weekDayCard,
+                    day.isToday && styles.weekDayCardToday,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.weekDayName,
+                      day.isToday && styles.weekDayNameToday,
+                    ]}
+                  >
+                    {day.dayName}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.weekDayNumber,
+                      day.isToday && styles.weekDayNumberToday,
+                    ]}
+                  >
+                    {day.dayNumber}
+                  </Text>
+
+                  {/* Progress indicator */}
+                  <View style={styles.weekDayProgress}>
+                    <View
+                      style={[
+                        styles.weekDayProgressFill,
+                        {
+                          height: `${Math.max(
+                            progress * 100,
+                            totalCount > 0 ? 10 : 0
+                          )}%`,
+                          backgroundColor:
+                            progress === 1 ? COLORS.success : COLORS.primary,
+                        },
+                      ]}
+                    />
+                  </View>
+
+                  <Text style={styles.weekDayTaskCount}>
+                    {totalCount > 0 ? `${completedCount}/${totalCount}` : "-"}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+
+          {/* Weekly Summary */}
+          <View style={styles.weeklySummary}>
+            <Feather name="trending-up" size={16} color={COLORS.primary} />
+            <Text style={styles.weeklySummaryText}>
+              {tasks.filter((t) => t.is_completed).length} tasks completed this
+              week
+            </Text>
+          </View>
         </View>
 
         {/* Main Content */}
@@ -1110,5 +1416,164 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.primary,
     fontWeight: "500",
+  },
+  // Daily Progress Section Styles
+  progressSection: {
+    marginBottom: 24,
+    backgroundColor: "#fff",
+    borderRadius: 24,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  progressSectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: COLORS.text,
+    marginBottom: 16,
+  },
+  statsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+  statCard: {
+    flex: 1,
+    alignItems: "center",
+    padding: 12,
+    marginHorizontal: 4,
+    backgroundColor: COLORS.backgroundSecondary,
+    borderRadius: 16,
+  },
+  statIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#E8F5E9",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: COLORS.text,
+  },
+  statLabel: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+  aiSuggestionCard: {
+    flexDirection: "row",
+    backgroundColor: "rgba(168, 85, 247, 0.08)",
+    borderRadius: 16,
+    padding: 16,
+    alignItems: "flex-start",
+    borderWidth: 1,
+    borderColor: "rgba(168, 85, 247, 0.15)",
+  },
+  aiSuggestionIcon: {
+    fontSize: 28,
+    marginRight: 12,
+  },
+  aiSuggestionContent: {
+    flex: 1,
+  },
+  aiSuggestionTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: COLORS.text,
+    marginBottom: 4,
+  },
+  aiSuggestionMessage: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    lineHeight: 18,
+  },
+  // Weekly Overview Section Styles
+  weeklySection: {
+    marginBottom: 24,
+    backgroundColor: "#fff",
+    borderRadius: 24,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  weeklySectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: COLORS.text,
+    marginBottom: 16,
+  },
+  weekDaysRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+  weekDayCard: {
+    alignItems: "center",
+    flex: 1,
+    marginHorizontal: 2,
+  },
+  weekDayCardToday: {
+    backgroundColor: "rgba(168, 85, 247, 0.08)",
+    borderRadius: 12,
+    paddingVertical: 8,
+  },
+  weekDayName: {
+    fontSize: 10,
+    color: COLORS.textSecondary,
+    fontWeight: "500",
+    marginBottom: 2,
+  },
+  weekDayNameToday: {
+    color: COLORS.primary,
+    fontWeight: "600",
+  },
+  weekDayNumber: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: COLORS.text,
+    marginBottom: 8,
+  },
+  weekDayNumberToday: {
+    color: COLORS.primary,
+  },
+  weekDayProgress: {
+    width: 8,
+    height: 40,
+    backgroundColor: COLORS.backgroundSecondary,
+    borderRadius: 4,
+    overflow: "hidden",
+    justifyContent: "flex-end",
+  },
+  weekDayProgressFill: {
+    width: "100%",
+    borderRadius: 4,
+  },
+  weekDayTaskCount: {
+    fontSize: 9,
+    color: COLORS.textMuted,
+    marginTop: 4,
+  },
+  weeklySummary: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+    gap: 6,
+  },
+  weeklySummaryText: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
   },
 });

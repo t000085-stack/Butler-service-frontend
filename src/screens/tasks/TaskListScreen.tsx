@@ -132,6 +132,12 @@ export default function TaskListScreen() {
     setEnergyCost(data.energy_cost.toString());
     setFriction(data.emotional_friction);
     setAssociatedValue('');
+    // Use the AI-parsed due_date if provided
+    if (data.due_date) {
+      setDueDate(new Date(data.due_date));
+    } else {
+      setDueDate(null);
+    }
     setFormError(null);
     setIsAIParsed(true);
     setShowModal(true);
