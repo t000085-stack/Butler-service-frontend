@@ -21,7 +21,7 @@ export interface AuthResponse {
 }
 
 // Task types
-export type EmotionalFriction = 'Low' | 'Medium' | 'High';
+export type EmotionalFriction = "Low" | "Medium" | "High";
 
 export interface Task {
   _id: string;
@@ -33,6 +33,8 @@ export interface Task {
   is_completed: boolean;
   due_date?: string;
   created_at: string;
+  user_feeling?: string;
+  feeling_description?: string;
 }
 
 export interface CreateTaskInput {
@@ -41,6 +43,8 @@ export interface CreateTaskInput {
   emotional_friction: EmotionalFriction;
   associated_value?: string;
   due_date?: string;
+  user_feeling?: string;
+  feeling_description?: string;
 }
 
 export interface UpdateTaskInput {
@@ -94,7 +98,7 @@ export interface MagicParseResponse {
 // Chat types
 export interface ChatMessage {
   id: string;
-  role: 'user' | 'assistant';
+  role: "user" | "assistant";
   content: string;
   timestamp: Date;
 }
@@ -117,4 +121,3 @@ export interface ApiError {
   message: string;
   status?: number;
 }
-

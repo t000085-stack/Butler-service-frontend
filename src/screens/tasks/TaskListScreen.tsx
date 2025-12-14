@@ -653,6 +653,156 @@ const sliderStyles = StyleSheet.create({
   },
 });
 
+// Feeling Modal Styles
+const feelingStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  container: {
+    backgroundColor: COLORS.background,
+    borderRadius: 24,
+    padding: 24,
+    width: "100%",
+    maxWidth: 400,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  header: {
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: COLORS.text,
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 15,
+    color: COLORS.textSecondary,
+    textAlign: "center",
+    fontStyle: "italic",
+  },
+  optionsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: 12,
+    marginBottom: 20,
+  },
+  optionButton: {
+    width: "30%",
+    alignItems: "center",
+    paddingVertical: 16,
+    paddingHorizontal: 8,
+    borderRadius: 16,
+    backgroundColor: COLORS.backgroundSecondary,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+  },
+  optionEmoji: {
+    fontSize: 28,
+    marginBottom: 6,
+  },
+  optionLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: COLORS.textSecondary,
+  },
+  descriptionContainer: {
+    marginBottom: 20,
+  },
+  descriptionLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: COLORS.text,
+    marginBottom: 8,
+  },
+  descriptionInput: {
+    backgroundColor: COLORS.backgroundSecondary,
+    borderRadius: 12,
+    padding: 14,
+    fontSize: 15,
+    color: COLORS.text,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    minHeight: 80,
+    textAlignVertical: "top",
+  },
+  actions: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  skipButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: COLORS.backgroundSecondary,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  skipButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: COLORS.textSecondary,
+  },
+  continueButton: {
+    flex: 2,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: COLORS.primary,
+    alignItems: "center",
+  },
+  continueButtonDisabled: {
+    opacity: 0.5,
+  },
+  continueButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#fff",
+  },
+  aiPreview: {
+    backgroundColor: COLORS.primary + "10",
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: COLORS.primary + "20",
+  },
+  aiPreviewTitle: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: COLORS.primary,
+    marginBottom: 10,
+  },
+  aiPreviewRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  aiPreviewLabel: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+  },
+  aiPreviewValue: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: COLORS.text,
+  },
+});
+
 export default function TaskListScreen() {
   const {
     tasks,
@@ -678,6 +828,13 @@ export default function TaskListScreen() {
   const [isAIParsed, setIsAIParsed] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
 
+  // Feeling popup state
+  const [showFeelingModal, setShowFeelingModal] = useState(false);
+  const [taskFeeling, setTaskFeeling] = useState("");
+  const [feelingDescription, setFeelingDescription] = useState("");
+  const [pendingParsedData, setPendingParsedData] =
+    useState<ParsedTaskData | null>(null);
+
   // Calendar days
   const calendarDays = useMemo(
     () => generateCalendarDays(selectedDate),
@@ -702,6 +859,9 @@ export default function TaskListScreen() {
     setFormError(null);
     setIsAIParsed(false);
     setEditingTask(null);
+    setTaskFeeling("");
+    setFeelingDescription("");
+    setPendingParsedData(null);
   };
 
   // Toggle a value in the associated values array
@@ -732,18 +892,131 @@ export default function TaskListScreen() {
 
   // Handle AI-parsed task data from MagicTaskInput
   const handleMagicTaskParsed = (data: ParsedTaskData) => {
-    setTitle(data.title);
-    setMotivation(energyCostToMotivation(data.energy_cost));
-    setDifficulty(frictionToDifficulty(data.emotional_friction));
-    setAssociatedValues([]); // User can select values after AI parsing
-    // Use the AI-parsed due_date if provided
-    if (data.due_date) {
-      setDueDate(new Date(data.due_date));
+    // Store parsed data and show feeling popup first
+    setPendingParsedData(data);
+    setTaskFeeling("");
+    setFeelingDescription("");
+    setShowFeelingModal(true);
+  };
+
+  // Feeling options with AI-determined motivation and difficulty mappings
+  // motivation: 0=Not Motivated, 4=Highly Motivated
+  // difficulty: 0=Easy, 4=Difficult
+  const FEELING_OPTIONS = [
+    {
+      emoji: "😰",
+      label: "Anxious",
+      color: "#EF4444",
+      motivation: 1 as MotivationLevel,
+      difficulty: 4 as DifficultyLevel,
+    },
+    {
+      emoji: "😩",
+      label: "Overwhelmed",
+      color: "#F97316",
+      motivation: 0 as MotivationLevel,
+      difficulty: 4 as DifficultyLevel,
+    },
+    {
+      emoji: "😐",
+      label: "Neutral",
+      color: "#6B7280",
+      motivation: 2 as MotivationLevel,
+      difficulty: 2 as DifficultyLevel,
+    },
+    {
+      emoji: "🤔",
+      label: "Uncertain",
+      color: "#8B5CF6",
+      motivation: 1 as MotivationLevel,
+      difficulty: 3 as DifficultyLevel,
+    },
+    {
+      emoji: "😊",
+      label: "Confident",
+      color: "#10B981",
+      motivation: 3 as MotivationLevel,
+      difficulty: 1 as DifficultyLevel,
+    },
+    {
+      emoji: "🤩",
+      label: "Excited",
+      color: "#EC4899",
+      motivation: 4 as MotivationLevel,
+      difficulty: 0 as DifficultyLevel,
+    },
+  ];
+
+  // State for feeling submission loading
+  const [feelingLoading, setFeelingLoading] = useState(false);
+
+  // Handle feeling selection and create task directly with AI-determined values
+  const handleFeelingSubmit = async () => {
+    if (!pendingParsedData || !taskFeeling) return;
+
+    // Find the selected feeling option
+    const selectedFeeling = FEELING_OPTIONS.find(
+      (opt) => opt.label === taskFeeling
+    );
+    if (!selectedFeeling) return;
+
+    setFeelingLoading(true);
+
+    try {
+      // Get motivation and difficulty from the feeling
+      const motivationLevel = selectedFeeling.motivation;
+      const difficultyLevel = selectedFeeling.difficulty;
+      const energyCost = MOTIVATION_POINTS[motivationLevel].energyCost;
+      const emotionalFriction =
+        DIFFICULTY_POINTS[difficultyLevel].frictionValue;
+
+      // Create task directly with AI-determined values
+      await createTask({
+        title: pendingParsedData.title,
+        energy_cost: energyCost,
+        emotional_friction: emotionalFriction,
+        due_date: pendingParsedData.due_date || undefined,
+        user_feeling: taskFeeling,
+        feeling_description: feelingDescription.trim() || undefined,
+      });
+
+      // Reset and close
+      resetForm();
+      setShowFeelingModal(false);
+
+      // Show success feedback
+      Alert.alert(
+        "✨ Task Added!",
+        `"${pendingParsedData.title}" has been added based on how you feel.`,
+        [{ text: "OK" }]
+      );
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Failed to create task");
+    } finally {
+      setFeelingLoading(false);
+    }
+  };
+
+  // Skip feeling popup and go directly to form for manual input
+  const handleSkipFeeling = () => {
+    if (!pendingParsedData) return;
+
+    setTitle(pendingParsedData.title);
+    setMotivation(energyCostToMotivation(pendingParsedData.energy_cost));
+    setDifficulty(frictionToDifficulty(pendingParsedData.emotional_friction));
+    setAssociatedValues([]);
+
+    if (pendingParsedData.due_date) {
+      setDueDate(new Date(pendingParsedData.due_date));
     } else {
       setDueDate(null);
     }
+
+    setTaskFeeling("");
+    setFeelingDescription("");
     setFormError(null);
     setIsAIParsed(true);
+    setShowFeelingModal(false);
     setShowModal(true);
   };
 
@@ -771,6 +1044,8 @@ export default function TaskListScreen() {
         associated_value:
           associatedValues.length > 0 ? associatedValues.join(", ") : undefined,
         due_date: dueDate ? dueDate.toISOString() : undefined,
+        user_feeling: taskFeeling || undefined,
+        feeling_description: feelingDescription.trim() || undefined,
       });
       resetForm();
       setShowModal(false);
@@ -1014,6 +1289,146 @@ export default function TaskListScreen() {
           }
         />
       )}
+
+      {/* Feeling Popup Modal */}
+      <Modal
+        visible={showFeelingModal}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setShowFeelingModal(false)}
+      >
+        <KeyboardAvoidingView
+          style={feelingStyles.overlay}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          <ScrollView
+            contentContainerStyle={feelingStyles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={feelingStyles.container}>
+              <View style={feelingStyles.header}>
+                <Text style={feelingStyles.title}>
+                  How Do You Feel About It?
+                </Text>
+                <Text style={feelingStyles.subtitle}>
+                  "{pendingParsedData?.title}"
+                </Text>
+              </View>
+
+              {/* Feeling Options */}
+              <View style={feelingStyles.optionsGrid}>
+                {FEELING_OPTIONS.map((option) => (
+                  <TouchableOpacity
+                    key={option.label}
+                    style={[
+                      feelingStyles.optionButton,
+                      taskFeeling === option.label && {
+                        backgroundColor: option.color + "20",
+                        borderColor: option.color,
+                      },
+                    ]}
+                    onPress={() => setTaskFeeling(option.label)}
+                    disabled={feelingLoading}
+                  >
+                    <Text style={feelingStyles.optionEmoji}>
+                      {option.emoji}
+                    </Text>
+                    <Text
+                      style={[
+                        feelingStyles.optionLabel,
+                        taskFeeling === option.label && { color: option.color },
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* AI-Determined Values Preview */}
+              {taskFeeling && (
+                <View style={feelingStyles.aiPreview}>
+                  <Text style={feelingStyles.aiPreviewTitle}>
+                    🤖 AI will set based on your feeling:
+                  </Text>
+                  <View style={feelingStyles.aiPreviewRow}>
+                    <Text style={feelingStyles.aiPreviewLabel}>
+                      Motivation:
+                    </Text>
+                    <Text style={feelingStyles.aiPreviewValue}>
+                      {
+                        MOTIVATION_POINTS[
+                          FEELING_OPTIONS.find((o) => o.label === taskFeeling)
+                            ?.motivation || 2
+                        ].title
+                      }
+                    </Text>
+                  </View>
+                  <View style={feelingStyles.aiPreviewRow}>
+                    <Text style={feelingStyles.aiPreviewLabel}>
+                      Difficulty:
+                    </Text>
+                    <Text style={feelingStyles.aiPreviewValue}>
+                      {
+                        DIFFICULTY_POINTS[
+                          FEELING_OPTIONS.find((o) => o.label === taskFeeling)
+                            ?.difficulty || 2
+                        ].title
+                      }
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {/* Description Input */}
+              <View style={feelingStyles.descriptionContainer}>
+                <Text style={feelingStyles.descriptionLabel}>
+                  Tell us more (optional)
+                </Text>
+                <TextInput
+                  style={feelingStyles.descriptionInput}
+                  placeholder="Why do you feel this way about the task?"
+                  placeholderTextColor={COLORS.textMuted}
+                  value={feelingDescription}
+                  onChangeText={setFeelingDescription}
+                  multiline
+                  numberOfLines={3}
+                  editable={!feelingLoading}
+                />
+              </View>
+
+              {/* Action Buttons */}
+              <View style={feelingStyles.actions}>
+                <TouchableOpacity
+                  style={feelingStyles.skipButton}
+                  onPress={handleSkipFeeling}
+                  disabled={feelingLoading}
+                >
+                  <Text style={feelingStyles.skipButtonText}>Set Manually</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    feelingStyles.continueButton,
+                    (!taskFeeling || feelingLoading) &&
+                      feelingStyles.continueButtonDisabled,
+                  ]}
+                  onPress={handleFeelingSubmit}
+                  disabled={!taskFeeling || feelingLoading}
+                >
+                  {feelingLoading ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <Text style={feelingStyles.continueButtonText}>
+                      ✨ Add Task
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Modal>
 
       {/* Create Task Modal */}
       <Modal
