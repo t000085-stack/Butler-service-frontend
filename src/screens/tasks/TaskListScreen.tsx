@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,13 +13,74 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
+import { Feather } from '@expo/vector-icons';
 import { useTasks } from '../../contexts/TaskContext';
 import { COLORS, EMOTIONAL_FRICTION } from '../../constants/config';
+import MagicTaskInput, { ParsedTaskData } from '../../components/MagicTaskInput';
 import type { Task, EmotionalFriction } from '../../types';
+
+// Calendar day type
+interface CalendarDay {
+  date: Date;
+  dayName: string;
+  dayNumber: number;
+  isToday: boolean;
+  isSelected: boolean;
+}
+
+// Generate calendar days (7 days starting from today)
+const generateCalendarDays = (selectedDate: Date): CalendarDay[] => {
+  const days: CalendarDay[] = [];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Start from 3 days ago to show context
+  for (let i = -3; i <= 10; i++) {
+    const date = new Date(today);
+    date.setDate(today.getDate() + i);
+    date.setHours(0, 0, 0, 0);
+
+    const selectedDateNormalized = new Date(selectedDate);
+    selectedDateNormalized.setHours(0, 0, 0, 0);
+
+    days.push({
+      date,
+      dayName: date.toLocaleDateString('en-US', { weekday: 'short' }),
+      dayNumber: date.getDate(),
+      isToday: date.getTime() === today.getTime(),
+      isSelected: date.getTime() === selectedDateNormalized.getTime(),
+    });
+  }
+  return days;
+};
+
+// Check if task is on selected date
+const isTaskOnDate = (task: Task, date: Date): boolean => {
+  if (!task.due_date) {
+    // Tasks without due_date show on "today" only
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const normalizedDate = new Date(date);
+    normalizedDate.setHours(0, 0, 0, 0);
+    return today.getTime() === normalizedDate.getTime();
+  }
+  
+  const taskDate = new Date(task.due_date);
+  taskDate.setHours(0, 0, 0, 0);
+  const normalizedDate = new Date(date);
+  normalizedDate.setHours(0, 0, 0, 0);
+  return taskDate.getTime() === normalizedDate.getTime();
+};
+
+// Check if a date has any tasks
+const dateHasTasks = (tasks: Task[], date: Date): boolean => {
+  return tasks.some(task => isTaskOnDate(task, date) && !task.is_completed);
+};
 
 const frictionColors: Record<string, string> = {
   Low: COLORS.success,
@@ -31,14 +92,25 @@ export default function TaskListScreen() {
   const { tasks, isLoading, error, fetchTasks, completeTask, deleteTask, createTask } = useTasks();
   const [refreshing, setRefreshing] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
   
   // Form state
   const [title, setTitle] = useState('');
   const [energyCost, setEnergyCost] = useState('5');
   const [friction, setFriction] = useState<EmotionalFriction>('Medium');
   const [associatedValue, setAssociatedValue] = useState('');
+  const [dueDate, setDueDate] = useState<Date | null>(null);
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [isAIParsed, setIsAIParsed] = useState(false);
+
+  // Calendar days
+  const calendarDays = useMemo(() => generateCalendarDays(selectedDate), [selectedDate]);
+  
+  // Filtered tasks for selected date
+  const filteredTasks = useMemo(() => {
+    return tasks.filter(task => isTaskOnDate(task, selectedDate));
+  }, [tasks, selectedDate]);
 
   useEffect(() => {
     fetchTasks();
@@ -49,7 +121,30 @@ export default function TaskListScreen() {
     setEnergyCost('5');
     setFriction('Medium');
     setAssociatedValue('');
+    setDueDate(null);
     setFormError(null);
+    setIsAIParsed(false);
+  };
+
+  // Handle AI-parsed task data from MagicTaskInput
+  const handleMagicTaskParsed = (data: ParsedTaskData) => {
+    setTitle(data.title);
+    setEnergyCost(data.energy_cost.toString());
+    setFriction(data.emotional_friction);
+    setAssociatedValue('');
+    // Use the AI-parsed due_date if provided
+    if (data.due_date) {
+      setDueDate(new Date(data.due_date));
+    } else {
+      setDueDate(null);
+    }
+    setFormError(null);
+    setIsAIParsed(true);
+    setShowModal(true);
+  };
+
+  const handleMagicError = (error: string) => {
+    Alert.alert('Magic Input Error', error);
   };
 
   const handleCreateTask = async () => {
@@ -73,6 +168,7 @@ export default function TaskListScreen() {
         energy_cost: energy,
         emotional_friction: friction,
         associated_value: associatedValue.trim() || undefined,
+        due_date: dueDate ? dueDate.toISOString() : undefined,
       });
       resetForm();
       setShowModal(false);
@@ -183,16 +279,77 @@ export default function TaskListScreen() {
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>Your Tasks</Text>
-          <Text style={styles.subtitle}>{tasks.filter(t => !t.is_completed).length} pending</Text>
+          <Text style={styles.subtitle}>
+            {filteredTasks.filter(t => !t.is_completed).length} tasks for{' '}
+            {selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+          </Text>
         </View>
         <TouchableOpacity
           style={styles.addButton}
-          onPress={() => setShowModal(true)}
+          onPress={() => {
+            setDueDate(selectedDate);
+            setShowModal(true);
+          }}
           activeOpacity={0.7}
         >
-          <Text style={styles.addButtonText}>+ New</Text>
+          <Text style={styles.addButtonText}>+ Add</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Calendar Strip */}
+      <View style={styles.calendarContainer}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.calendarContent}
+        >
+          {calendarDays.map((day, index) => (
+            <TouchableOpacity
+              key={index}
+              style={[
+                styles.calendarDay,
+                day.isSelected && styles.calendarDaySelected,
+                day.isToday && !day.isSelected && styles.calendarDayToday,
+              ]}
+              onPress={() => setSelectedDate(day.date)}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={[
+                  styles.calendarDayName,
+                  day.isSelected && styles.calendarDayNameSelected,
+                ]}
+              >
+                {day.dayName}
+              </Text>
+              <Text
+                style={[
+                  styles.calendarDayNumber,
+                  day.isSelected && styles.calendarDayNumberSelected,
+                  day.isToday && !day.isSelected && styles.calendarDayNumberToday,
+                ]}
+              >
+                {day.dayNumber}
+              </Text>
+              {dateHasTasks(tasks, day.date) && (
+                <View
+                  style={[
+                    styles.calendarDot,
+                    day.isSelected && styles.calendarDotSelected,
+                  ]}
+                />
+              )}
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* Magic Task Input - AI-powered voice/text task creation */}
+      <MagicTaskInput
+        onTaskParsed={handleMagicTaskParsed}
+        onError={handleMagicError}
+        placeholder="Describe your task... e.g., 'Call mom tomorrow, it's emotionally hard'"
+      />
 
       {error ? (
         <View style={styles.centered}>
@@ -200,7 +357,7 @@ export default function TaskListScreen() {
         </View>
       ) : (
         <FlatList
-          data={tasks}
+          data={filteredTasks}
           keyExtractor={(item) => item._id}
           renderItem={renderItem}
           contentContainerStyle={styles.list}
@@ -213,9 +370,11 @@ export default function TaskListScreen() {
           }
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Text style={styles.emptyText}>No tasks yet!</Text>
+              <Feather name="calendar" size={40} color={COLORS.textMuted} />
+              <Text style={styles.emptyText}>No tasks for this day</Text>
               <Text style={styles.emptySubtext}>
-                Tap "+ New" to create your first task.
+                Tap "+ Add" to create a task for{' '}
+                {selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
               </Text>
             </View>
           }
@@ -235,7 +394,14 @@ export default function TaskListScreen() {
         >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>New Task</Text>
+              <View>
+                <Text style={styles.modalTitle}>
+                  {isAIParsed ? '✨ AI Parsed Task' : 'New Task'}
+                </Text>
+                {isAIParsed && (
+                  <Text style={styles.modalSubtitle}>Review and adjust if needed</Text>
+                )}
+              </View>
               <TouchableOpacity onPress={() => { setShowModal(false); resetForm(); }}>
                 <Text style={styles.modalClose}>✕</Text>
               </TouchableOpacity>
@@ -299,6 +465,49 @@ export default function TaskListScreen() {
                   onChangeText={setAssociatedValue}
                 />
               </View>
+
+              <Text style={styles.label}>Due Date</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.dueDateScroll}
+              >
+                <TouchableOpacity
+                  style={[
+                    styles.dueDateButton,
+                    !dueDate && styles.dueDateButtonActive,
+                  ]}
+                  onPress={() => setDueDate(null)}
+                >
+                  <Text
+                    style={[
+                      styles.dueDateButtonText,
+                      !dueDate && styles.dueDateButtonTextActive,
+                    ]}
+                  >
+                    No date
+                  </Text>
+                </TouchableOpacity>
+                {generateCalendarDays(selectedDate).slice(3, 10).map((day, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      styles.dueDateButton,
+                      dueDate && dueDate.toDateString() === day.date.toDateString() && styles.dueDateButtonActive,
+                    ]}
+                    onPress={() => setDueDate(day.date)}
+                  >
+                    <Text
+                      style={[
+                        styles.dueDateButtonText,
+                        dueDate && dueDate.toDateString() === day.date.toDateString() && styles.dueDateButtonTextActive,
+                      ]}
+                    >
+                      {day.isToday ? 'Today' : day.dayName} {day.dayNumber}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
 
               {formError && <Text style={styles.formErrorText}>{formError}</Text>}
 
@@ -370,6 +579,59 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontSize: 15,
     fontWeight: '500',
+  },
+  // Calendar styles
+  calendarContainer: {
+    marginBottom: 12,
+  },
+  calendarContent: {
+    paddingHorizontal: 24,
+    gap: 8,
+  },
+  calendarDay: {
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    backgroundColor: COLORS.backgroundSecondary,
+    minWidth: 52,
+  },
+  calendarDaySelected: {
+    backgroundColor: COLORS.primary,
+  },
+  calendarDayToday: {
+    borderWidth: 2,
+    borderColor: COLORS.primary,
+  },
+  calendarDayName: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  calendarDayNameSelected: {
+    color: '#fff',
+  },
+  calendarDayNumber: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  calendarDayNumberSelected: {
+    color: '#fff',
+  },
+  calendarDayNumberToday: {
+    color: COLORS.primary,
+  },
+  calendarDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: COLORS.primary,
+    marginTop: 4,
+  },
+  calendarDotSelected: {
+    backgroundColor: '#fff',
   },
   list: {
     paddingHorizontal: 40,
@@ -492,6 +754,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.text,
   },
+  modalSubtitle: {
+    fontSize: 13,
+    color: COLORS.primary,
+    marginTop: 2,
+  },
   modalClose: {
     fontSize: 20,
     color: COLORS.textMuted,
@@ -540,6 +807,30 @@ const styles = StyleSheet.create({
   },
   frictionButtonTextActive: {
     color: COLORS.background,
+  },
+  dueDateScroll: {
+    marginBottom: 8,
+  },
+  dueDateButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: COLORS.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginRight: 10,
+  },
+  dueDateButtonActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  dueDateButtonText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: COLORS.textSecondary,
+  },
+  dueDateButtonTextActive: {
+    color: '#fff',
   },
   formErrorText: {
     color: COLORS.error,

@@ -13,7 +13,7 @@ import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import Button from "../../components/common/Button";
 import { COLORS } from "../../constants/config";
 import type { MoodStackParamList } from "../../navigation/MoodStack";
@@ -32,12 +32,18 @@ interface MoodCalendarDay {
   mood: ContextLog | null;
 }
 
-const MOOD_EMOJIS: Record<string, string> = {
-  happy: "😊",
-  calm: "😌",
-  neutral: "😐",
-  stressed: "😰",
-  sad: "😔",
+interface MoodInfo {
+  iconName: keyof typeof MaterialIcons.glyphMap;
+  color: string;
+}
+
+const MOOD_INFO: Record<string, MoodInfo> = {
+  happy: { iconName: "sentiment-satisfied", color: "#FFD93D" },
+  calm: { iconName: "self-improvement", color: "#6BCB77" },
+  neutral: { iconName: "sentiment-neutral", color: "#95A5A6" },
+  stressed: { iconName: "sentiment-dissatisfied", color: "#FF6B9D" },
+  sad: { iconName: "sentiment-very-dissatisfied", color: "#4D96FF" },
+  anger: { iconName: "mood-bad", color: "#FF4444" },
 };
 
 export default function MoodScreen() {
@@ -131,9 +137,9 @@ export default function MoodScreen() {
     );
   };
 
-  const getMoodEmoji = (mood: string): string => {
+  const getMoodInfo = (mood: string): MoodInfo => {
     const moodLower = mood.toLowerCase();
-    return MOOD_EMOJIS[moodLower] || "😐";
+    return MOOD_INFO[moodLower] || MOOD_INFO.neutral;
   };
 
   const formatDate = (date: Date): string => {
@@ -189,10 +195,10 @@ export default function MoodScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
-      
+
       {/* Subtle background gradient */}
       <LinearGradient
-        colors={['#ffffff', '#faf5ff', '#fdf4ff', '#ffffff']}
+        colors={["#ffffff", "#faf5ff", "#fdf4ff", "#ffffff"]}
         style={styles.backgroundGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -234,15 +240,23 @@ export default function MoodScreen() {
                   <View
                     style={[
                       styles.dayCircle,
-                      day.mood && styles.dayCircleFilled,
+                      day.mood && {
+                        backgroundColor:
+                          getMoodInfo(day.mood.mood).color + "20",
+                        borderColor: getMoodInfo(day.mood.mood).color,
+                      },
                       index === 6 && styles.todayCircle,
                     ]}
                   >
                     <Text style={styles.dayNumber}>{day.dayNumber}</Text>
                     {day.mood && (
-                      <Text style={styles.moodEmoji}>
-                        {getMoodEmoji(day.mood.mood)}
-                      </Text>
+                      <View style={styles.moodIconContainer}>
+                        <MaterialIcons
+                          name={getMoodInfo(day.mood.mood).iconName}
+                          size={20}
+                          color={getMoodInfo(day.mood.mood).color}
+                        />
+                      </View>
                     )}
                   </View>
                   {day.mood && (
@@ -263,9 +277,23 @@ export default function MoodScreen() {
                 <View key={entry._id} style={styles.entryCard}>
                   <View style={styles.entryHeader}>
                     <View style={styles.entryInfo}>
-                      <Text style={styles.entryMood}>
-                        {getMoodEmoji(entry.mood)} {entry.mood}
-                      </Text>
+                      <View style={styles.entryMoodRow}>
+                        <MaterialIcons
+                          name={getMoodInfo(entry.mood).iconName}
+                          size={24}
+                          color={getMoodInfo(entry.mood).color}
+                          style={styles.entryMoodIcon}
+                        />
+                        <Text
+                          style={[
+                            styles.entryMood,
+                            { color: getMoodInfo(entry.mood).color },
+                          ]}
+                        >
+                          {entry.mood.charAt(0).toUpperCase() +
+                            entry.mood.slice(1)}
+                        </Text>
+                      </View>
                       <Text style={styles.entryEnergy}>
                         Energy: {entry.current_energy}/10
                       </Text>
@@ -275,27 +303,26 @@ export default function MoodScreen() {
                     </View>
                     <View style={styles.entryActions}>
                       <TouchableOpacity
-                        style={styles.actionButton}
                         onPress={() => handleEditMood(entry)}
                         activeOpacity={0.7}
                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                       >
                         <Ionicons
                           name="create-outline"
-                          size={24}
-                          color={COLORS.primary}
+                          size={18}
+                          color={COLORS.textMuted}
                         />
                       </TouchableOpacity>
                       <TouchableOpacity
-                        style={[styles.actionButton, styles.deleteButton]}
                         onPress={() => handleDeleteMood(entry)}
                         activeOpacity={0.7}
                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        style={styles.deleteButton}
                       >
                         <Ionicons
                           name="trash-outline"
-                          size={24}
-                          color={COLORS.error}
+                          size={18}
+                          color={COLORS.textMuted}
                         />
                       </TouchableOpacity>
                     </View>
@@ -324,7 +351,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   backgroundGradient: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
@@ -399,23 +426,22 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     position: "relative",
   },
-  dayCircleFilled: {
-    backgroundColor: COLORS.primary + "15",
-    borderColor: COLORS.primary,
-  },
   todayCircle: {
     borderWidth: 3,
-    borderColor: COLORS.primary,
   },
   dayNumber: {
     fontSize: 14,
     fontWeight: "600",
     color: COLORS.text,
   },
-  moodEmoji: {
+  moodIconContainer: {
     position: "absolute",
-    bottom: -8,
-    fontSize: 20,
+    bottom: -10,
+    backgroundColor: COLORS.background,
+    borderRadius: 12,
+    padding: 2,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   energyText: {
     fontSize: 10,
@@ -448,11 +474,17 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 16,
   },
+  entryMoodRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  entryMoodIcon: {
+    marginRight: 8,
+  },
   entryMood: {
     fontSize: 16,
     fontWeight: "600",
-    color: COLORS.text,
-    marginBottom: 4,
   },
   entryEnergy: {
     fontSize: 14,
@@ -469,27 +501,10 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     flexShrink: 0,
     paddingLeft: 8,
-  },
-  actionButton: {
-    borderRadius: 10,
-    backgroundColor: "#FFFFFF",
-    marginLeft: 8,
-    borderWidth: 2,
-    borderColor: COLORS.primary,
-    width: 50,
-    height: 50,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
+    gap: 16,
   },
   deleteButton: {
-    backgroundColor: "#FEE2E2",
-    borderColor: COLORS.error,
-    shadowColor: COLORS.error,
+    marginLeft: 0,
   },
   emptyState: {
     padding: 40,

@@ -61,6 +61,11 @@ export interface ConsultInput {
 export interface ConsultResponse {
   recommendation: string;
   context_log_id: string;
+  // Structured AI response fields
+  empathy_statement?: string;
+  chosen_task_id?: string | null;
+  reasoning?: string;
+  micro_step?: string;
 }
 
 export interface ContextLog {
@@ -76,6 +81,35 @@ export interface ButlerProfileInput {
   core_values?: string[];
   baseline_energy?: number;
   personal_value?: string;
+}
+
+// Magic Parse types
+export interface MagicParseResponse {
+  title: string;
+  energy_cost: number;
+  emotional_friction: EmotionalFriction;
+  due_date?: string;
+}
+
+// Chat types
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+}
+
+export interface ChatResponse {
+  response: string;
+}
+
+// Enhanced Consult Response with empathy and micro-step
+export interface EnhancedConsultResponse {
+  recommendation: string;
+  context_log_id: string;
+  empathy_statement?: string;
+  micro_step?: string;
+  suggested_task?: Task;
 }
 
 // API Error
