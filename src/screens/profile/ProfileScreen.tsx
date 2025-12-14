@@ -16,6 +16,20 @@ import { useAuth } from "../../contexts/AuthContext";
 import { COLORS } from "../../constants/config";
 import * as butlerApi from "../../api/butler";
 
+const CORE_VALUE_TAGS = [
+  "Health",
+  "Family",
+  "Relationships",
+  "Work",
+  "Integrity",
+  "Peace",
+  "Growth",
+  "Stability",
+  "Purpose",
+  "Freedom",
+  "Joy",
+];
+
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
   const [baselineEnergy, setBaselineEnergy] = useState(
@@ -24,14 +38,18 @@ export default function ProfileScreen() {
   const [personalValue, setPersonalValue] = useState(
     user?.personal_value || ""
   );
+  const [selectedCoreValues, setSelectedCoreValues] = useState<string[]>(
+    user?.core_values || []
+  );
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
     setPersonalValue(user?.personal_value || "");
     setBaselineEnergy(user?.baseline_energy || 5);
+    setSelectedCoreValues(user?.core_values || []);
     setHasChanges(false);
-  }, [user?.personal_value, user?.baseline_energy]);
+  }, [user?.personal_value, user?.baseline_energy, user?.core_values]);
 
   const handleSignOut = () => {
     Alert.alert("Sign Out", "Are you sure you want to sign out?", [
@@ -47,18 +65,33 @@ export default function ProfileScreen() {
   const adjustEnergy = (delta: number) => {
     const newValue = Math.max(1, Math.min(10, baselineEnergy + delta));
     setBaselineEnergy(newValue);
-    checkForChanges(newValue, personalValue);
+    checkForChanges(newValue, personalValue, selectedCoreValues);
   };
 
   const handlePersonalValueChange = (value: string) => {
     setPersonalValue(value);
-    checkForChanges(baselineEnergy, value);
+    checkForChanges(baselineEnergy, value, selectedCoreValues);
   };
 
-  const checkForChanges = (energy: number, value: string) => {
+  const checkForChanges = (
+    energy: number,
+    value: string,
+    coreValues: string[]
+  ) => {
     const energyChanged = energy !== (user?.baseline_energy || 5);
     const valueChanged = value !== (user?.personal_value || "");
-    setHasChanges(energyChanged || valueChanged);
+    const coreValuesChanged =
+      JSON.stringify(coreValues.sort()) !==
+      JSON.stringify((user?.core_values || []).sort());
+    setHasChanges(energyChanged || valueChanged || coreValuesChanged);
+  };
+
+  const toggleCoreValue = (value: string) => {
+    const newValues = selectedCoreValues.includes(value)
+      ? selectedCoreValues.filter((v) => v !== value)
+      : [...selectedCoreValues, value];
+    setSelectedCoreValues(newValues);
+    checkForChanges(baselineEnergy, personalValue, newValues);
   };
 
   const handleSaveProfile = async () => {
@@ -67,6 +100,7 @@ export default function ProfileScreen() {
       await butlerApi.updateButlerProfile({
         baseline_energy: baselineEnergy,
         personal_value: personalValue,
+        core_values: selectedCoreValues,
       });
       setHasChanges(false);
       Alert.alert("Success", "Profile updated successfully");
@@ -157,18 +191,39 @@ export default function ProfileScreen() {
           </View>
         )}
 
-        {user?.core_values && user.core_values.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Core Values</Text>
-            <View style={styles.valuesRow}>
-              {user.core_values.map((value, index) => (
-                <View key={index} style={styles.valueBadge}>
-                  <Text style={styles.valueBadgeText}>{value}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Core Values</Text>
+          <Text style={styles.sectionSubtitle}>
+            Select the values that matter most to you
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.tagsContainer}
+            style={styles.tagsScrollView}
+          >
+            {CORE_VALUE_TAGS.map((tag) => {
+              const isSelected = selectedCoreValues.includes(tag);
+              return (
+                <TouchableOpacity
+                  key={tag}
+                  style={[styles.tag, isSelected && styles.tagSelected]}
+                  onPress={() => toggleCoreValue(tag)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.tagText,
+                      isSelected && styles.tagTextSelected,
+                    ]}
+                  >
+                    {tag}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Settings</Text>
@@ -221,7 +276,7 @@ export default function ProfileScreen() {
             activeOpacity={0.7}
           >
             {isSaving ? (
-              <ActivityIndicator color={COLORS.background} size="small" />
+              <ActivityIndicator color={COLORS.text} size="small" />
             ) : (
               <Text style={styles.saveButtonText}>Save Changes</Text>
             )}
@@ -355,6 +410,43 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.primary,
     fontWeight: "500",
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    marginBottom: 16,
+    marginTop: -8,
+  },
+  tagsScrollView: {
+    marginHorizontal: -40,
+    paddingHorizontal: 40,
+  },
+  tagsContainer: {
+    flexDirection: "row",
+    paddingRight: 40,
+    gap: 10,
+  },
+  tag: {
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 24,
+    backgroundColor: COLORS.backgroundSecondary,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+  },
+  tagSelected: {
+    backgroundColor: COLORS.primary + "15",
+    borderColor: COLORS.primary,
+    borderWidth: 2,
+  },
+  tagText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: COLORS.text,
+  },
+  tagTextSelected: {
+    color: COLORS.primary,
+    fontWeight: "600",
   },
   preferenceBadge: {
     backgroundColor: COLORS.primaryLight + "30",
