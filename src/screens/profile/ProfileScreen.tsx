@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -7,7 +7,9 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
-  TextInput,
+  PanResponder,
+  Dimensions,
+  Animated,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -16,22 +18,173 @@ import { useAuth } from "../../contexts/AuthContext";
 import { COLORS } from "../../constants/config";
 import * as butlerApi from "../../api/butler";
 
+const CORE_VALUE_TAGS = [
+  "Health",
+  "Family",
+  "Relationships",
+  "Work",
+  "Integrity",
+  "Peace",
+  "Growth",
+  "Stability",
+  "Purpose",
+  "Freedom",
+  "Joy",
+];
+
+const ENERGY_LEVELS = [
+  { level: 1, description: "Completely drained, need rest" },
+  { level: 2, description: "Very low energy, minimal activity" },
+  { level: 3, description: "Low energy, prefer easy tasks" },
+  { level: 4, description: "Below average, take it slow" },
+  { level: 5, description: "Moderate energy, balanced day" },
+  { level: 6, description: "Good energy, ready for action" },
+  { level: 7, description: "High energy, feeling productive" },
+  { level: 8, description: "Very energetic, can tackle anything" },
+  { level: 9, description: "Extremely energetic, peak performance" },
+  { level: 10, description: "Maximum energy, unstoppable" },
+];
+
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
   const [baselineEnergy, setBaselineEnergy] = useState(
     user?.baseline_energy || 5
   );
-  const [personalValue, setPersonalValue] = useState(
-    user?.personal_value || ""
+  const [selectedCoreValues, setSelectedCoreValues] = useState<string[]>(
+    user?.core_values || []
   );
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
+  // Slider state
+  const [sliderWidth, setSliderWidth] = useState(0);
+  const thumbPosition = useRef(new Animated.Value(0)).current;
+  const isDragging = useRef(false);
+  const sliderWidthRef = useRef(0);
+  const sliderTrackRef = useRef<View>(null);
+  const sliderPageXRef = useRef(0); // Absolute X position of track on screen
+  const selectedCoreValuesRef = useRef(selectedCoreValues);
+
+  // Keep refs in sync
   useEffect(() => {
-    setPersonalValue(user?.personal_value || "");
-    setBaselineEnergy(user?.baseline_energy || 5);
-    setHasChanges(false);
-  }, [user?.personal_value, user?.baseline_energy]);
+    sliderWidthRef.current = sliderWidth;
+  }, [sliderWidth]);
+
+  useEffect(() => {
+    selectedCoreValuesRef.current = selectedCoreValues;
+  }, [selectedCoreValues]);
+
+  // Initialize from user data
+  useEffect(() => {
+    if (user) {
+      const userEnergy = user.baseline_energy || 5;
+      setBaselineEnergy(userEnergy);
+      setSelectedCoreValues(user.core_values || []);
+    }
+  }, [user?.baseline_energy, user?.core_values]);
+
+  // Update thumb position when energy changes (but not while dragging)
+  useEffect(() => {
+    if (!isDragging.current && sliderWidth > 0) {
+      const position = ((baselineEnergy - 1) / 9) * sliderWidth;
+      Animated.timing(thumbPosition, {
+        toValue: position,
+        duration: 200,
+        useNativeDriver: false,
+      }).start();
+    }
+  }, [baselineEnergy, sliderWidth]);
+
+  const checkForChanges = (energy: number, coreValues: string[]) => {
+    const energyChanged = energy !== (user?.baseline_energy || 5);
+    const coreValuesChanged =
+      JSON.stringify(coreValues.sort()) !==
+      JSON.stringify((user?.core_values || []).sort());
+    setHasChanges(energyChanged || coreValuesChanged);
+  };
+
+  // Calculate energy level from X position
+  const getEnergyFromX = (x: number, width: number): number => {
+    if (width === 0) return baselineEnergy;
+    const clampedX = Math.max(0, Math.min(width, x));
+    const ratio = clampedX / width;
+    const level = Math.round(ratio * 9) + 1;
+    return Math.max(1, Math.min(10, level));
+  };
+
+  // Pan responder for dragging - uses true touch position (pageX)
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: (evt) => {
+        isDragging.current = true;
+        // Update track position before calculating
+        if (sliderTrackRef.current) {
+          sliderTrackRef.current.measureInWindow((x, y, width, height) => {
+            sliderPageXRef.current = x;
+            const { pageX } = evt.nativeEvent;
+            const currentWidth = sliderWidthRef.current;
+            if (currentWidth > 0) {
+              const relativeX = pageX - x;
+              const clampedX = Math.max(0, Math.min(currentWidth, relativeX));
+              const newEnergy = getEnergyFromX(clampedX, currentWidth);
+              setBaselineEnergy(newEnergy);
+              checkForChanges(newEnergy, selectedCoreValuesRef.current);
+              thumbPosition.setValue(clampedX);
+            }
+          });
+        }
+      },
+      onPanResponderMove: (evt) => {
+        const { pageX } = evt.nativeEvent;
+        const currentWidth = sliderWidthRef.current;
+        const trackX = sliderPageXRef.current;
+        if (currentWidth > 0) {
+          // Calculate position relative to track using stored pageX
+          const relativeX = pageX - trackX;
+          const clampedX = Math.max(0, Math.min(currentWidth, relativeX));
+          const newEnergy = getEnergyFromX(clampedX, currentWidth);
+          setBaselineEnergy(newEnergy);
+          checkForChanges(newEnergy, selectedCoreValuesRef.current);
+          thumbPosition.setValue(clampedX);
+        }
+      },
+      onPanResponderRelease: () => {
+        isDragging.current = false;
+        const currentWidth = sliderWidthRef.current;
+        setBaselineEnergy((current) => {
+          if (currentWidth > 0) {
+            const exactPosition = ((current - 1) / 9) * currentWidth;
+            Animated.timing(thumbPosition, {
+              toValue: exactPosition,
+              duration: 150,
+              useNativeDriver: false,
+            }).start();
+          }
+          return current;
+        });
+      },
+    })
+  ).current;
+
+  // Handle track layout to get actual width and store position
+  const handleTrackLayout = (event: any) => {
+    const { width } = event.nativeEvent.layout;
+    if (width > 0 && width !== sliderWidth) {
+      setSliderWidth(width);
+      sliderWidthRef.current = width;
+      // Set initial position based on current energy
+      const position = ((baselineEnergy - 1) / 9) * width;
+      thumbPosition.setValue(position);
+    }
+    // Store track's absolute position
+    if (sliderTrackRef.current) {
+      sliderTrackRef.current.measureInWindow((x, y, w, h) => {
+        sliderPageXRef.current = x;
+      });
+    }
+  };
 
   const handleSignOut = () => {
     Alert.alert("Sign Out", "Are you sure you want to sign out?", [
@@ -47,18 +200,15 @@ export default function ProfileScreen() {
   const adjustEnergy = (delta: number) => {
     const newValue = Math.max(1, Math.min(10, baselineEnergy + delta));
     setBaselineEnergy(newValue);
-    checkForChanges(newValue, personalValue);
+    checkForChanges(newValue, selectedCoreValues);
   };
 
-  const handlePersonalValueChange = (value: string) => {
-    setPersonalValue(value);
-    checkForChanges(baselineEnergy, value);
-  };
-
-  const checkForChanges = (energy: number, value: string) => {
-    const energyChanged = energy !== (user?.baseline_energy || 5);
-    const valueChanged = value !== (user?.personal_value || "");
-    setHasChanges(energyChanged || valueChanged);
+  const toggleCoreValue = (value: string) => {
+    const newValues = selectedCoreValues.includes(value)
+      ? selectedCoreValues.filter((v) => v !== value)
+      : [...selectedCoreValues, value];
+    setSelectedCoreValues(newValues);
+    checkForChanges(baselineEnergy, newValues);
   };
 
   const handleSaveProfile = async () => {
@@ -66,7 +216,7 @@ export default function ProfileScreen() {
     try {
       await butlerApi.updateButlerProfile({
         baseline_energy: baselineEnergy,
-        personal_value: personalValue,
+        core_values: selectedCoreValues,
       });
       setHasChanges(false);
       Alert.alert("Success", "Profile updated successfully");
@@ -109,8 +259,6 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Personal Information</Text>
-
           {user?.health && (
             <View style={styles.infoItem}>
               <Text style={styles.infoLabel}>Health</Text>
@@ -131,17 +279,6 @@ export default function ProfileScreen() {
               <Text style={styles.infoValue}>{user.relationship}</Text>
             </View>
           )}
-
-          <View style={styles.infoItem}>
-            <Text style={styles.infoLabel}>Personal Values</Text>
-            <TextInput
-              style={styles.textInput}
-              value={personalValue}
-              onChangeText={handlePersonalValueChange}
-              placeholder="Enter your personal values"
-              placeholderTextColor={COLORS.textMuted}
-            />
-          </View>
         </View>
 
         {user?.preferences && user.preferences.length > 0 && (
@@ -157,59 +294,135 @@ export default function ProfileScreen() {
           </View>
         )}
 
-        {user?.core_values && user.core_values.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Core Values</Text>
-            <View style={styles.valuesRow}>
-              {user.core_values.map((value, index) => (
-                <View key={index} style={styles.valueBadge}>
-                  <Text style={styles.valueBadgeText}>{value}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Core Values</Text>
+          <Text style={styles.sectionSubtitle}>
+            Select the values that matter most to you
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.tagsContainer}
+            style={styles.tagsScrollView}
+          >
+            {CORE_VALUE_TAGS.map((tag) => {
+              const isSelected = selectedCoreValues.includes(tag);
+              return (
+                <TouchableOpacity
+                  key={tag}
+                  style={[styles.tag, isSelected && styles.tagSelected]}
+                  onPress={() => toggleCoreValue(tag)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.tagText,
+                      isSelected && styles.tagTextSelected,
+                    ]}
+                  >
+                    {tag}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Settings</Text>
 
           <View style={styles.settingItem}>
-            <Text style={styles.settingLabel}>Baseline Energy</Text>
-            <View style={styles.energyControl}>
-              <TouchableOpacity
-                style={styles.energyButton}
-                onPress={() => adjustEnergy(-1)}
-                disabled={baselineEnergy <= 1}
-              >
-                <Text
-                  style={[
-                    styles.energyButtonText,
-                    baselineEnergy <= 1 && styles.energyButtonDisabled,
-                  ]}
-                >
-                  −
-                </Text>
-              </TouchableOpacity>
+            <View style={styles.energyHeader}>
+              <Text style={styles.settingLabel}>Daily Energy Level</Text>
+              <Text style={styles.energySubLabel}>
+                How energetic do you usually feel?
+              </Text>
+            </View>
+            <View style={styles.energyDisplay}>
               <Text style={styles.energyValue}>{baselineEnergy}</Text>
-              <TouchableOpacity
-                style={styles.energyButton}
-                onPress={() => adjustEnergy(1)}
-                disabled={baselineEnergy >= 10}
+              <Text style={styles.energyMax}>/ 10</Text>
+            </View>
+
+            {/* Slider Track */}
+            <View style={styles.sliderContainer}>
+              <View
+                ref={sliderTrackRef}
+                style={styles.sliderTrack}
+                onLayout={handleTrackLayout}
+                {...panResponder.panHandlers}
               >
-                <Text
+                {/* Track Background */}
+                <View style={styles.sliderTrackBackground}>
+                  <Animated.View
+                    style={[
+                      styles.sliderTrackFill,
+                      {
+                        width: thumbPosition.interpolate({
+                          inputRange: [0, Math.max(sliderWidth, 1)],
+                          outputRange: [0, Math.max(sliderWidth, 1)],
+                          extrapolate: "clamp",
+                        }),
+                      },
+                    ]}
+                  />
+                </View>
+
+                {/* Level Markers */}
+                {ENERGY_LEVELS.map((item) => (
+                  <View
+                    key={item.level}
+                    style={[
+                      styles.sliderMarker,
+                      {
+                        left: `${((item.level - 1) / 9) * 100}%`,
+                      },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.sliderDot,
+                        baselineEnergy >= item.level && styles.sliderDotActive,
+                      ]}
+                    />
+                  </View>
+                ))}
+
+                {/* Thumb */}
+                <Animated.View
                   style={[
-                    styles.energyButtonText,
-                    baselineEnergy >= 10 && styles.energyButtonDisabled,
+                    styles.sliderThumb,
+                    {
+                      transform: [
+                        {
+                          translateX: thumbPosition.interpolate({
+                            inputRange: [0, Math.max(sliderWidth, 1)],
+                            outputRange: [0, Math.max(sliderWidth, 1)],
+                            extrapolate: "clamp",
+                          }),
+                        },
+                      ],
+                    },
                   ]}
-                >
-                  +
-                </Text>
-              </TouchableOpacity>
+                />
+              </View>
+              <View style={styles.sliderLabels}>
+                <Text style={styles.sliderLabelText}>Low</Text>
+                <Text style={styles.sliderLabelText}>High</Text>
+              </View>
+            </View>
+
+            {/* Current Level Description */}
+            <View style={styles.energyDescription}>
+              <Text style={styles.energyDescriptionText}>
+                {ENERGY_LEVELS.find((item) => item.level === baselineEnergy)
+                  ?.description || ""}
+              </Text>
             </View>
           </View>
 
           <Text style={styles.energyHint}>
-            Your typical energy level on a normal day
+            This helps Simi understand your typical energy level to suggest
+            tasks that match how you usually feel
           </Text>
         </View>
 
@@ -221,7 +434,7 @@ export default function ProfileScreen() {
             activeOpacity={0.7}
           >
             {isSaving ? (
-              <ActivityIndicator color={COLORS.background} size="small" />
+              <ActivityIndicator color={COLORS.text} size="small" />
             ) : (
               <Text style={styles.saveButtonText}>Save Changes</Text>
             )}
@@ -356,6 +569,43 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     fontWeight: "500",
   },
+  sectionSubtitle: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    marginBottom: 16,
+    marginTop: -8,
+  },
+  tagsScrollView: {
+    marginHorizontal: -40,
+    paddingHorizontal: 40,
+  },
+  tagsContainer: {
+    flexDirection: "row",
+    paddingRight: 40,
+    gap: 10,
+  },
+  tag: {
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 24,
+    backgroundColor: COLORS.backgroundSecondary,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+  },
+  tagSelected: {
+    backgroundColor: COLORS.primary + "15",
+    borderColor: COLORS.primary,
+    borderWidth: 2,
+  },
+  tagText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: COLORS.text,
+  },
+  tagTextSelected: {
+    color: COLORS.primary,
+    fontWeight: "600",
+  },
   preferenceBadge: {
     backgroundColor: COLORS.primaryLight + "30",
     paddingHorizontal: 14,
@@ -372,50 +622,133 @@ const styles = StyleSheet.create({
   settingItem: {
     backgroundColor: COLORS.backgroundSecondary,
     borderRadius: 12,
-    padding: 16,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    padding: 20,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
   settingLabel: {
-    fontSize: 15,
+    fontSize: 16,
+    fontWeight: "600",
     color: COLORS.text,
+    marginBottom: 4,
   },
-  energyControl: {
+  energyHeader: {
+    marginBottom: 16,
+  },
+  energySubLabel: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+  energyDisplay: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 16,
-  },
-  energyButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: COLORS.primary + "20",
-    alignItems: "center",
+    alignItems: "baseline",
     justifyContent: "center",
-  },
-  energyButtonText: {
-    fontSize: 22,
-    color: COLORS.primary,
-    fontWeight: "500",
-  },
-  energyButtonDisabled: {
-    color: COLORS.textMuted,
+    marginBottom: 24,
   },
   energyValue: {
-    fontSize: 18,
+    fontSize: 36,
     fontWeight: "700",
+    color: COLORS.primary,
+  },
+  energyMax: {
+    fontSize: 20,
+    fontWeight: "500",
+    color: COLORS.textSecondary,
+    marginLeft: 4,
+  },
+  sliderContainer: {
+    marginBottom: 20,
+  },
+  sliderTrack: {
+    height: 50,
+    justifyContent: "center",
+    position: "relative",
+    paddingVertical: 13,
+  },
+  sliderTrackBackground: {
+    height: 4,
+    backgroundColor: COLORS.border,
+    borderRadius: 2,
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 23,
+  },
+  sliderTrackFill: {
+    height: 4,
+    backgroundColor: COLORS.primary,
+    borderRadius: 2,
+  },
+  sliderThumb: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: COLORS.primary,
+    borderWidth: 3,
+    borderColor: COLORS.background,
+    position: "absolute",
+    top: 11,
+    marginLeft: -12,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+    zIndex: 10,
+  },
+  sliderMarker: {
+    position: "absolute",
+    alignItems: "center",
+    justifyContent: "center",
+    top: 19,
+    marginLeft: -6,
+    width: 12,
+    height: 12,
+  },
+  sliderDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: COLORS.border,
+  },
+  sliderDotActive: {
+    backgroundColor: COLORS.primary,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  sliderLabels: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 4,
+  },
+  sliderLabelText: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    fontWeight: "500",
+  },
+  energyDescription: {
+    backgroundColor: COLORS.primary + "10",
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: COLORS.primary + "20",
+  },
+  energyDescriptionText: {
+    fontSize: 14,
     color: COLORS.text,
-    minWidth: 30,
     textAlign: "center",
+    lineHeight: 20,
+    fontWeight: "500",
   },
   energyHint: {
     fontSize: 13,
-    color: COLORS.textMuted,
-    marginTop: 8,
-    marginLeft: 4,
+    color: COLORS.textSecondary,
+    marginTop: 12,
+    lineHeight: 18,
+    textAlign: "center",
   },
   saveButton: {
     backgroundColor: COLORS.backgroundSecondary,

@@ -732,6 +732,19 @@ export default function TaskListScreen() {
     setDueDate(null);
     setFormError(null);
     setIsAIParsed(false);
+    setEditingTask(null);
+  };
+
+  const handleEdit = (task: Task) => {
+    setEditingTask(task);
+    setTitle(task.title);
+    setEnergyCost(task.energy_cost.toString());
+    setFriction(task.emotional_friction);
+    setAssociatedValue(task.associated_value || '');
+    setDueDate(task.due_date ? new Date(task.due_date) : null);
+    setFormError(null);
+    setIsAIParsed(false);
+    setShowModal(true);
   };
 
   // Handle AI-parsed task data from MagicTaskInput
@@ -868,6 +881,12 @@ export default function TaskListScreen() {
           </TouchableOpacity>
         )}
         <TouchableOpacity
+          style={styles.editButton}
+          onPress={() => handleEdit(item)}
+        >
+          <Feather name="edit-2" size={16} color={COLORS.primary} />
+        </TouchableOpacity>
+        <TouchableOpacity
           style={styles.deleteButton}
           onPress={() => handleDelete(item)}
         >
@@ -912,6 +931,7 @@ export default function TaskListScreen() {
         <TouchableOpacity
           style={styles.addButton}
           onPress={() => {
+            resetForm();
             setDueDate(selectedDate);
             setShowModal(true);
           }}
@@ -1149,7 +1169,9 @@ export default function TaskListScreen() {
                 {formLoading ? (
                   <ActivityIndicator color={COLORS.background} size="small" />
                 ) : (
-                  <Text style={styles.createButtonText}>Create Task</Text>
+                  <Text style={styles.createButtonText}>
+                    {editingTask ? 'Update Task' : 'Create Task'}
+                  </Text>
                 )}
               </TouchableOpacity>
             </ScrollView>
@@ -1326,6 +1348,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: COLORS.success,
     fontWeight: "600",
+  },
+  editButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.primary + '20',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   deleteButton: {
     width: 36,

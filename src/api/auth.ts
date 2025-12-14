@@ -37,3 +37,43 @@ export async function getProfile(): Promise<User> {
   return response.user;
 }
 
+export interface UpdateProfileInput {
+  username?: string;
+  email?: string;
+  profile_picture?: string;
+  health?: string;
+  career?: string;
+  relationship?: string;
+  preferences?: string[];
+}
+
+export async function updateProfile(input: UpdateProfileInput): Promise<User> {
+  const response = await apiRequest<{ user: User }>('/auth/profile', {
+    method: 'PATCH',
+    body: input,
+    requiresAuth: true,
+  });
+  return response.user;
+}
+
+export async function deleteAccount(): Promise<{ message: string }> {
+  return apiRequest<{ message: string }>('/auth/profile', {
+    method: 'DELETE',
+    requiresAuth: true,
+  });
+}
+
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string
+): Promise<{ message: string }> {
+  return apiRequest<{ message: string }>('/auth/change-password', {
+    method: 'POST',
+    body: {
+      current_password: currentPassword,
+      new_password: newPassword,
+    },
+    requiresAuth: true,
+  });
+}
+

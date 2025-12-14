@@ -1,5 +1,5 @@
 import { apiRequest } from "./client";
-import type { ConsultResponse } from "../types";
+import type { ConsultResponse, ContextLog } from "../types";
 
 export interface MoodEntryInput {
   current_mood: string;
@@ -13,6 +13,17 @@ export interface MoodEntryResponse {
   recommendation?: string;
 }
 
+export interface UpdateMoodInput {
+  current_mood?: string;
+  current_energy?: number;
+  raw_input?: string;
+}
+
+interface MoodHistoryResponse {
+  history: ContextLog[];
+}
+
+// CREATE - Log a new mood entry
 export async function logMood(
   input: MoodEntryInput
 ): Promise<MoodEntryResponse> {
@@ -57,4 +68,37 @@ export async function logMood(
     // Re-throw the error so it can be handled by the calling component
     throw error;
   }
+}
+
+// READ - Get a single mood entry by ID
+export async function getMood(id: string): Promise<ContextLog> {
+  return apiRequest<ContextLog>(`/butler/history/${id}`, {
+    method: "GET",
+  });
+}
+
+// READ - Get mood history
+export async function getMoodHistory(limit = 30): Promise<ContextLog[]> {
+  const response = await apiRequest<MoodHistoryResponse>(
+    `/butler/history?limit=${limit}`
+  );
+  return response.history;
+}
+
+// UPDATE - Update an existing mood entry
+export async function updateMood(
+  id: string,
+  input: UpdateMoodInput
+): Promise<ContextLog> {
+  return apiRequest<ContextLog>(`/butler/history/${id}`, {
+    method: "PATCH",
+    body: input,
+  });
+}
+
+// DELETE - Delete a mood entry
+export async function deleteMood(id: string): Promise<void> {
+  return apiRequest<void>(`/butler/history/${id}`, {
+    method: "DELETE",
+  });
 }
