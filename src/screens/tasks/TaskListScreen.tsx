@@ -89,10 +89,11 @@ const frictionColors: Record<string, string> = {
 };
 
 export default function TaskListScreen() {
-  const { tasks, isLoading, error, fetchTasks, completeTask, deleteTask, createTask } = useTasks();
+  const { tasks, isLoading, error, fetchTasks, completeTask, deleteTask, createTask, updateTask } = useTasks();
   const [refreshing, setRefreshing] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
   
   // Form state
   const [title, setTitle] = useState('');
@@ -124,6 +125,19 @@ export default function TaskListScreen() {
     setDueDate(null);
     setFormError(null);
     setIsAIParsed(false);
+    setEditingTask(null);
+  };
+
+  const handleEdit = (task: Task) => {
+    setEditingTask(task);
+    setTitle(task.title);
+    setEnergyCost(task.energy_cost.toString());
+    setFriction(task.emotional_friction);
+    setAssociatedValue(task.associated_value || '');
+    setDueDate(task.due_date ? new Date(task.due_date) : null);
+    setFormError(null);
+    setIsAIParsed(false);
+    setShowModal(true);
   };
 
   // Handle AI-parsed task data from MagicTaskInput
@@ -163,17 +177,27 @@ export default function TaskListScreen() {
     setFormLoading(true);
 
     try {
-      await createTask({
-        title: title.trim(),
-        energy_cost: energy,
-        emotional_friction: friction,
-        associated_value: associatedValue.trim() || undefined,
-        due_date: dueDate ? dueDate.toISOString() : undefined,
-      });
+      if (editingTask) {
+        await updateTask(editingTask._id, {
+          title: title.trim(),
+          energy_cost: energy,
+          emotional_friction: friction,
+          associated_value: associatedValue.trim() || undefined,
+          due_date: dueDate ? dueDate.toISOString() : undefined,
+        });
+      } else {
+        await createTask({
+          title: title.trim(),
+          energy_cost: energy,
+          emotional_friction: friction,
+          associated_value: associatedValue.trim() || undefined,
+          due_date: dueDate ? dueDate.toISOString() : undefined,
+        });
+      }
       resetForm();
       setShowModal(false);
     } catch (err: any) {
-      setFormError(err.message || 'Failed to create task');
+      setFormError(err.message || `Failed to ${editingTask ? 'update' : 'create'} task`);
     } finally {
       setFormLoading(false);
     }
@@ -246,6 +270,12 @@ export default function TaskListScreen() {
           </TouchableOpacity>
         )}
         <TouchableOpacity
+          style={styles.editButton}
+          onPress={() => handleEdit(item)}
+        >
+          <Feather name="edit-2" size={16} color={COLORS.primary} />
+        </TouchableOpacity>
+        <TouchableOpacity
           style={styles.deleteButton}
           onPress={() => handleDelete(item)}
         >
@@ -287,6 +317,7 @@ export default function TaskListScreen() {
         <TouchableOpacity
           style={styles.addButton}
           onPress={() => {
+            resetForm();
             setDueDate(selectedDate);
             setShowModal(true);
           }}
@@ -396,9 +427,9 @@ export default function TaskListScreen() {
             <View style={styles.modalHeader}>
               <View>
                 <Text style={styles.modalTitle}>
-                  {isAIParsed ? '✨ AI Parsed Task' : 'New Task'}
+                  {editingTask ? 'Edit Task' : isAIParsed ? '✨ AI Parsed Task' : 'New Task'}
                 </Text>
-                {isAIParsed && (
+                {isAIParsed && !editingTask && (
                   <Text style={styles.modalSubtitle}>Review and adjust if needed</Text>
                 )}
               </View>
@@ -520,7 +551,9 @@ export default function TaskListScreen() {
                 {formLoading ? (
                   <ActivityIndicator color={COLORS.background} size="small" />
                 ) : (
-                  <Text style={styles.createButtonText}>Create Task</Text>
+                  <Text style={styles.createButtonText}>
+                    {editingTask ? 'Update Task' : 'Create Task'}
+                  </Text>
                 )}
               </TouchableOpacity>
             </ScrollView>
@@ -697,6 +730,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: COLORS.success,
     fontWeight: '600',
+  },
+  editButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.primary + '20',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   deleteButton: {
     width: 36,
