@@ -91,6 +91,21 @@ const frictionColors: Record<string, string> = {
   High: COLORS.error,
 };
 
+// Core values that can be associated with tasks
+const CORE_VALUE_OPTIONS = [
+  "Health",
+  "Family",
+  "Relationships",
+  "Work",
+  "Integrity",
+  "Peace",
+  "Growth",
+  "Stability",
+  "Purpose",
+  "Freedom",
+  "Joy",
+];
+
 // Motivation scale with 5 levels
 type MotivationLevel = 0 | 1 | 2 | 3 | 4;
 
@@ -253,7 +268,7 @@ const frictionToDifficulty = (friction: EmotionalFriction): DifficultyLevel => {
   }
 };
 
-// Touch-Based Motivation Slider Component
+// Touch-Based Motivation Slider Component (Profile Style)
 const MotivationSlider = ({
   value,
   onValueChange,
@@ -263,151 +278,131 @@ const MotivationSlider = ({
 }) => {
   const currentPoint = MOTIVATION_POINTS[value];
   const trackRef = useRef<View>(null);
-  const [trackLayout, setTrackLayout] = useState({ x: 0, width: 0 });
-  const thumbAnim = useRef(new Animated.Value(value)).current;
+  const [trackWidth, setTrackWidth] = useState(0);
+  const thumbPosition = useRef(new Animated.Value(0)).current;
 
-  // Update animation when value changes
+  // Update thumb position when value or width changes
   useEffect(() => {
-    Animated.spring(thumbAnim, {
-      toValue: value,
-      friction: 8,
-      tension: 100,
-      useNativeDriver: false,
-    }).start();
-  }, [value]);
+    if (trackWidth > 0) {
+      const position = (value / 4) * trackWidth;
+      Animated.spring(thumbPosition, {
+        toValue: position,
+        friction: 8,
+        tension: 100,
+        useNativeDriver: false,
+      }).start();
+    }
+  }, [value, trackWidth]);
 
-  // Handle track layout measurement
-  const onTrackLayout = () => {
-    trackRef.current?.measure((x, y, width, height, pageX, pageY) => {
-      setTrackLayout({ x: pageX, width });
-    });
+  const handleTrackLayout = (event: any) => {
+    const { width } = event.nativeEvent.layout;
+    if (width > 0) {
+      setTrackWidth(width);
+    }
   };
 
   // Calculate level from touch position
-  const getLevelFromTouch = (pageX: number): MotivationLevel => {
-    const relativeX = pageX - trackLayout.x;
-    const percentage = Math.max(0, Math.min(1, relativeX / trackLayout.width));
+  const getLevelFromTouch = (
+    pageX: number,
+    trackX: number
+  ): MotivationLevel => {
+    const relativeX = pageX - trackX;
+    const percentage = Math.max(0, Math.min(1, relativeX / trackWidth));
     const level = Math.round(percentage * 4) as MotivationLevel;
     return level;
   };
 
   // Handle touch events
-  const handleTouchStart = (e: GestureResponderEvent) => {
-    const level = getLevelFromTouch(e.nativeEvent.pageX);
-    onValueChange(level);
+  const handleTouch = (e: GestureResponderEvent) => {
+    trackRef.current?.measureInWindow((x) => {
+      const level = getLevelFromTouch(e.nativeEvent.pageX, x);
+      onValueChange(level);
+    });
   };
-
-  const handleTouchMove = (e: GestureResponderEvent) => {
-    const level = getLevelFromTouch(e.nativeEvent.pageX);
-    onValueChange(level);
-  };
-
-  // Calculate thumb position
-  const thumbPosition = thumbAnim.interpolate({
-    inputRange: [0, 1, 2, 3, 4],
-    outputRange: ["0%", "25%", "50%", "75%", "100%"],
-  });
 
   return (
     <View style={sliderStyles.container}>
-      {/* Slider Track Area */}
-      <View
-        ref={trackRef}
-        style={sliderStyles.trackWrapper}
-        onLayout={onTrackLayout}
-        onStartShouldSetResponder={() => true}
-        onMoveShouldSetResponder={() => true}
-        onResponderGrant={handleTouchStart}
-        onResponderMove={handleTouchMove}
-      >
-        {/* Gradient Track */}
-        <LinearGradient
-          colors={["#EC4899", "#D946EF", "#A855F7", "#8B5CF6", "#7C3AED"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={sliderStyles.track}
-        />
+      {/* Slider Track */}
+      <View style={sliderStyles.sliderContainer}>
+        <View
+          ref={trackRef}
+          style={sliderStyles.sliderTrack}
+          onLayout={handleTrackLayout}
+          onStartShouldSetResponder={() => true}
+          onMoveShouldSetResponder={() => true}
+          onResponderGrant={handleTouch}
+          onResponderMove={handleTouch}
+        >
+          {/* Track Background */}
+          <View style={sliderStyles.sliderTrackBackground}>
+            <Animated.View
+              style={[
+                sliderStyles.sliderTrackFill,
+                {
+                  width: thumbPosition.interpolate({
+                    inputRange: [0, Math.max(trackWidth, 1)],
+                    outputRange: [0, Math.max(trackWidth, 1)],
+                    extrapolate: "clamp",
+                  }),
+                },
+              ]}
+            />
+          </View>
 
-        {/* Track Points */}
-        <View style={sliderStyles.pointsContainer}>
+          {/* Level Markers */}
           {MOTIVATION_POINTS.map((point, index) => (
             <TouchableOpacity
               key={point.level}
-              style={[sliderStyles.point, { left: `${index * 25}%` }]}
+              style={[
+                sliderStyles.sliderMarker,
+                { left: `${(index / 4) * 100}%` },
+              ]}
               onPress={() => onValueChange(point.level)}
               activeOpacity={0.7}
             >
               <View
                 style={[
-                  sliderStyles.pointDot,
-                  value === point.level && {
-                    backgroundColor: point.color,
-                    transform: [{ scale: 1.4 }],
-                  },
+                  sliderStyles.sliderDot,
+                  value >= point.level && sliderStyles.sliderDotActive,
                 ]}
               />
             </TouchableOpacity>
           ))}
+
+          {/* Thumb */}
+          <Animated.View
+            style={[
+              sliderStyles.sliderThumb,
+              {
+                transform: [
+                  {
+                    translateX: thumbPosition.interpolate({
+                      inputRange: [0, Math.max(trackWidth, 1)],
+                      outputRange: [0, Math.max(trackWidth, 1)],
+                      extrapolate: "clamp",
+                    }),
+                  },
+                ],
+              },
+            ]}
+          />
         </View>
 
-        {/* Animated Thumb */}
-        <Animated.View
-          style={[sliderStyles.thumbWrapper, { left: thumbPosition }]}
-          pointerEvents="none"
-        >
-          <View
-            style={[sliderStyles.thumb, { borderColor: currentPoint.color }]}
-          >
-            <View
-              style={[
-                sliderStyles.thumbInner,
-                { backgroundColor: currentPoint.color },
-              ]}
-            />
-          </View>
-        </Animated.View>
-      </View>
-
-      {/* Labels Row */}
-      <View style={sliderStyles.labelsRow}>
-        {MOTIVATION_POINTS.filter((p) => p.shortLabel).map((point) => (
-          <TouchableOpacity
-            key={point.level}
-            style={[
-              sliderStyles.labelButton,
-              point.level === 0 && { alignItems: "flex-start" },
-              point.level === 2 && { alignItems: "center" },
-              point.level === 4 && { alignItems: "flex-end" },
-            ]}
-            onPress={() => onValueChange(point.level)}
-            activeOpacity={0.7}
-          >
-            <Text
-              style={[
-                sliderStyles.labelText,
-                value === point.level && {
-                  color: point.color,
-                  fontWeight: "700",
-                },
-              ]}
-            >
-              {point.shortLabel}
-            </Text>
-          </TouchableOpacity>
-        ))}
+        {/* Labels */}
+        <View style={sliderStyles.sliderLabels}>
+          <Text style={sliderStyles.sliderLabelText}>Low</Text>
+          <Text style={sliderStyles.sliderLabelText}>High</Text>
+        </View>
       </View>
 
       {/* Description Card */}
       <View
         style={[
           sliderStyles.descriptionCard,
-          {
-            backgroundColor: currentPoint.bgColor,
-            borderLeftColor: currentPoint.color,
-          },
+          { borderColor: COLORS.primary + "20" },
         ]}
       >
-        <Text style={[sliderStyles.cardTitle, { color: currentPoint.color }]}>
+        <Text style={[sliderStyles.cardTitle, { color: COLORS.primary }]}>
           {currentPoint.title}
         </Text>
         <Text style={sliderStyles.cardDescription}>
@@ -418,7 +413,7 @@ const MotivationSlider = ({
   );
 };
 
-// Touch-Based Difficulty Slider Component
+// Touch-Based Difficulty Slider Component (Profile Style)
 const DifficultySlider = ({
   value,
   onValueChange,
@@ -428,151 +423,131 @@ const DifficultySlider = ({
 }) => {
   const currentPoint = DIFFICULTY_POINTS[value];
   const trackRef = useRef<View>(null);
-  const [trackLayout, setTrackLayout] = useState({ x: 0, width: 0 });
-  const thumbAnim = useRef(new Animated.Value(value)).current;
+  const [trackWidth, setTrackWidth] = useState(0);
+  const thumbPosition = useRef(new Animated.Value(0)).current;
 
-  // Update animation when value changes
+  // Update thumb position when value or width changes
   useEffect(() => {
-    Animated.spring(thumbAnim, {
-      toValue: value,
-      friction: 8,
-      tension: 100,
-      useNativeDriver: false,
-    }).start();
-  }, [value]);
+    if (trackWidth > 0) {
+      const position = (value / 4) * trackWidth;
+      Animated.spring(thumbPosition, {
+        toValue: position,
+        friction: 8,
+        tension: 100,
+        useNativeDriver: false,
+      }).start();
+    }
+  }, [value, trackWidth]);
 
-  // Handle track layout measurement
-  const onTrackLayout = () => {
-    trackRef.current?.measure((x, y, width, height, pageX, pageY) => {
-      setTrackLayout({ x: pageX, width });
-    });
+  const handleTrackLayout = (event: any) => {
+    const { width } = event.nativeEvent.layout;
+    if (width > 0) {
+      setTrackWidth(width);
+    }
   };
 
   // Calculate level from touch position
-  const getLevelFromTouch = (pageX: number): DifficultyLevel => {
-    const relativeX = pageX - trackLayout.x;
-    const percentage = Math.max(0, Math.min(1, relativeX / trackLayout.width));
+  const getLevelFromTouch = (
+    pageX: number,
+    trackX: number
+  ): DifficultyLevel => {
+    const relativeX = pageX - trackX;
+    const percentage = Math.max(0, Math.min(1, relativeX / trackWidth));
     const level = Math.round(percentage * 4) as DifficultyLevel;
     return level;
   };
 
   // Handle touch events
-  const handleTouchStart = (e: GestureResponderEvent) => {
-    const level = getLevelFromTouch(e.nativeEvent.pageX);
-    onValueChange(level);
+  const handleTouch = (e: GestureResponderEvent) => {
+    trackRef.current?.measureInWindow((x) => {
+      const level = getLevelFromTouch(e.nativeEvent.pageX, x);
+      onValueChange(level);
+    });
   };
-
-  const handleTouchMove = (e: GestureResponderEvent) => {
-    const level = getLevelFromTouch(e.nativeEvent.pageX);
-    onValueChange(level);
-  };
-
-  // Calculate thumb position
-  const thumbPosition = thumbAnim.interpolate({
-    inputRange: [0, 1, 2, 3, 4],
-    outputRange: ["0%", "25%", "50%", "75%", "100%"],
-  });
 
   return (
     <View style={sliderStyles.container}>
-      {/* Slider Track Area */}
-      <View
-        ref={trackRef}
-        style={sliderStyles.trackWrapper}
-        onLayout={onTrackLayout}
-        onStartShouldSetResponder={() => true}
-        onMoveShouldSetResponder={() => true}
-        onResponderGrant={handleTouchStart}
-        onResponderMove={handleTouchMove}
-      >
-        {/* Gradient Track */}
-        <LinearGradient
-          colors={["#7C3AED", "#8B5CF6", "#A855F7", "#D946EF", "#EC4899"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={sliderStyles.track}
-        />
+      {/* Slider Track */}
+      <View style={sliderStyles.sliderContainer}>
+        <View
+          ref={trackRef}
+          style={sliderStyles.sliderTrack}
+          onLayout={handleTrackLayout}
+          onStartShouldSetResponder={() => true}
+          onMoveShouldSetResponder={() => true}
+          onResponderGrant={handleTouch}
+          onResponderMove={handleTouch}
+        >
+          {/* Track Background */}
+          <View style={sliderStyles.sliderTrackBackground}>
+            <Animated.View
+              style={[
+                sliderStyles.sliderTrackFill,
+                {
+                  width: thumbPosition.interpolate({
+                    inputRange: [0, Math.max(trackWidth, 1)],
+                    outputRange: [0, Math.max(trackWidth, 1)],
+                    extrapolate: "clamp",
+                  }),
+                },
+              ]}
+            />
+          </View>
 
-        {/* Track Points */}
-        <View style={sliderStyles.pointsContainer}>
+          {/* Level Markers */}
           {DIFFICULTY_POINTS.map((point, index) => (
             <TouchableOpacity
               key={point.level}
-              style={[sliderStyles.point, { left: `${index * 25}%` }]}
+              style={[
+                sliderStyles.sliderMarker,
+                { left: `${(index / 4) * 100}%` },
+              ]}
               onPress={() => onValueChange(point.level)}
               activeOpacity={0.7}
             >
               <View
                 style={[
-                  sliderStyles.pointDot,
-                  value === point.level && {
-                    backgroundColor: point.color,
-                    transform: [{ scale: 1.4 }],
-                  },
+                  sliderStyles.sliderDot,
+                  value >= point.level && sliderStyles.sliderDotActive,
                 ]}
               />
             </TouchableOpacity>
           ))}
+
+          {/* Thumb */}
+          <Animated.View
+            style={[
+              sliderStyles.sliderThumb,
+              {
+                transform: [
+                  {
+                    translateX: thumbPosition.interpolate({
+                      inputRange: [0, Math.max(trackWidth, 1)],
+                      outputRange: [0, Math.max(trackWidth, 1)],
+                      extrapolate: "clamp",
+                    }),
+                  },
+                ],
+              },
+            ]}
+          />
         </View>
 
-        {/* Animated Thumb */}
-        <Animated.View
-          style={[sliderStyles.thumbWrapper, { left: thumbPosition }]}
-          pointerEvents="none"
-        >
-          <View
-            style={[sliderStyles.thumb, { borderColor: currentPoint.color }]}
-          >
-            <View
-              style={[
-                sliderStyles.thumbInner,
-                { backgroundColor: currentPoint.color },
-              ]}
-            />
-          </View>
-        </Animated.View>
-      </View>
-
-      {/* Labels Row */}
-      <View style={sliderStyles.labelsRow}>
-        {DIFFICULTY_POINTS.filter((p) => p.shortLabel).map((point) => (
-          <TouchableOpacity
-            key={point.level}
-            style={[
-              sliderStyles.labelButton,
-              point.level === 0 && { alignItems: "flex-start" },
-              point.level === 2 && { alignItems: "center" },
-              point.level === 4 && { alignItems: "flex-end" },
-            ]}
-            onPress={() => onValueChange(point.level)}
-            activeOpacity={0.7}
-          >
-            <Text
-              style={[
-                sliderStyles.labelText,
-                value === point.level && {
-                  color: point.color,
-                  fontWeight: "700",
-                },
-              ]}
-            >
-              {point.shortLabel}
-            </Text>
-          </TouchableOpacity>
-        ))}
+        {/* Labels */}
+        <View style={sliderStyles.sliderLabels}>
+          <Text style={sliderStyles.sliderLabelText}>Easy</Text>
+          <Text style={sliderStyles.sliderLabelText}>Difficult</Text>
+        </View>
       </View>
 
       {/* Description Card */}
       <View
         style={[
           sliderStyles.descriptionCard,
-          {
-            backgroundColor: currentPoint.bgColor,
-            borderLeftColor: currentPoint.color,
-          },
+          { borderColor: COLORS.primary + "20" },
         ]}
       >
-        <Text style={[sliderStyles.cardTitle, { color: currentPoint.color }]}>
+        <Text style={[sliderStyles.cardTitle, { color: COLORS.primary }]}>
           {currentPoint.title}
         </Text>
         <Text style={sliderStyles.cardDescription}>
@@ -585,103 +560,96 @@ const DifficultySlider = ({
 
 const sliderStyles = StyleSheet.create({
   container: {
-    marginTop: 12,
+    marginTop: 8,
     marginBottom: 8,
   },
-  trackWrapper: {
-    height: 60,
-    justifyContent: "center",
-    paddingHorizontal: 20,
+  sliderContainer: {
+    marginBottom: 12,
   },
-  track: {
+  sliderTrack: {
+    height: 50,
+    justifyContent: "center",
+    position: "relative",
+    paddingVertical: 13,
+  },
+  sliderTrackBackground: {
+    height: 4,
+    backgroundColor: COLORS.border,
+    borderRadius: 2,
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 23,
+  },
+  sliderTrackFill: {
+    height: 4,
+    backgroundColor: COLORS.primary,
+    borderRadius: 2,
+  },
+  sliderThumb: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: COLORS.primary,
+    borderWidth: 3,
+    borderColor: COLORS.background,
+    position: "absolute",
+    top: 11,
+    marginLeft: -12,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+    zIndex: 10,
+  },
+  sliderMarker: {
+    position: "absolute",
+    alignItems: "center",
+    justifyContent: "center",
+    top: 19,
+    marginLeft: -6,
+    width: 12,
+    height: 12,
+  },
+  sliderDot: {
+    width: 8,
     height: 8,
     borderRadius: 4,
+    backgroundColor: COLORS.border,
   },
-  pointsContainer: {
-    position: "absolute",
-    left: 20,
-    right: 20,
-    height: 60,
-    justifyContent: "center",
+  sliderDotActive: {
+    backgroundColor: COLORS.primary,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
-  point: {
-    position: "absolute",
-    width: 44,
-    height: 44,
-    marginLeft: -22,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  pointDot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: "rgba(255,255,255,0.95)",
-    borderWidth: 2,
-    borderColor: "rgba(0,0,0,0.1)",
-  },
-  thumbWrapper: {
-    position: "absolute",
-    top: "50%",
-    marginTop: -24,
-    marginLeft: -4,
-  },
-  thumb: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: COLORS.background,
-    borderWidth: 4,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  thumbInner: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-  },
-  labelsRow: {
+  sliderLabels: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    marginTop: 8,
+    paddingHorizontal: 4,
   },
-  labelButton: {
-    flex: 1,
-    paddingVertical: 4,
-  },
-  labelText: {
-    fontSize: 13,
-    fontWeight: "500",
+  sliderLabelText: {
+    fontSize: 12,
     color: COLORS.textSecondary,
+    fontWeight: "500",
   },
   descriptionCard: {
-    marginTop: 16,
+    backgroundColor: COLORS.primary + "10",
+    borderRadius: 12,
     padding: 16,
-    borderRadius: 16,
-    borderLeftWidth: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
+    marginTop: 8,
+    borderWidth: 1,
   },
   cardTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    letterSpacing: 0.3,
-    marginBottom: 8,
+    fontSize: 15,
+    fontWeight: "600",
+    marginBottom: 4,
   },
   cardDescription: {
-    fontSize: 14,
+    fontSize: 13,
     color: COLORS.textSecondary,
-    lineHeight: 22,
-    fontStyle: "italic",
+    lineHeight: 20,
   },
 });
 
@@ -703,11 +671,12 @@ export default function TaskListScreen() {
   const [title, setTitle] = useState("");
   const [motivation, setMotivation] = useState<MotivationLevel>(2);
   const [difficulty, setDifficulty] = useState<DifficultyLevel>(2);
-  const [associatedValue, setAssociatedValue] = useState("");
+  const [associatedValues, setAssociatedValues] = useState<string[]>([]);
   const [dueDate, setDueDate] = useState<Date | null>(null);
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [isAIParsed, setIsAIParsed] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   // Calendar days
   const calendarDays = useMemo(
@@ -728,19 +697,33 @@ export default function TaskListScreen() {
     setTitle("");
     setMotivation(2);
     setDifficulty(2);
-    setAssociatedValue("");
+    setAssociatedValues([]);
     setDueDate(null);
     setFormError(null);
     setIsAIParsed(false);
     setEditingTask(null);
   };
 
+  // Toggle a value in the associated values array
+  const toggleAssociatedValue = (value: string) => {
+    setAssociatedValues((prev) =>
+      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]
+    );
+  };
+
   const handleEdit = (task: Task) => {
     setEditingTask(task);
     setTitle(task.title);
-    setEnergyCost(task.energy_cost.toString());
-    setFriction(task.emotional_friction);
-    setAssociatedValue(task.associated_value || '');
+    setMotivation(energyCostToMotivation(task.energy_cost));
+    setDifficulty(frictionToDifficulty(task.emotional_friction));
+    // Handle associated_value as string or array
+    const values = task.associated_value
+      ? task.associated_value
+          .split(",")
+          .map((v) => v.trim())
+          .filter(Boolean)
+      : [];
+    setAssociatedValues(values);
     setDueDate(task.due_date ? new Date(task.due_date) : null);
     setFormError(null);
     setIsAIParsed(false);
@@ -752,7 +735,7 @@ export default function TaskListScreen() {
     setTitle(data.title);
     setMotivation(energyCostToMotivation(data.energy_cost));
     setDifficulty(frictionToDifficulty(data.emotional_friction));
-    setAssociatedValue("");
+    setAssociatedValues([]); // User can select values after AI parsing
     // Use the AI-parsed due_date if provided
     if (data.due_date) {
       setDueDate(new Date(data.due_date));
@@ -785,7 +768,8 @@ export default function TaskListScreen() {
         title: title.trim(),
         energy_cost: energyCost,
         emotional_friction: DIFFICULTY_POINTS[difficulty].frictionValue,
-        associated_value: associatedValue.trim() || undefined,
+        associated_value:
+          associatedValues.length > 0 ? associatedValues.join(", ") : undefined,
         due_date: dueDate ? dueDate.toISOString() : undefined,
       });
       resetForm();
@@ -1092,16 +1076,40 @@ export default function TaskListScreen() {
                 onValueChange={setDifficulty}
               />
 
-              <Text style={styles.label}>Associated Value (optional)</Text>
-              <View style={styles.inputWrapper}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="e.g., Health, Career, Family"
-                  placeholderTextColor={COLORS.textMuted}
-                  value={associatedValue}
-                  onChangeText={setAssociatedValue}
-                />
+              <Text style={styles.label}>
+                Associated Values (optional - select multiple)
+              </Text>
+              <View style={styles.valuesGrid}>
+                {CORE_VALUE_OPTIONS.map((value) => (
+                  <TouchableOpacity
+                    key={value}
+                    style={[
+                      styles.valueButton,
+                      associatedValues.includes(value) &&
+                        styles.valueButtonActive,
+                    ]}
+                    onPress={() => toggleAssociatedValue(value)}
+                  >
+                    <Text
+                      style={[
+                        styles.valueButtonText,
+                        associatedValues.includes(value) &&
+                          styles.valueButtonTextActive,
+                      ]}
+                    >
+                      {value}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
+              {associatedValues.length > 0 && (
+                <TouchableOpacity
+                  style={styles.clearValuesButton}
+                  onPress={() => setAssociatedValues([])}
+                >
+                  <Text style={styles.clearValuesText}>Clear all</Text>
+                </TouchableOpacity>
+              )}
 
               <Text style={styles.label}>Due Date</Text>
               <ScrollView
@@ -1170,7 +1178,7 @@ export default function TaskListScreen() {
                   <ActivityIndicator color={COLORS.background} size="small" />
                 ) : (
                   <Text style={styles.createButtonText}>
-                    {editingTask ? 'Update Task' : 'Create Task'}
+                    {editingTask ? "Update Task" : "Create Task"}
                   </Text>
                 )}
               </TouchableOpacity>
@@ -1353,9 +1361,9 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: COLORS.primary + '20',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: COLORS.primary + "20",
+    alignItems: "center",
+    justifyContent: "center",
   },
   deleteButton: {
     width: 36,
@@ -1466,6 +1474,43 @@ const styles = StyleSheet.create({
   },
   frictionButtonTextActive: {
     color: COLORS.background,
+  },
+  valuesGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 8,
+  },
+  valueButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    backgroundColor: COLORS.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  valueButtonActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  valueButtonText: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: COLORS.textSecondary,
+  },
+  valueButtonTextActive: {
+    color: "#fff",
+  },
+  clearValuesButton: {
+    alignSelf: "flex-start",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    marginBottom: 12,
+  },
+  clearValuesText: {
+    fontSize: 13,
+    color: COLORS.primary,
+    fontWeight: "500",
   },
   dueDateScroll: {
     marginBottom: 8,
