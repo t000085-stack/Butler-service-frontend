@@ -249,11 +249,6 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.card}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {user?.username?.charAt(0).toUpperCase() || "?"}
-            </Text>
-          </View>
           <Text style={styles.username}>{user?.username || "User"}</Text>
           <Text style={styles.email}>{user?.email || ""}</Text>
         </View>
@@ -299,12 +294,7 @@ export default function ProfileScreen() {
           <Text style={styles.sectionSubtitle}>
             Select the values that matter most to you
           </Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.tagsContainer}
-            style={styles.tagsScrollView}
-          >
+          <View style={styles.tagsContainer}>
             {CORE_VALUE_TAGS.map((tag) => {
               const isSelected = selectedCoreValues.includes(tag);
               return (
@@ -325,12 +315,10 @@ export default function ProfileScreen() {
                 </TouchableOpacity>
               );
             })}
-          </ScrollView>
+          </View>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Settings</Text>
-
           <View style={styles.settingItem}>
             <View style={styles.energyHeader}>
               <Text style={styles.settingLabel}>Daily Energy Level</Text>
@@ -492,20 +480,6 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     marginBottom: 24,
   },
-  avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: COLORS.primary,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 16,
-  },
-  avatarText: {
-    fontSize: 40,
-    fontWeight: "700",
-    color: COLORS.background,
-  },
   username: {
     fontSize: 22,
     fontWeight: "700",
@@ -572,39 +546,49 @@ const styles = StyleSheet.create({
   sectionSubtitle: {
     fontSize: 14,
     color: COLORS.textSecondary,
-    marginBottom: 16,
-    marginTop: -8,
-  },
-  tagsScrollView: {
-    marginHorizontal: -40,
-    paddingHorizontal: 40,
+    marginBottom: 20,
+    marginTop: -4,
+    lineHeight: 20,
   },
   tagsContainer: {
     flexDirection: "row",
-    paddingRight: 40,
+    flexWrap: "wrap",
     gap: 10,
+    marginTop: 4,
   },
   tag: {
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    borderRadius: 24,
-    backgroundColor: COLORS.backgroundSecondary,
-    borderWidth: 2,
-    borderColor: COLORS.border,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 16,
+    backgroundColor: COLORS.background,
+    borderWidth: 1.5,
+    borderColor: COLORS.borderDark,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   tagSelected: {
-    backgroundColor: COLORS.primary + "15",
+    backgroundColor: COLORS.primary + "12",
     borderColor: COLORS.primary,
     borderWidth: 2,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
   },
   tagText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "500",
-    color: COLORS.text,
+    color: COLORS.textSecondary,
+    letterSpacing: 0.2,
   },
   tagTextSelected: {
     color: COLORS.primary,
     fontWeight: "600",
+    letterSpacing: 0.3,
   },
   preferenceBadge: {
     backgroundColor: COLORS.primaryLight + "30",

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -14,15 +14,17 @@ import {
   Platform,
   ScrollView,
   Animated,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { StatusBar } from 'expo-status-bar';
-import { Feather } from '@expo/vector-icons';
-import { useTasks } from '../../contexts/TaskContext';
-import { COLORS, EMOTIONAL_FRICTION } from '../../constants/config';
-import MagicTaskInput, { ParsedTaskData } from '../../components/MagicTaskInput';
-import type { Task, EmotionalFriction } from '../../types';
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
+import { StatusBar } from "expo-status-bar";
+import { Feather } from "@expo/vector-icons";
+import { useTasks } from "../../contexts/TaskContext";
+import { COLORS, EMOTIONAL_FRICTION } from "../../constants/config";
+import MagicTaskInput, {
+  ParsedTaskData,
+} from "../../components/MagicTaskInput";
+import type { Task, EmotionalFriction } from "../../types";
 
 // Calendar day type
 interface CalendarDay {
@@ -50,7 +52,7 @@ const generateCalendarDays = (selectedDate: Date): CalendarDay[] => {
 
     days.push({
       date,
-      dayName: date.toLocaleDateString('en-US', { weekday: 'short' }),
+      dayName: date.toLocaleDateString("en-US", { weekday: "short" }),
       dayNumber: date.getDate(),
       isToday: date.getTime() === today.getTime(),
       isSelected: date.getTime() === selectedDateNormalized.getTime(),
@@ -69,7 +71,7 @@ const isTaskOnDate = (task: Task, date: Date): boolean => {
     normalizedDate.setHours(0, 0, 0, 0);
     return today.getTime() === normalizedDate.getTime();
   }
-  
+
   const taskDate = new Date(task.due_date);
   taskDate.setHours(0, 0, 0, 0);
   const normalizedDate = new Date(date);
@@ -79,38 +81,50 @@ const isTaskOnDate = (task: Task, date: Date): boolean => {
 
 // Check if a date has any tasks
 const dateHasTasks = (tasks: Task[], date: Date): boolean => {
-  return tasks.some(task => isTaskOnDate(task, date) && !task.is_completed);
+  return tasks.some((task) => isTaskOnDate(task, date) && !task.is_completed);
 };
 
 const frictionColors: Record<string, string> = {
   Low: COLORS.success,
-  Medium: '#f59e0b',
+  Medium: "#f59e0b",
   High: COLORS.error,
 };
 
 export default function TaskListScreen() {
-  const { tasks, isLoading, error, fetchTasks, completeTask, deleteTask, createTask, updateTask } = useTasks();
+  const {
+    tasks,
+    isLoading,
+    error,
+    fetchTasks,
+    completeTask,
+    deleteTask,
+    createTask,
+    updateTask,
+  } = useTasks();
   const [refreshing, setRefreshing] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [editingTask, setEditingTask] = useState<Task | null>(null);
-  
+
   // Form state
-  const [title, setTitle] = useState('');
-  const [energyCost, setEnergyCost] = useState('5');
-  const [friction, setFriction] = useState<EmotionalFriction>('Medium');
-  const [associatedValue, setAssociatedValue] = useState('');
+  const [title, setTitle] = useState("");
+  const [energyCost, setEnergyCost] = useState("5");
+  const [friction, setFriction] = useState<EmotionalFriction>("Medium");
+  const [associatedValue, setAssociatedValue] = useState("");
   const [dueDate, setDueDate] = useState<Date | null>(null);
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [isAIParsed, setIsAIParsed] = useState(false);
 
   // Calendar days
-  const calendarDays = useMemo(() => generateCalendarDays(selectedDate), [selectedDate]);
-  
+  const calendarDays = useMemo(
+    () => generateCalendarDays(selectedDate),
+    [selectedDate]
+  );
+
   // Filtered tasks for selected date
   const filteredTasks = useMemo(() => {
-    return tasks.filter(task => isTaskOnDate(task, selectedDate));
+    return tasks.filter((task) => isTaskOnDate(task, selectedDate));
   }, [tasks, selectedDate]);
 
   useEffect(() => {
@@ -118,10 +132,10 @@ export default function TaskListScreen() {
   }, [fetchTasks]);
 
   const resetForm = () => {
-    setTitle('');
-    setEnergyCost('5');
-    setFriction('Medium');
-    setAssociatedValue('');
+    setTitle("");
+    setEnergyCost("5");
+    setFriction("Medium");
+    setAssociatedValue("");
     setDueDate(null);
     setFormError(null);
     setIsAIParsed(false);
@@ -133,7 +147,7 @@ export default function TaskListScreen() {
     setTitle(task.title);
     setEnergyCost(task.energy_cost.toString());
     setFriction(task.emotional_friction);
-    setAssociatedValue(task.associated_value || '');
+    setAssociatedValue(task.associated_value || "");
     setDueDate(task.due_date ? new Date(task.due_date) : null);
     setFormError(null);
     setIsAIParsed(false);
@@ -145,7 +159,7 @@ export default function TaskListScreen() {
     setTitle(data.title);
     setEnergyCost(data.energy_cost.toString());
     setFriction(data.emotional_friction);
-    setAssociatedValue('');
+    setAssociatedValue("");
     // Use the AI-parsed due_date if provided
     if (data.due_date) {
       setDueDate(new Date(data.due_date));
@@ -158,18 +172,18 @@ export default function TaskListScreen() {
   };
 
   const handleMagicError = (error: string) => {
-    Alert.alert('Magic Input Error', error);
+    Alert.alert("Magic Input Error", error);
   };
 
   const handleCreateTask = async () => {
     if (!title.trim()) {
-      setFormError('Please enter a task title');
+      setFormError("Please enter a task title");
       return;
     }
 
     const energy = parseInt(energyCost, 10);
     if (isNaN(energy) || energy < 1 || energy > 10) {
-      setFormError('Energy cost must be between 1 and 10');
+      setFormError("Energy cost must be between 1 and 10");
       return;
     }
 
@@ -197,7 +211,9 @@ export default function TaskListScreen() {
       resetForm();
       setShowModal(false);
     } catch (err: any) {
-      setFormError(err.message || `Failed to ${editingTask ? 'update' : 'create'} task`);
+      setFormError(
+        err.message || `Failed to ${editingTask ? "update" : "create"} task`
+      );
     } finally {
       setFormLoading(false);
     }
@@ -213,24 +229,24 @@ export default function TaskListScreen() {
     try {
       await completeTask(task._id);
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to complete task');
+      Alert.alert("Error", err.message || "Failed to complete task");
     }
   };
 
   const handleDelete = (task: Task) => {
     Alert.alert(
-      'Delete Task',
+      "Delete Task",
       `Are you sure you want to delete "${task.title}"?`,
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: "Cancel", style: "cancel" },
         {
-          text: 'Delete',
-          style: 'destructive',
+          text: "Delete",
+          style: "destructive",
           onPress: async () => {
             try {
               await deleteTask(task._id);
             } catch (err: any) {
-              Alert.alert('Error', err.message || 'Failed to delete task');
+              Alert.alert("Error", err.message || "Failed to delete task");
             }
           },
         },
@@ -240,16 +256,38 @@ export default function TaskListScreen() {
 
   const renderItem = ({ item }: { item: Task }) => (
     <View style={[styles.card, item.is_completed && styles.cardCompleted]}>
-      <View style={styles.cardContent}>
-        <Text style={[styles.taskTitle, item.is_completed && styles.taskTitleCompleted]}>
+      <TouchableOpacity
+        style={styles.cardContent}
+        onPress={() => !item.is_completed && handleComplete(item)}
+        activeOpacity={0.7}
+        disabled={item.is_completed}
+      >
+        <Text
+          style={[
+            styles.taskTitle,
+            item.is_completed && styles.taskTitleCompleted,
+          ]}
+        >
           {item.title}
         </Text>
         <View style={styles.taskMeta}>
           <View style={styles.badge}>
             <Text style={styles.badgeText}>Energy: {item.energy_cost}</Text>
           </View>
-          <View style={[styles.badge, { backgroundColor: frictionColors[item.emotional_friction] + '20' }]}>
-            <Text style={[styles.badgeText, { color: frictionColors[item.emotional_friction] }]}>
+          <View
+            style={[
+              styles.badge,
+              {
+                backgroundColor: frictionColors[item.emotional_friction] + "20",
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.badgeText,
+                { color: frictionColors[item.emotional_friction] },
+              ]}
+            >
               {item.emotional_friction}
             </Text>
           </View>
@@ -259,16 +297,8 @@ export default function TaskListScreen() {
             </View>
           )}
         </View>
-      </View>
+      </TouchableOpacity>
       <View style={styles.cardActions}>
-        {!item.is_completed && (
-          <TouchableOpacity
-            style={styles.completeButton}
-            onPress={() => handleComplete(item)}
-          >
-            <Text style={styles.completeButtonText}>✓</Text>
-          </TouchableOpacity>
-        )}
         <TouchableOpacity
           style={styles.editButton}
           onPress={() => handleEdit(item)}
@@ -287,7 +317,7 @@ export default function TaskListScreen() {
 
   if (isLoading && tasks.length === 0) {
     return (
-      <SafeAreaView style={styles.centered} edges={['top']}>
+      <SafeAreaView style={styles.centered} edges={["top"]}>
         <StatusBar style="dark" />
         <ActivityIndicator size="large" color={COLORS.primary} />
       </SafeAreaView>
@@ -295,12 +325,12 @@ export default function TaskListScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
       <StatusBar style="dark" />
-      
+
       {/* Subtle background gradient */}
       <LinearGradient
-        colors={['#ffffff', '#faf5ff', '#fdf4ff', '#ffffff']}
+        colors={["#ffffff", "#faf5ff", "#fdf4ff", "#ffffff"]}
         style={styles.backgroundGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -310,8 +340,11 @@ export default function TaskListScreen() {
         <View>
           <Text style={styles.title}>Your Tasks</Text>
           <Text style={styles.subtitle}>
-            {filteredTasks.filter(t => !t.is_completed).length} tasks for{' '}
-            {selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            {filteredTasks.filter((t) => !t.is_completed).length} tasks for{" "}
+            {selectedDate.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            })}
           </Text>
         </View>
         <TouchableOpacity
@@ -346,10 +379,7 @@ export default function TaskListScreen() {
               activeOpacity={0.7}
             >
               <Text
-                style={[
-                  styles.calendarDayName,
-                  day.isSelected && styles.calendarDayNameSelected,
-                ]}
+                style={[styles.calendarDayName, day.isSelected && styles.edit]}
               >
                 {day.dayName}
               </Text>
@@ -357,7 +387,9 @@ export default function TaskListScreen() {
                 style={[
                   styles.calendarDayNumber,
                   day.isSelected && styles.calendarDayNumberSelected,
-                  day.isToday && !day.isSelected && styles.calendarDayNumberToday,
+                  day.isToday &&
+                    !day.isSelected &&
+                    styles.calendarDayNumberToday,
                 ]}
               >
                 {day.dayNumber}
@@ -404,8 +436,11 @@ export default function TaskListScreen() {
               <Feather name="calendar" size={40} color={COLORS.textMuted} />
               <Text style={styles.emptyText}>No tasks for this day</Text>
               <Text style={styles.emptySubtext}>
-                Tap "+ Add" to create a task for{' '}
-                {selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                Tap "+ Add" to create a task for{" "}
+                {selectedDate.toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                })}
               </Text>
             </View>
           }
@@ -421,19 +456,30 @@ export default function TaskListScreen() {
       >
         <KeyboardAvoidingView
           style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
         >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <View>
                 <Text style={styles.modalTitle}>
-                  {editingTask ? 'Edit Task' : isAIParsed ? '✨ AI Parsed Task' : 'New Task'}
+                  {editingTask
+                    ? "Edit Task"
+                    : isAIParsed
+                    ? "✨ AI Parsed Task"
+                    : "New Task"}
                 </Text>
                 {isAIParsed && !editingTask && (
-                  <Text style={styles.modalSubtitle}>Review and adjust if needed</Text>
+                  <Text style={styles.modalSubtitle}>
+                    Review and adjust if needed
+                  </Text>
                 )}
               </View>
-              <TouchableOpacity onPress={() => { setShowModal(false); resetForm(); }}>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowModal(false);
+                  resetForm();
+                }}
+              >
                 <Text style={styles.modalClose}>✕</Text>
               </TouchableOpacity>
             </View>
@@ -519,31 +565,43 @@ export default function TaskListScreen() {
                     No date
                   </Text>
                 </TouchableOpacity>
-                {generateCalendarDays(selectedDate).slice(3, 10).map((day, index) => (
-                  <TouchableOpacity
-                    key={index}
-                    style={[
-                      styles.dueDateButton,
-                      dueDate && dueDate.toDateString() === day.date.toDateString() && styles.dueDateButtonActive,
-                    ]}
-                    onPress={() => setDueDate(day.date)}
-                  >
-                    <Text
+                {generateCalendarDays(selectedDate)
+                  .slice(3, 10)
+                  .map((day, index) => (
+                    <TouchableOpacity
+                      key={index}
                       style={[
-                        styles.dueDateButtonText,
-                        dueDate && dueDate.toDateString() === day.date.toDateString() && styles.dueDateButtonTextActive,
+                        styles.dueDateButton,
+                        dueDate &&
+                          dueDate.toDateString() === day.date.toDateString() &&
+                          styles.dueDateButtonActive,
                       ]}
+                      onPress={() => setDueDate(day.date)}
                     >
-                      {day.isToday ? 'Today' : day.dayName} {day.dayNumber}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                      <Text
+                        style={[
+                          styles.dueDateButtonText,
+                          dueDate &&
+                            dueDate.toDateString() ===
+                              day.date.toDateString() &&
+                            styles.dueDateButtonTextActive,
+                        ]}
+                      >
+                        {day.isToday ? "Today" : day.dayName} {day.dayNumber}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
               </ScrollView>
 
-              {formError && <Text style={styles.formErrorText}>{formError}</Text>}
+              {formError && (
+                <Text style={styles.formErrorText}>{formError}</Text>
+              )}
 
               <TouchableOpacity
-                style={[styles.createButton, formLoading && styles.createButtonDisabled]}
+                style={[
+                  styles.createButton,
+                  formLoading && styles.createButtonDisabled,
+                ]}
                 onPress={handleCreateTask}
                 disabled={formLoading}
                 activeOpacity={0.7}
@@ -552,7 +610,7 @@ export default function TaskListScreen() {
                   <ActivityIndicator color={COLORS.background} size="small" />
                 ) : (
                   <Text style={styles.createButtonText}>
-                    {editingTask ? 'Update Task' : 'Create Task'}
+                    {editingTask ? "Update Task" : "Create Task"}
                   </Text>
                 )}
               </TouchableOpacity>
@@ -570,7 +628,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   backgroundGradient: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
@@ -578,20 +636,20 @@ const styles = StyleSheet.create({
   },
   centered: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     backgroundColor: COLORS.background,
   },
   header: {
     paddingHorizontal: 40,
     paddingVertical: 20,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   title: {
     fontSize: 26,
-    fontWeight: '600',
+    fontWeight: "600",
     color: COLORS.text,
     letterSpacing: -0.5,
   },
@@ -608,10 +666,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.borderDark,
   },
+  edit: {
+    color: COLORS.primary,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.borderDark,
+  },
   addButtonText: {
     color: COLORS.text,
     fontSize: 15,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   // Calendar styles
   calendarContainer: {
@@ -622,7 +688,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   calendarDay: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: 10,
     paddingHorizontal: 14,
     borderRadius: 16,
@@ -639,19 +705,19 @@ const styles = StyleSheet.create({
   calendarDayName: {
     fontSize: 11,
     color: COLORS.textSecondary,
-    fontWeight: '500',
+    fontWeight: "500",
     marginBottom: 4,
   },
   calendarDayNameSelected: {
-    color: '#fff',
+    color: "#fff",
   },
   calendarDayNumber: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     color: COLORS.text,
   },
   calendarDayNumberSelected: {
-    color: '#fff',
+    color: "#fff",
   },
   calendarDayNumberToday: {
     color: COLORS.primary,
@@ -664,7 +730,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   calendarDotSelected: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   list: {
     paddingHorizontal: 40,
@@ -678,8 +744,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderWidth: 1,
     borderColor: COLORS.border,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   cardCompleted: {
     opacity: 0.6,
@@ -689,17 +755,17 @@ const styles = StyleSheet.create({
   },
   taskTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     color: COLORS.text,
     marginBottom: 8,
   },
   taskTitleCompleted: {
-    textDecorationLine: 'line-through',
+    textDecorationLine: "line-through",
     color: COLORS.textMuted,
   },
   taskMeta: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
   },
   badge: {
@@ -711,88 +777,75 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 12,
     color: COLORS.textSecondary,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   cardActions: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 8,
     marginLeft: 12,
-  },
-  completeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: COLORS.success + '20',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  completeButtonText: {
-    fontSize: 18,
-    color: COLORS.success,
-    fontWeight: '600',
   },
   editButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: COLORS.primary + '20',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: COLORS.primary + "20",
+    alignItems: "center",
+    justifyContent: "center",
   },
   deleteButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: COLORS.error + '20',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: COLORS.error + "20",
+    alignItems: "center",
+    justifyContent: "center",
   },
   deleteButtonText: {
     fontSize: 22,
     color: COLORS.error,
-    fontWeight: '400',
+    fontWeight: "400",
   },
   errorText: {
     color: COLORS.error,
     fontSize: 15,
   },
   empty: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: 40,
   },
   emptyText: {
     fontSize: 16,
     color: COLORS.textSecondary,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   emptySubtext: {
     fontSize: 14,
     color: COLORS.textMuted,
     marginTop: 4,
-    textAlign: 'center',
+    textAlign: "center",
   },
   // Modal styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
   },
   modalContent: {
     backgroundColor: COLORS.background,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
-    maxHeight: '85%',
+    maxHeight: "85%",
   },
   modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 20,
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: "700",
     color: COLORS.text,
   },
   modalSubtitle: {
@@ -807,7 +860,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     color: COLORS.text,
     marginBottom: 8,
     marginTop: 12,
@@ -825,7 +878,7 @@ const styles = StyleSheet.create({
     color: COLORS.text,
   },
   frictionRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
   },
   frictionButton: {
@@ -835,7 +888,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.backgroundSecondary,
     borderWidth: 1,
     borderColor: COLORS.border,
-    alignItems: 'center',
+    alignItems: "center",
   },
   frictionButtonActive: {
     backgroundColor: COLORS.primary,
@@ -843,7 +896,7 @@ const styles = StyleSheet.create({
   },
   frictionButtonText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
     color: COLORS.textSecondary,
   },
   frictionButtonTextActive: {
@@ -867,16 +920,16 @@ const styles = StyleSheet.create({
   },
   dueDateButtonText: {
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: "500",
     color: COLORS.textSecondary,
   },
   dueDateButtonTextActive: {
-    color: '#fff',
+    color: "#fff",
   },
   formErrorText: {
     color: COLORS.error,
     fontSize: 13,
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: 12,
   },
   createButton: {
@@ -884,9 +937,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 16,
     paddingHorizontal: 24,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     marginTop: 20,
     marginBottom: 20,
     borderWidth: 1,
@@ -897,8 +950,7 @@ const styles = StyleSheet.create({
   },
   createButtonText: {
     fontSize: 15,
-    fontWeight: '500',
+    fontWeight: "500",
     color: COLORS.text,
   },
 });
-
