@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import {
   Platform,
   ScrollView,
   Animated,
+  GestureResponderEvent,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -90,6 +91,568 @@ const frictionColors: Record<string, string> = {
   High: COLORS.error,
 };
 
+// Core values that can be associated with tasks
+const CORE_VALUE_OPTIONS = [
+  "Health",
+  "Family",
+  "Relationships",
+  "Work",
+  "Integrity",
+  "Peace",
+  "Growth",
+  "Stability",
+  "Purpose",
+  "Freedom",
+  "Joy",
+];
+
+// Motivation scale with 5 levels
+type MotivationLevel = 0 | 1 | 2 | 3 | 4;
+
+interface MotivationPoint {
+  level: MotivationLevel;
+  label: string;
+  shortLabel: string;
+  title: string;
+  description: string;
+  color: string;
+  bgColor: string;
+  energyCost: number;
+}
+
+const MOTIVATION_POINTS: MotivationPoint[] = [
+  {
+    level: 0,
+    label: "Not Motivated",
+    shortLabel: "Low",
+    title: "Gentle Start Needed",
+    description:
+      "Like wading through stardust — take it one sparkle at a time.",
+    color: "#EC4899",
+    bgColor: "#FDF2F8",
+    energyCost: 9,
+  },
+  {
+    level: 1,
+    label: "Low Energy",
+    shortLabel: "",
+    title: "Easing Into It",
+    description: "A soft breeze of effort — small steps lead to big journeys.",
+    color: "#D946EF",
+    bgColor: "#FDF4FF",
+    energyCost: 7,
+  },
+  {
+    level: 2,
+    label: "Neutral",
+    shortLabel: "Neutral",
+    title: "Floating Along",
+    description: "Somewhere between a yawn and a smile — perfectly balanced.",
+    color: "#A855F7",
+    bgColor: "#FAF5FF",
+    energyCost: 5,
+  },
+  {
+    level: 3,
+    label: "Energized",
+    shortLabel: "",
+    title: "Gaining Momentum",
+    description: "Your inner spark is catching — ride the wave of motivation!",
+    color: "#8B5CF6",
+    bgColor: "#F5F3FF",
+    energyCost: 3,
+  },
+  {
+    level: 4,
+    label: "Highly Motivated",
+    shortLabel: "High",
+    title: "Sparks Are Flying!",
+    description:
+      "Your energy is radiating! Channel that magic into accomplishment.",
+    color: "#7C3AED",
+    bgColor: "#EDE9FE",
+    energyCost: 1,
+  },
+];
+
+// Convert energy cost (1-10) to motivation level (0-4)
+const energyCostToMotivation = (cost: number): MotivationLevel => {
+  if (cost >= 8) return 0;
+  if (cost >= 6) return 1;
+  if (cost >= 4) return 2;
+  if (cost >= 2) return 3;
+  return 4;
+};
+
+// Difficulty scale with 5 levels
+type DifficultyLevel = 0 | 1 | 2 | 3 | 4;
+
+interface DifficultyPoint {
+  level: DifficultyLevel;
+  label: string;
+  shortLabel: string;
+  title: string;
+  description: string;
+  color: string;
+  bgColor: string;
+  frictionValue: EmotionalFriction;
+}
+
+const DIFFICULTY_POINTS: DifficultyPoint[] = [
+  {
+    level: 0,
+    label: "Very Easy",
+    shortLabel: "Easy",
+    title: "Smooth Sailing",
+    description:
+      "Like a gentle breeze — this task flows naturally without resistance.",
+    color: "#7C3AED",
+    bgColor: "#EDE9FE",
+    frictionValue: "Low",
+  },
+  {
+    level: 1,
+    label: "Easy",
+    shortLabel: "",
+    title: "Light Touch",
+    description: "A small pebble in the stream — easily navigated with grace.",
+    color: "#8B5CF6",
+    bgColor: "#F5F3FF",
+    frictionValue: "Low",
+  },
+  {
+    level: 2,
+    label: "Moderate",
+    shortLabel: "Moderate",
+    title: "Balanced Challenge",
+    description:
+      "A mindful climb — requires focus but brings rewarding progress.",
+    color: "#A855F7",
+    bgColor: "#FAF5FF",
+    frictionValue: "Medium",
+  },
+  {
+    level: 3,
+    label: "Challenging",
+    shortLabel: "",
+    title: "Rising Heat",
+    description: "Pushing through resistance — each step builds your strength.",
+    color: "#D946EF",
+    bgColor: "#FDF4FF",
+    frictionValue: "High",
+  },
+  {
+    level: 4,
+    label: "Very Difficult",
+    shortLabel: "Difficult",
+    title: "Mountain to Climb",
+    description:
+      "A significant challenge — break it down and conquer piece by piece.",
+    color: "#EC4899",
+    bgColor: "#FDF2F8",
+    frictionValue: "High",
+  },
+];
+
+// Convert EmotionalFriction to difficulty level
+const frictionToDifficulty = (friction: EmotionalFriction): DifficultyLevel => {
+  switch (friction) {
+    case "Low":
+      return 0;
+    case "Medium":
+      return 2;
+    case "High":
+      return 4;
+    default:
+      return 2;
+  }
+};
+
+// Touch-Based Motivation Slider Component (Profile Style)
+const MotivationSlider = ({
+  value,
+  onValueChange,
+}: {
+  value: MotivationLevel;
+  onValueChange: (level: MotivationLevel) => void;
+}) => {
+  const currentPoint = MOTIVATION_POINTS[value];
+  const trackRef = useRef<View>(null);
+  const [trackWidth, setTrackWidth] = useState(0);
+  const thumbPosition = useRef(new Animated.Value(0)).current;
+
+  // Update thumb position when value or width changes
+  useEffect(() => {
+    if (trackWidth > 0) {
+      const position = (value / 4) * trackWidth;
+      Animated.spring(thumbPosition, {
+        toValue: position,
+        friction: 8,
+        tension: 100,
+        useNativeDriver: false,
+      }).start();
+    }
+  }, [value, trackWidth]);
+
+  const handleTrackLayout = (event: any) => {
+    const { width } = event.nativeEvent.layout;
+    if (width > 0) {
+      setTrackWidth(width);
+    }
+  };
+
+  // Calculate level from touch position
+  const getLevelFromTouch = (
+    pageX: number,
+    trackX: number
+  ): MotivationLevel => {
+    const relativeX = pageX - trackX;
+    const percentage = Math.max(0, Math.min(1, relativeX / trackWidth));
+    const level = Math.round(percentage * 4) as MotivationLevel;
+    return level;
+  };
+
+  // Handle touch events
+  const handleTouch = (e: GestureResponderEvent) => {
+    trackRef.current?.measureInWindow((x) => {
+      const level = getLevelFromTouch(e.nativeEvent.pageX, x);
+      onValueChange(level);
+    });
+  };
+
+  return (
+    <View style={sliderStyles.container}>
+      {/* Slider Track */}
+      <View style={sliderStyles.sliderContainer}>
+        <View
+          ref={trackRef}
+          style={sliderStyles.sliderTrack}
+          onLayout={handleTrackLayout}
+          onStartShouldSetResponder={() => true}
+          onMoveShouldSetResponder={() => true}
+          onResponderGrant={handleTouch}
+          onResponderMove={handleTouch}
+        >
+          {/* Track Background */}
+          <View style={sliderStyles.sliderTrackBackground}>
+            <Animated.View
+              style={[
+                sliderStyles.sliderTrackFill,
+                {
+                  width: thumbPosition.interpolate({
+                    inputRange: [0, Math.max(trackWidth, 1)],
+                    outputRange: [0, Math.max(trackWidth, 1)],
+                    extrapolate: "clamp",
+                  }),
+                },
+              ]}
+            />
+          </View>
+
+          {/* Level Markers */}
+          {MOTIVATION_POINTS.map((point, index) => (
+            <TouchableOpacity
+              key={point.level}
+              style={[
+                sliderStyles.sliderMarker,
+                { left: `${(index / 4) * 100}%` },
+              ]}
+              onPress={() => onValueChange(point.level)}
+              activeOpacity={0.7}
+            >
+              <View
+                style={[
+                  sliderStyles.sliderDot,
+                  value >= point.level && sliderStyles.sliderDotActive,
+                ]}
+              />
+            </TouchableOpacity>
+          ))}
+
+          {/* Thumb */}
+          <Animated.View
+            style={[
+              sliderStyles.sliderThumb,
+              {
+                transform: [
+                  {
+                    translateX: thumbPosition.interpolate({
+                      inputRange: [0, Math.max(trackWidth, 1)],
+                      outputRange: [0, Math.max(trackWidth, 1)],
+                      extrapolate: "clamp",
+                    }),
+                  },
+                ],
+              },
+            ]}
+          />
+        </View>
+
+        {/* Labels */}
+        <View style={sliderStyles.sliderLabels}>
+          <Text style={sliderStyles.sliderLabelText}>Low</Text>
+          <Text style={sliderStyles.sliderLabelText}>High</Text>
+        </View>
+      </View>
+
+      {/* Description Card */}
+      <View
+        style={[
+          sliderStyles.descriptionCard,
+          { borderColor: COLORS.primary + "20" },
+        ]}
+      >
+        <Text style={[sliderStyles.cardTitle, { color: COLORS.primary }]}>
+          {currentPoint.title}
+        </Text>
+        <Text style={sliderStyles.cardDescription}>
+          {currentPoint.description}
+        </Text>
+      </View>
+    </View>
+  );
+};
+
+// Touch-Based Difficulty Slider Component (Profile Style)
+const DifficultySlider = ({
+  value,
+  onValueChange,
+}: {
+  value: DifficultyLevel;
+  onValueChange: (level: DifficultyLevel) => void;
+}) => {
+  const currentPoint = DIFFICULTY_POINTS[value];
+  const trackRef = useRef<View>(null);
+  const [trackWidth, setTrackWidth] = useState(0);
+  const thumbPosition = useRef(new Animated.Value(0)).current;
+
+  // Update thumb position when value or width changes
+  useEffect(() => {
+    if (trackWidth > 0) {
+      const position = (value / 4) * trackWidth;
+      Animated.spring(thumbPosition, {
+        toValue: position,
+        friction: 8,
+        tension: 100,
+        useNativeDriver: false,
+      }).start();
+    }
+  }, [value, trackWidth]);
+
+  const handleTrackLayout = (event: any) => {
+    const { width } = event.nativeEvent.layout;
+    if (width > 0) {
+      setTrackWidth(width);
+    }
+  };
+
+  // Calculate level from touch position
+  const getLevelFromTouch = (
+    pageX: number,
+    trackX: number
+  ): DifficultyLevel => {
+    const relativeX = pageX - trackX;
+    const percentage = Math.max(0, Math.min(1, relativeX / trackWidth));
+    const level = Math.round(percentage * 4) as DifficultyLevel;
+    return level;
+  };
+
+  // Handle touch events
+  const handleTouch = (e: GestureResponderEvent) => {
+    trackRef.current?.measureInWindow((x) => {
+      const level = getLevelFromTouch(e.nativeEvent.pageX, x);
+      onValueChange(level);
+    });
+  };
+
+  return (
+    <View style={sliderStyles.container}>
+      {/* Slider Track */}
+      <View style={sliderStyles.sliderContainer}>
+        <View
+          ref={trackRef}
+          style={sliderStyles.sliderTrack}
+          onLayout={handleTrackLayout}
+          onStartShouldSetResponder={() => true}
+          onMoveShouldSetResponder={() => true}
+          onResponderGrant={handleTouch}
+          onResponderMove={handleTouch}
+        >
+          {/* Track Background */}
+          <View style={sliderStyles.sliderTrackBackground}>
+            <Animated.View
+              style={[
+                sliderStyles.sliderTrackFill,
+                {
+                  width: thumbPosition.interpolate({
+                    inputRange: [0, Math.max(trackWidth, 1)],
+                    outputRange: [0, Math.max(trackWidth, 1)],
+                    extrapolate: "clamp",
+                  }),
+                },
+              ]}
+            />
+          </View>
+
+          {/* Level Markers */}
+          {DIFFICULTY_POINTS.map((point, index) => (
+            <TouchableOpacity
+              key={point.level}
+              style={[
+                sliderStyles.sliderMarker,
+                { left: `${(index / 4) * 100}%` },
+              ]}
+              onPress={() => onValueChange(point.level)}
+              activeOpacity={0.7}
+            >
+              <View
+                style={[
+                  sliderStyles.sliderDot,
+                  value >= point.level && sliderStyles.sliderDotActive,
+                ]}
+              />
+            </TouchableOpacity>
+          ))}
+
+          {/* Thumb */}
+          <Animated.View
+            style={[
+              sliderStyles.sliderThumb,
+              {
+                transform: [
+                  {
+                    translateX: thumbPosition.interpolate({
+                      inputRange: [0, Math.max(trackWidth, 1)],
+                      outputRange: [0, Math.max(trackWidth, 1)],
+                      extrapolate: "clamp",
+                    }),
+                  },
+                ],
+              },
+            ]}
+          />
+        </View>
+
+        {/* Labels */}
+        <View style={sliderStyles.sliderLabels}>
+          <Text style={sliderStyles.sliderLabelText}>Easy</Text>
+          <Text style={sliderStyles.sliderLabelText}>Difficult</Text>
+        </View>
+      </View>
+
+      {/* Description Card */}
+      <View
+        style={[
+          sliderStyles.descriptionCard,
+          { borderColor: COLORS.primary + "20" },
+        ]}
+      >
+        <Text style={[sliderStyles.cardTitle, { color: COLORS.primary }]}>
+          {currentPoint.title}
+        </Text>
+        <Text style={sliderStyles.cardDescription}>
+          {currentPoint.description}
+        </Text>
+      </View>
+    </View>
+  );
+};
+
+const sliderStyles = StyleSheet.create({
+  container: {
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  sliderContainer: {
+    marginBottom: 12,
+  },
+  sliderTrack: {
+    height: 50,
+    justifyContent: "center",
+    position: "relative",
+    paddingVertical: 13,
+  },
+  sliderTrackBackground: {
+    height: 4,
+    backgroundColor: COLORS.border,
+    borderRadius: 2,
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 23,
+  },
+  sliderTrackFill: {
+    height: 4,
+    backgroundColor: COLORS.primary,
+    borderRadius: 2,
+  },
+  sliderThumb: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: COLORS.primary,
+    borderWidth: 3,
+    borderColor: COLORS.background,
+    position: "absolute",
+    top: 11,
+    marginLeft: -12,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+    zIndex: 10,
+  },
+  sliderMarker: {
+    position: "absolute",
+    alignItems: "center",
+    justifyContent: "center",
+    top: 19,
+    marginLeft: -6,
+    width: 12,
+    height: 12,
+  },
+  sliderDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: COLORS.border,
+  },
+  sliderDotActive: {
+    backgroundColor: COLORS.primary,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  sliderLabels: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 4,
+  },
+  sliderLabelText: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    fontWeight: "500",
+  },
+  descriptionCard: {
+    backgroundColor: COLORS.primary + "10",
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 8,
+    borderWidth: 1,
+  },
+  cardTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    marginBottom: 4,
+  },
+  cardDescription: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    lineHeight: 20,
+  },
+});
+
 export default function TaskListScreen() {
   const {
     tasks,
@@ -99,22 +662,21 @@ export default function TaskListScreen() {
     completeTask,
     deleteTask,
     createTask,
-    updateTask,
   } = useTasks();
   const [refreshing, setRefreshing] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   // Form state
   const [title, setTitle] = useState("");
-  const [energyCost, setEnergyCost] = useState("5");
-  const [friction, setFriction] = useState<EmotionalFriction>("Medium");
-  const [associatedValue, setAssociatedValue] = useState("");
+  const [motivation, setMotivation] = useState<MotivationLevel>(2);
+  const [difficulty, setDifficulty] = useState<DifficultyLevel>(2);
+  const [associatedValues, setAssociatedValues] = useState<string[]>([]);
   const [dueDate, setDueDate] = useState<Date | null>(null);
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [isAIParsed, setIsAIParsed] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   // Calendar days
   const calendarDays = useMemo(
@@ -133,21 +695,35 @@ export default function TaskListScreen() {
 
   const resetForm = () => {
     setTitle("");
-    setEnergyCost("5");
-    setFriction("Medium");
-    setAssociatedValue("");
+    setMotivation(2);
+    setDifficulty(2);
+    setAssociatedValues([]);
     setDueDate(null);
     setFormError(null);
     setIsAIParsed(false);
     setEditingTask(null);
   };
 
+  // Toggle a value in the associated values array
+  const toggleAssociatedValue = (value: string) => {
+    setAssociatedValues((prev) =>
+      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]
+    );
+  };
+
   const handleEdit = (task: Task) => {
     setEditingTask(task);
     setTitle(task.title);
-    setEnergyCost(task.energy_cost.toString());
-    setFriction(task.emotional_friction);
-    setAssociatedValue(task.associated_value || "");
+    setMotivation(energyCostToMotivation(task.energy_cost));
+    setDifficulty(frictionToDifficulty(task.emotional_friction));
+    // Handle associated_value as string or array
+    const values = task.associated_value
+      ? task.associated_value
+          .split(",")
+          .map((v) => v.trim())
+          .filter(Boolean)
+      : [];
+    setAssociatedValues(values);
     setDueDate(task.due_date ? new Date(task.due_date) : null);
     setFormError(null);
     setIsAIParsed(false);
@@ -157,9 +733,9 @@ export default function TaskListScreen() {
   // Handle AI-parsed task data from MagicTaskInput
   const handleMagicTaskParsed = (data: ParsedTaskData) => {
     setTitle(data.title);
-    setEnergyCost(data.energy_cost.toString());
-    setFriction(data.emotional_friction);
-    setAssociatedValue("");
+    setMotivation(energyCostToMotivation(data.energy_cost));
+    setDifficulty(frictionToDifficulty(data.emotional_friction));
+    setAssociatedValues([]); // User can select values after AI parsing
     // Use the AI-parsed due_date if provided
     if (data.due_date) {
       setDueDate(new Date(data.due_date));
@@ -181,39 +757,25 @@ export default function TaskListScreen() {
       return;
     }
 
-    const energy = parseInt(energyCost, 10);
-    if (isNaN(energy) || energy < 1 || energy > 10) {
-      setFormError("Energy cost must be between 1 and 10");
-      return;
-    }
+    // Get energy cost from motivation level
+    const energyCost = MOTIVATION_POINTS[motivation].energyCost;
 
     setFormError(null);
     setFormLoading(true);
 
     try {
-      if (editingTask) {
-        await updateTask(editingTask._id, {
-          title: title.trim(),
-          energy_cost: energy,
-          emotional_friction: friction,
-          associated_value: associatedValue.trim() || undefined,
-          due_date: dueDate ? dueDate.toISOString() : undefined,
-        });
-      } else {
-        await createTask({
-          title: title.trim(),
-          energy_cost: energy,
-          emotional_friction: friction,
-          associated_value: associatedValue.trim() || undefined,
-          due_date: dueDate ? dueDate.toISOString() : undefined,
-        });
-      }
+      await createTask({
+        title: title.trim(),
+        energy_cost: energyCost,
+        emotional_friction: DIFFICULTY_POINTS[difficulty].frictionValue,
+        associated_value:
+          associatedValues.length > 0 ? associatedValues.join(", ") : undefined,
+        due_date: dueDate ? dueDate.toISOString() : undefined,
+      });
       resetForm();
       setShowModal(false);
     } catch (err: any) {
-      setFormError(
-        err.message || `Failed to ${editingTask ? "update" : "create"} task`
-      );
+      setFormError(err.message || "Failed to create task");
     } finally {
       setFormLoading(false);
     }
@@ -256,12 +818,7 @@ export default function TaskListScreen() {
 
   const renderItem = ({ item }: { item: Task }) => (
     <View style={[styles.card, item.is_completed && styles.cardCompleted]}>
-      <TouchableOpacity
-        style={styles.cardContent}
-        onPress={() => !item.is_completed && handleComplete(item)}
-        activeOpacity={0.7}
-        disabled={item.is_completed}
-      >
+      <View style={styles.cardContent}>
         <Text
           style={[
             styles.taskTitle,
@@ -297,7 +854,7 @@ export default function TaskListScreen() {
             </View>
           )}
         </View>
-      </TouchableOpacity>
+      </View>
       <View style={styles.cardActions}>
         <TouchableOpacity
           style={styles.editButton}
@@ -496,52 +1053,56 @@ export default function TaskListScreen() {
                 />
               </View>
 
-              <Text style={styles.label}>Energy Cost (1-10)</Text>
-              <View style={styles.inputWrapper}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="5"
-                  placeholderTextColor={COLORS.textMuted}
-                  value={energyCost}
-                  onChangeText={setEnergyCost}
-                  keyboardType="number-pad"
-                  maxLength={2}
-                />
-              </View>
+              <Text style={styles.label}>
+                How Motivated Are You To Complete This Task?
+              </Text>
+              <MotivationSlider
+                value={motivation}
+                onValueChange={setMotivation}
+              />
 
-              <Text style={styles.label}>Emotional Friction</Text>
-              <View style={styles.frictionRow}>
-                {EMOTIONAL_FRICTION.map((level) => (
+              <Text style={styles.label}>
+                How Difficult Is It To Do This Task?
+              </Text>
+              <DifficultySlider
+                value={difficulty}
+                onValueChange={setDifficulty}
+              />
+
+              <Text style={styles.label}>
+                Associated Values (optional - select multiple)
+              </Text>
+              <View style={styles.valuesGrid}>
+                {CORE_VALUE_OPTIONS.map((value) => (
                   <TouchableOpacity
-                    key={level}
+                    key={value}
                     style={[
-                      styles.frictionButton,
-                      friction === level && styles.frictionButtonActive,
+                      styles.valueButton,
+                      associatedValues.includes(value) &&
+                        styles.valueButtonActive,
                     ]}
-                    onPress={() => setFriction(level)}
+                    onPress={() => toggleAssociatedValue(value)}
                   >
                     <Text
                       style={[
-                        styles.frictionButtonText,
-                        friction === level && styles.frictionButtonTextActive,
+                        styles.valueButtonText,
+                        associatedValues.includes(value) &&
+                          styles.valueButtonTextActive,
                       ]}
                     >
-                      {level}
+                      {value}
                     </Text>
                   </TouchableOpacity>
                 ))}
               </View>
-
-              <Text style={styles.label}>Associated Value (optional)</Text>
-              <View style={styles.inputWrapper}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="e.g., Health, Career, Family"
-                  placeholderTextColor={COLORS.textMuted}
-                  value={associatedValue}
-                  onChangeText={setAssociatedValue}
-                />
-              </View>
+              {associatedValues.length > 0 && (
+                <TouchableOpacity
+                  style={styles.clearValuesButton}
+                  onPress={() => setAssociatedValues([])}
+                >
+                  <Text style={styles.clearValuesText}>Clear all</Text>
+                </TouchableOpacity>
+              )}
 
               <Text style={styles.label}>Due Date</Text>
               <ScrollView
@@ -901,6 +1462,43 @@ const styles = StyleSheet.create({
   },
   frictionButtonTextActive: {
     color: COLORS.background,
+  },
+  valuesGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 8,
+  },
+  valueButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    backgroundColor: COLORS.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  valueButtonActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  valueButtonText: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: COLORS.textSecondary,
+  },
+  valueButtonTextActive: {
+    color: "#fff",
+  },
+  clearValuesButton: {
+    alignSelf: "flex-start",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    marginBottom: 12,
+  },
+  clearValuesText: {
+    fontSize: 13,
+    color: COLORS.primary,
+    fontWeight: "500",
   },
   dueDateScroll: {
     marginBottom: 8,
