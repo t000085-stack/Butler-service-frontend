@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import {
   View,
   Text,
@@ -14,15 +14,18 @@ import {
   Platform,
   ScrollView,
   Animated,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { StatusBar } from 'expo-status-bar';
-import { Feather } from '@expo/vector-icons';
-import { useTasks } from '../../contexts/TaskContext';
-import { COLORS, EMOTIONAL_FRICTION } from '../../constants/config';
-import MagicTaskInput, { ParsedTaskData } from '../../components/MagicTaskInput';
-import type { Task, EmotionalFriction } from '../../types';
+  GestureResponderEvent,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
+import { StatusBar } from "expo-status-bar";
+import { Feather } from "@expo/vector-icons";
+import { useTasks } from "../../contexts/TaskContext";
+import { COLORS, EMOTIONAL_FRICTION } from "../../constants/config";
+import MagicTaskInput, {
+  ParsedTaskData,
+} from "../../components/MagicTaskInput";
+import type { Task, EmotionalFriction } from "../../types";
 
 // Calendar day type
 interface CalendarDay {
@@ -50,7 +53,7 @@ const generateCalendarDays = (selectedDate: Date): CalendarDay[] => {
 
     days.push({
       date,
-      dayName: date.toLocaleDateString('en-US', { weekday: 'short' }),
+      dayName: date.toLocaleDateString("en-US", { weekday: "short" }),
       dayNumber: date.getDate(),
       isToday: date.getTime() === today.getTime(),
       isSelected: date.getTime() === selectedDateNormalized.getTime(),
@@ -69,7 +72,7 @@ const isTaskOnDate = (task: Task, date: Date): boolean => {
     normalizedDate.setHours(0, 0, 0, 0);
     return today.getTime() === normalizedDate.getTime();
   }
-  
+
   const taskDate = new Date(task.due_date);
   taskDate.setHours(0, 0, 0, 0);
   const normalizedDate = new Date(date);
@@ -79,38 +82,642 @@ const isTaskOnDate = (task: Task, date: Date): boolean => {
 
 // Check if a date has any tasks
 const dateHasTasks = (tasks: Task[], date: Date): boolean => {
-  return tasks.some(task => isTaskOnDate(task, date) && !task.is_completed);
+  return tasks.some((task) => isTaskOnDate(task, date) && !task.is_completed);
 };
 
 const frictionColors: Record<string, string> = {
   Low: COLORS.success,
-  Medium: '#f59e0b',
+  Medium: "#f59e0b",
   High: COLORS.error,
 };
 
+// Motivation scale with 5 levels
+type MotivationLevel = 0 | 1 | 2 | 3 | 4;
+
+interface MotivationPoint {
+  level: MotivationLevel;
+  label: string;
+  shortLabel: string;
+  title: string;
+  description: string;
+  color: string;
+  bgColor: string;
+  energyCost: number;
+}
+
+const MOTIVATION_POINTS: MotivationPoint[] = [
+  {
+    level: 0,
+    label: "Not Motivated",
+    shortLabel: "Low",
+    title: "Gentle Start Needed",
+    description:
+      "Like wading through stardust — take it one sparkle at a time.",
+    color: "#EC4899",
+    bgColor: "#FDF2F8",
+    energyCost: 9,
+  },
+  {
+    level: 1,
+    label: "Low Energy",
+    shortLabel: "",
+    title: "Easing Into It",
+    description: "A soft breeze of effort — small steps lead to big journeys.",
+    color: "#D946EF",
+    bgColor: "#FDF4FF",
+    energyCost: 7,
+  },
+  {
+    level: 2,
+    label: "Neutral",
+    shortLabel: "Neutral",
+    title: "Floating Along",
+    description: "Somewhere between a yawn and a smile — perfectly balanced.",
+    color: "#A855F7",
+    bgColor: "#FAF5FF",
+    energyCost: 5,
+  },
+  {
+    level: 3,
+    label: "Energized",
+    shortLabel: "",
+    title: "Gaining Momentum",
+    description: "Your inner spark is catching — ride the wave of motivation!",
+    color: "#8B5CF6",
+    bgColor: "#F5F3FF",
+    energyCost: 3,
+  },
+  {
+    level: 4,
+    label: "Highly Motivated",
+    shortLabel: "High",
+    title: "Sparks Are Flying!",
+    description:
+      "Your energy is radiating! Channel that magic into accomplishment.",
+    color: "#7C3AED",
+    bgColor: "#EDE9FE",
+    energyCost: 1,
+  },
+];
+
+// Convert energy cost (1-10) to motivation level (0-4)
+const energyCostToMotivation = (cost: number): MotivationLevel => {
+  if (cost >= 8) return 0;
+  if (cost >= 6) return 1;
+  if (cost >= 4) return 2;
+  if (cost >= 2) return 3;
+  return 4;
+};
+
+// Difficulty scale with 5 levels
+type DifficultyLevel = 0 | 1 | 2 | 3 | 4;
+
+interface DifficultyPoint {
+  level: DifficultyLevel;
+  label: string;
+  shortLabel: string;
+  title: string;
+  description: string;
+  color: string;
+  bgColor: string;
+  frictionValue: EmotionalFriction;
+}
+
+const DIFFICULTY_POINTS: DifficultyPoint[] = [
+  {
+    level: 0,
+    label: "Very Easy",
+    shortLabel: "Easy",
+    title: "Smooth Sailing",
+    description:
+      "Like a gentle breeze — this task flows naturally without resistance.",
+    color: "#7C3AED",
+    bgColor: "#EDE9FE",
+    frictionValue: "Low",
+  },
+  {
+    level: 1,
+    label: "Easy",
+    shortLabel: "",
+    title: "Light Touch",
+    description: "A small pebble in the stream — easily navigated with grace.",
+    color: "#8B5CF6",
+    bgColor: "#F5F3FF",
+    frictionValue: "Low",
+  },
+  {
+    level: 2,
+    label: "Moderate",
+    shortLabel: "Moderate",
+    title: "Balanced Challenge",
+    description:
+      "A mindful climb — requires focus but brings rewarding progress.",
+    color: "#A855F7",
+    bgColor: "#FAF5FF",
+    frictionValue: "Medium",
+  },
+  {
+    level: 3,
+    label: "Challenging",
+    shortLabel: "",
+    title: "Rising Heat",
+    description: "Pushing through resistance — each step builds your strength.",
+    color: "#D946EF",
+    bgColor: "#FDF4FF",
+    frictionValue: "High",
+  },
+  {
+    level: 4,
+    label: "Very Difficult",
+    shortLabel: "Difficult",
+    title: "Mountain to Climb",
+    description:
+      "A significant challenge — break it down and conquer piece by piece.",
+    color: "#EC4899",
+    bgColor: "#FDF2F8",
+    frictionValue: "High",
+  },
+];
+
+// Convert EmotionalFriction to difficulty level
+const frictionToDifficulty = (friction: EmotionalFriction): DifficultyLevel => {
+  switch (friction) {
+    case "Low":
+      return 0;
+    case "Medium":
+      return 2;
+    case "High":
+      return 4;
+    default:
+      return 2;
+  }
+};
+
+// Touch-Based Motivation Slider Component
+const MotivationSlider = ({
+  value,
+  onValueChange,
+}: {
+  value: MotivationLevel;
+  onValueChange: (level: MotivationLevel) => void;
+}) => {
+  const currentPoint = MOTIVATION_POINTS[value];
+  const trackRef = useRef<View>(null);
+  const [trackLayout, setTrackLayout] = useState({ x: 0, width: 0 });
+  const thumbAnim = useRef(new Animated.Value(value)).current;
+
+  // Update animation when value changes
+  useEffect(() => {
+    Animated.spring(thumbAnim, {
+      toValue: value,
+      friction: 8,
+      tension: 100,
+      useNativeDriver: false,
+    }).start();
+  }, [value]);
+
+  // Handle track layout measurement
+  const onTrackLayout = () => {
+    trackRef.current?.measure((x, y, width, height, pageX, pageY) => {
+      setTrackLayout({ x: pageX, width });
+    });
+  };
+
+  // Calculate level from touch position
+  const getLevelFromTouch = (pageX: number): MotivationLevel => {
+    const relativeX = pageX - trackLayout.x;
+    const percentage = Math.max(0, Math.min(1, relativeX / trackLayout.width));
+    const level = Math.round(percentage * 4) as MotivationLevel;
+    return level;
+  };
+
+  // Handle touch events
+  const handleTouchStart = (e: GestureResponderEvent) => {
+    const level = getLevelFromTouch(e.nativeEvent.pageX);
+    onValueChange(level);
+  };
+
+  const handleTouchMove = (e: GestureResponderEvent) => {
+    const level = getLevelFromTouch(e.nativeEvent.pageX);
+    onValueChange(level);
+  };
+
+  // Calculate thumb position
+  const thumbPosition = thumbAnim.interpolate({
+    inputRange: [0, 1, 2, 3, 4],
+    outputRange: ["0%", "25%", "50%", "75%", "100%"],
+  });
+
+  return (
+    <View style={sliderStyles.container}>
+      {/* Slider Track Area */}
+      <View
+        ref={trackRef}
+        style={sliderStyles.trackWrapper}
+        onLayout={onTrackLayout}
+        onStartShouldSetResponder={() => true}
+        onMoveShouldSetResponder={() => true}
+        onResponderGrant={handleTouchStart}
+        onResponderMove={handleTouchMove}
+      >
+        {/* Gradient Track */}
+        <LinearGradient
+          colors={["#EC4899", "#D946EF", "#A855F7", "#8B5CF6", "#7C3AED"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={sliderStyles.track}
+        />
+
+        {/* Track Points */}
+        <View style={sliderStyles.pointsContainer}>
+          {MOTIVATION_POINTS.map((point, index) => (
+            <TouchableOpacity
+              key={point.level}
+              style={[sliderStyles.point, { left: `${index * 25}%` }]}
+              onPress={() => onValueChange(point.level)}
+              activeOpacity={0.7}
+            >
+              <View
+                style={[
+                  sliderStyles.pointDot,
+                  value === point.level && {
+                    backgroundColor: point.color,
+                    transform: [{ scale: 1.4 }],
+                  },
+                ]}
+              />
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Animated Thumb */}
+        <Animated.View
+          style={[sliderStyles.thumbWrapper, { left: thumbPosition }]}
+          pointerEvents="none"
+        >
+          <View
+            style={[sliderStyles.thumb, { borderColor: currentPoint.color }]}
+          >
+            <View
+              style={[
+                sliderStyles.thumbInner,
+                { backgroundColor: currentPoint.color },
+              ]}
+            />
+          </View>
+        </Animated.View>
+      </View>
+
+      {/* Labels Row */}
+      <View style={sliderStyles.labelsRow}>
+        {MOTIVATION_POINTS.filter((p) => p.shortLabel).map((point) => (
+          <TouchableOpacity
+            key={point.level}
+            style={[
+              sliderStyles.labelButton,
+              point.level === 0 && { alignItems: "flex-start" },
+              point.level === 2 && { alignItems: "center" },
+              point.level === 4 && { alignItems: "flex-end" },
+            ]}
+            onPress={() => onValueChange(point.level)}
+            activeOpacity={0.7}
+          >
+            <Text
+              style={[
+                sliderStyles.labelText,
+                value === point.level && {
+                  color: point.color,
+                  fontWeight: "700",
+                },
+              ]}
+            >
+              {point.shortLabel}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* Description Card */}
+      <View
+        style={[
+          sliderStyles.descriptionCard,
+          {
+            backgroundColor: currentPoint.bgColor,
+            borderLeftColor: currentPoint.color,
+          },
+        ]}
+      >
+        <Text style={[sliderStyles.cardTitle, { color: currentPoint.color }]}>
+          {currentPoint.title}
+        </Text>
+        <Text style={sliderStyles.cardDescription}>
+          {currentPoint.description}
+        </Text>
+      </View>
+    </View>
+  );
+};
+
+// Touch-Based Difficulty Slider Component
+const DifficultySlider = ({
+  value,
+  onValueChange,
+}: {
+  value: DifficultyLevel;
+  onValueChange: (level: DifficultyLevel) => void;
+}) => {
+  const currentPoint = DIFFICULTY_POINTS[value];
+  const trackRef = useRef<View>(null);
+  const [trackLayout, setTrackLayout] = useState({ x: 0, width: 0 });
+  const thumbAnim = useRef(new Animated.Value(value)).current;
+
+  // Update animation when value changes
+  useEffect(() => {
+    Animated.spring(thumbAnim, {
+      toValue: value,
+      friction: 8,
+      tension: 100,
+      useNativeDriver: false,
+    }).start();
+  }, [value]);
+
+  // Handle track layout measurement
+  const onTrackLayout = () => {
+    trackRef.current?.measure((x, y, width, height, pageX, pageY) => {
+      setTrackLayout({ x: pageX, width });
+    });
+  };
+
+  // Calculate level from touch position
+  const getLevelFromTouch = (pageX: number): DifficultyLevel => {
+    const relativeX = pageX - trackLayout.x;
+    const percentage = Math.max(0, Math.min(1, relativeX / trackLayout.width));
+    const level = Math.round(percentage * 4) as DifficultyLevel;
+    return level;
+  };
+
+  // Handle touch events
+  const handleTouchStart = (e: GestureResponderEvent) => {
+    const level = getLevelFromTouch(e.nativeEvent.pageX);
+    onValueChange(level);
+  };
+
+  const handleTouchMove = (e: GestureResponderEvent) => {
+    const level = getLevelFromTouch(e.nativeEvent.pageX);
+    onValueChange(level);
+  };
+
+  // Calculate thumb position
+  const thumbPosition = thumbAnim.interpolate({
+    inputRange: [0, 1, 2, 3, 4],
+    outputRange: ["0%", "25%", "50%", "75%", "100%"],
+  });
+
+  return (
+    <View style={sliderStyles.container}>
+      {/* Slider Track Area */}
+      <View
+        ref={trackRef}
+        style={sliderStyles.trackWrapper}
+        onLayout={onTrackLayout}
+        onStartShouldSetResponder={() => true}
+        onMoveShouldSetResponder={() => true}
+        onResponderGrant={handleTouchStart}
+        onResponderMove={handleTouchMove}
+      >
+        {/* Gradient Track */}
+        <LinearGradient
+          colors={["#7C3AED", "#8B5CF6", "#A855F7", "#D946EF", "#EC4899"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={sliderStyles.track}
+        />
+
+        {/* Track Points */}
+        <View style={sliderStyles.pointsContainer}>
+          {DIFFICULTY_POINTS.map((point, index) => (
+            <TouchableOpacity
+              key={point.level}
+              style={[sliderStyles.point, { left: `${index * 25}%` }]}
+              onPress={() => onValueChange(point.level)}
+              activeOpacity={0.7}
+            >
+              <View
+                style={[
+                  sliderStyles.pointDot,
+                  value === point.level && {
+                    backgroundColor: point.color,
+                    transform: [{ scale: 1.4 }],
+                  },
+                ]}
+              />
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Animated Thumb */}
+        <Animated.View
+          style={[sliderStyles.thumbWrapper, { left: thumbPosition }]}
+          pointerEvents="none"
+        >
+          <View
+            style={[sliderStyles.thumb, { borderColor: currentPoint.color }]}
+          >
+            <View
+              style={[
+                sliderStyles.thumbInner,
+                { backgroundColor: currentPoint.color },
+              ]}
+            />
+          </View>
+        </Animated.View>
+      </View>
+
+      {/* Labels Row */}
+      <View style={sliderStyles.labelsRow}>
+        {DIFFICULTY_POINTS.filter((p) => p.shortLabel).map((point) => (
+          <TouchableOpacity
+            key={point.level}
+            style={[
+              sliderStyles.labelButton,
+              point.level === 0 && { alignItems: "flex-start" },
+              point.level === 2 && { alignItems: "center" },
+              point.level === 4 && { alignItems: "flex-end" },
+            ]}
+            onPress={() => onValueChange(point.level)}
+            activeOpacity={0.7}
+          >
+            <Text
+              style={[
+                sliderStyles.labelText,
+                value === point.level && {
+                  color: point.color,
+                  fontWeight: "700",
+                },
+              ]}
+            >
+              {point.shortLabel}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* Description Card */}
+      <View
+        style={[
+          sliderStyles.descriptionCard,
+          {
+            backgroundColor: currentPoint.bgColor,
+            borderLeftColor: currentPoint.color,
+          },
+        ]}
+      >
+        <Text style={[sliderStyles.cardTitle, { color: currentPoint.color }]}>
+          {currentPoint.title}
+        </Text>
+        <Text style={sliderStyles.cardDescription}>
+          {currentPoint.description}
+        </Text>
+      </View>
+    </View>
+  );
+};
+
+const sliderStyles = StyleSheet.create({
+  container: {
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  trackWrapper: {
+    height: 60,
+    justifyContent: "center",
+    paddingHorizontal: 20,
+  },
+  track: {
+    height: 8,
+    borderRadius: 4,
+  },
+  pointsContainer: {
+    position: "absolute",
+    left: 20,
+    right: 20,
+    height: 60,
+    justifyContent: "center",
+  },
+  point: {
+    position: "absolute",
+    width: 44,
+    height: 44,
+    marginLeft: -22,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pointDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: "rgba(255,255,255,0.95)",
+    borderWidth: 2,
+    borderColor: "rgba(0,0,0,0.1)",
+  },
+  thumbWrapper: {
+    position: "absolute",
+    top: "50%",
+    marginTop: -24,
+    marginLeft: -4,
+  },
+  thumb: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: COLORS.background,
+    borderWidth: 4,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  thumbInner: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+  },
+  labelsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    marginTop: 8,
+  },
+  labelButton: {
+    flex: 1,
+    paddingVertical: 4,
+  },
+  labelText: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: COLORS.textSecondary,
+  },
+  descriptionCard: {
+    marginTop: 16,
+    padding: 16,
+    borderRadius: 16,
+    borderLeftWidth: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+    marginBottom: 8,
+  },
+  cardDescription: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    lineHeight: 22,
+    fontStyle: "italic",
+  },
+});
+
 export default function TaskListScreen() {
-  const { tasks, isLoading, error, fetchTasks, completeTask, deleteTask, createTask, updateTask } = useTasks();
+  const {
+    tasks,
+    isLoading,
+    error,
+    fetchTasks,
+    completeTask,
+    deleteTask,
+    createTask,
+  } = useTasks();
   const [refreshing, setRefreshing] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [editingTask, setEditingTask] = useState<Task | null>(null);
-  
+
   // Form state
-  const [title, setTitle] = useState('');
-  const [energyCost, setEnergyCost] = useState('5');
-  const [friction, setFriction] = useState<EmotionalFriction>('Medium');
-  const [associatedValue, setAssociatedValue] = useState('');
+  const [title, setTitle] = useState("");
+  const [motivation, setMotivation] = useState<MotivationLevel>(2);
+  const [difficulty, setDifficulty] = useState<DifficultyLevel>(2);
+  const [associatedValue, setAssociatedValue] = useState("");
   const [dueDate, setDueDate] = useState<Date | null>(null);
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [isAIParsed, setIsAIParsed] = useState(false);
 
   // Calendar days
-  const calendarDays = useMemo(() => generateCalendarDays(selectedDate), [selectedDate]);
-  
+  const calendarDays = useMemo(
+    () => generateCalendarDays(selectedDate),
+    [selectedDate]
+  );
+
   // Filtered tasks for selected date
   const filteredTasks = useMemo(() => {
-    return tasks.filter(task => isTaskOnDate(task, selectedDate));
+    return tasks.filter((task) => isTaskOnDate(task, selectedDate));
   }, [tasks, selectedDate]);
 
   useEffect(() => {
@@ -118,10 +725,10 @@ export default function TaskListScreen() {
   }, [fetchTasks]);
 
   const resetForm = () => {
-    setTitle('');
-    setEnergyCost('5');
-    setFriction('Medium');
-    setAssociatedValue('');
+    setTitle("");
+    setMotivation(2);
+    setDifficulty(2);
+    setAssociatedValue("");
     setDueDate(null);
     setFormError(null);
     setIsAIParsed(false);
@@ -143,9 +750,9 @@ export default function TaskListScreen() {
   // Handle AI-parsed task data from MagicTaskInput
   const handleMagicTaskParsed = (data: ParsedTaskData) => {
     setTitle(data.title);
-    setEnergyCost(data.energy_cost.toString());
-    setFriction(data.emotional_friction);
-    setAssociatedValue('');
+    setMotivation(energyCostToMotivation(data.energy_cost));
+    setDifficulty(frictionToDifficulty(data.emotional_friction));
+    setAssociatedValue("");
     // Use the AI-parsed due_date if provided
     if (data.due_date) {
       setDueDate(new Date(data.due_date));
@@ -158,46 +765,33 @@ export default function TaskListScreen() {
   };
 
   const handleMagicError = (error: string) => {
-    Alert.alert('Magic Input Error', error);
+    Alert.alert("Magic Input Error", error);
   };
 
   const handleCreateTask = async () => {
     if (!title.trim()) {
-      setFormError('Please enter a task title');
+      setFormError("Please enter a task title");
       return;
     }
 
-    const energy = parseInt(energyCost, 10);
-    if (isNaN(energy) || energy < 1 || energy > 10) {
-      setFormError('Energy cost must be between 1 and 10');
-      return;
-    }
+    // Get energy cost from motivation level
+    const energyCost = MOTIVATION_POINTS[motivation].energyCost;
 
     setFormError(null);
     setFormLoading(true);
 
     try {
-      if (editingTask) {
-        await updateTask(editingTask._id, {
-          title: title.trim(),
-          energy_cost: energy,
-          emotional_friction: friction,
-          associated_value: associatedValue.trim() || undefined,
-          due_date: dueDate ? dueDate.toISOString() : undefined,
-        });
-      } else {
-        await createTask({
-          title: title.trim(),
-          energy_cost: energy,
-          emotional_friction: friction,
-          associated_value: associatedValue.trim() || undefined,
-          due_date: dueDate ? dueDate.toISOString() : undefined,
-        });
-      }
+      await createTask({
+        title: title.trim(),
+        energy_cost: energyCost,
+        emotional_friction: DIFFICULTY_POINTS[difficulty].frictionValue,
+        associated_value: associatedValue.trim() || undefined,
+        due_date: dueDate ? dueDate.toISOString() : undefined,
+      });
       resetForm();
       setShowModal(false);
     } catch (err: any) {
-      setFormError(err.message || `Failed to ${editingTask ? 'update' : 'create'} task`);
+      setFormError(err.message || "Failed to create task");
     } finally {
       setFormLoading(false);
     }
@@ -213,24 +807,24 @@ export default function TaskListScreen() {
     try {
       await completeTask(task._id);
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to complete task');
+      Alert.alert("Error", err.message || "Failed to complete task");
     }
   };
 
   const handleDelete = (task: Task) => {
     Alert.alert(
-      'Delete Task',
+      "Delete Task",
       `Are you sure you want to delete "${task.title}"?`,
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: "Cancel", style: "cancel" },
         {
-          text: 'Delete',
-          style: 'destructive',
+          text: "Delete",
+          style: "destructive",
           onPress: async () => {
             try {
               await deleteTask(task._id);
             } catch (err: any) {
-              Alert.alert('Error', err.message || 'Failed to delete task');
+              Alert.alert("Error", err.message || "Failed to delete task");
             }
           },
         },
@@ -241,15 +835,32 @@ export default function TaskListScreen() {
   const renderItem = ({ item }: { item: Task }) => (
     <View style={[styles.card, item.is_completed && styles.cardCompleted]}>
       <View style={styles.cardContent}>
-        <Text style={[styles.taskTitle, item.is_completed && styles.taskTitleCompleted]}>
+        <Text
+          style={[
+            styles.taskTitle,
+            item.is_completed && styles.taskTitleCompleted,
+          ]}
+        >
           {item.title}
         </Text>
         <View style={styles.taskMeta}>
           <View style={styles.badge}>
             <Text style={styles.badgeText}>Energy: {item.energy_cost}</Text>
           </View>
-          <View style={[styles.badge, { backgroundColor: frictionColors[item.emotional_friction] + '20' }]}>
-            <Text style={[styles.badgeText, { color: frictionColors[item.emotional_friction] }]}>
+          <View
+            style={[
+              styles.badge,
+              {
+                backgroundColor: frictionColors[item.emotional_friction] + "20",
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.badgeText,
+                { color: frictionColors[item.emotional_friction] },
+              ]}
+            >
               {item.emotional_friction}
             </Text>
           </View>
@@ -287,7 +898,7 @@ export default function TaskListScreen() {
 
   if (isLoading && tasks.length === 0) {
     return (
-      <SafeAreaView style={styles.centered} edges={['top']}>
+      <SafeAreaView style={styles.centered} edges={["top"]}>
         <StatusBar style="dark" />
         <ActivityIndicator size="large" color={COLORS.primary} />
       </SafeAreaView>
@@ -295,12 +906,12 @@ export default function TaskListScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
       <StatusBar style="dark" />
-      
+
       {/* Subtle background gradient */}
       <LinearGradient
-        colors={['#ffffff', '#faf5ff', '#fdf4ff', '#ffffff']}
+        colors={["#ffffff", "#faf5ff", "#fdf4ff", "#ffffff"]}
         style={styles.backgroundGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -310,8 +921,11 @@ export default function TaskListScreen() {
         <View>
           <Text style={styles.title}>Your Tasks</Text>
           <Text style={styles.subtitle}>
-            {filteredTasks.filter(t => !t.is_completed).length} tasks for{' '}
-            {selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            {filteredTasks.filter((t) => !t.is_completed).length} tasks for{" "}
+            {selectedDate.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            })}
           </Text>
         </View>
         <TouchableOpacity
@@ -357,7 +971,9 @@ export default function TaskListScreen() {
                 style={[
                   styles.calendarDayNumber,
                   day.isSelected && styles.calendarDayNumberSelected,
-                  day.isToday && !day.isSelected && styles.calendarDayNumberToday,
+                  day.isToday &&
+                    !day.isSelected &&
+                    styles.calendarDayNumberToday,
                 ]}
               >
                 {day.dayNumber}
@@ -404,8 +1020,11 @@ export default function TaskListScreen() {
               <Feather name="calendar" size={40} color={COLORS.textMuted} />
               <Text style={styles.emptyText}>No tasks for this day</Text>
               <Text style={styles.emptySubtext}>
-                Tap "+ Add" to create a task for{' '}
-                {selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                Tap "+ Add" to create a task for{" "}
+                {selectedDate.toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                })}
               </Text>
             </View>
           }
@@ -421,19 +1040,26 @@ export default function TaskListScreen() {
       >
         <KeyboardAvoidingView
           style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
         >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <View>
                 <Text style={styles.modalTitle}>
-                  {editingTask ? 'Edit Task' : isAIParsed ? '✨ AI Parsed Task' : 'New Task'}
+                  {isAIParsed ? "✨ AI Parsed Task" : "New Task"}
                 </Text>
-                {isAIParsed && !editingTask && (
-                  <Text style={styles.modalSubtitle}>Review and adjust if needed</Text>
+                {isAIParsed && (
+                  <Text style={styles.modalSubtitle}>
+                    Review and adjust if needed
+                  </Text>
                 )}
               </View>
-              <TouchableOpacity onPress={() => { setShowModal(false); resetForm(); }}>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowModal(false);
+                  resetForm();
+                }}
+              >
                 <Text style={styles.modalClose}>✕</Text>
               </TouchableOpacity>
             </View>
@@ -450,41 +1076,21 @@ export default function TaskListScreen() {
                 />
               </View>
 
-              <Text style={styles.label}>Energy Cost (1-10)</Text>
-              <View style={styles.inputWrapper}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="5"
-                  placeholderTextColor={COLORS.textMuted}
-                  value={energyCost}
-                  onChangeText={setEnergyCost}
-                  keyboardType="number-pad"
-                  maxLength={2}
-                />
-              </View>
+              <Text style={styles.label}>
+                How Motivated Are You To Complete This Task?
+              </Text>
+              <MotivationSlider
+                value={motivation}
+                onValueChange={setMotivation}
+              />
 
-              <Text style={styles.label}>Emotional Friction</Text>
-              <View style={styles.frictionRow}>
-                {EMOTIONAL_FRICTION.map((level) => (
-                  <TouchableOpacity
-                    key={level}
-                    style={[
-                      styles.frictionButton,
-                      friction === level && styles.frictionButtonActive,
-                    ]}
-                    onPress={() => setFriction(level)}
-                  >
-                    <Text
-                      style={[
-                        styles.frictionButtonText,
-                        friction === level && styles.frictionButtonTextActive,
-                      ]}
-                    >
-                      {level}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+              <Text style={styles.label}>
+                How Difficult Is It To Do This Task?
+              </Text>
+              <DifficultySlider
+                value={difficulty}
+                onValueChange={setDifficulty}
+              />
 
               <Text style={styles.label}>Associated Value (optional)</Text>
               <View style={styles.inputWrapper}>
@@ -519,31 +1125,43 @@ export default function TaskListScreen() {
                     No date
                   </Text>
                 </TouchableOpacity>
-                {generateCalendarDays(selectedDate).slice(3, 10).map((day, index) => (
-                  <TouchableOpacity
-                    key={index}
-                    style={[
-                      styles.dueDateButton,
-                      dueDate && dueDate.toDateString() === day.date.toDateString() && styles.dueDateButtonActive,
-                    ]}
-                    onPress={() => setDueDate(day.date)}
-                  >
-                    <Text
+                {generateCalendarDays(selectedDate)
+                  .slice(3, 10)
+                  .map((day, index) => (
+                    <TouchableOpacity
+                      key={index}
                       style={[
-                        styles.dueDateButtonText,
-                        dueDate && dueDate.toDateString() === day.date.toDateString() && styles.dueDateButtonTextActive,
+                        styles.dueDateButton,
+                        dueDate &&
+                          dueDate.toDateString() === day.date.toDateString() &&
+                          styles.dueDateButtonActive,
                       ]}
+                      onPress={() => setDueDate(day.date)}
                     >
-                      {day.isToday ? 'Today' : day.dayName} {day.dayNumber}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                      <Text
+                        style={[
+                          styles.dueDateButtonText,
+                          dueDate &&
+                            dueDate.toDateString() ===
+                              day.date.toDateString() &&
+                            styles.dueDateButtonTextActive,
+                        ]}
+                      >
+                        {day.isToday ? "Today" : day.dayName} {day.dayNumber}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
               </ScrollView>
 
-              {formError && <Text style={styles.formErrorText}>{formError}</Text>}
+              {formError && (
+                <Text style={styles.formErrorText}>{formError}</Text>
+              )}
 
               <TouchableOpacity
-                style={[styles.createButton, formLoading && styles.createButtonDisabled]}
+                style={[
+                  styles.createButton,
+                  formLoading && styles.createButtonDisabled,
+                ]}
                 onPress={handleCreateTask}
                 disabled={formLoading}
                 activeOpacity={0.7}
@@ -570,7 +1188,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   backgroundGradient: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
@@ -578,20 +1196,20 @@ const styles = StyleSheet.create({
   },
   centered: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     backgroundColor: COLORS.background,
   },
   header: {
     paddingHorizontal: 40,
     paddingVertical: 20,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   title: {
     fontSize: 26,
-    fontWeight: '600',
+    fontWeight: "600",
     color: COLORS.text,
     letterSpacing: -0.5,
   },
@@ -611,7 +1229,7 @@ const styles = StyleSheet.create({
   addButtonText: {
     color: COLORS.text,
     fontSize: 15,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   // Calendar styles
   calendarContainer: {
@@ -622,7 +1240,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   calendarDay: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: 10,
     paddingHorizontal: 14,
     borderRadius: 16,
@@ -639,19 +1257,19 @@ const styles = StyleSheet.create({
   calendarDayName: {
     fontSize: 11,
     color: COLORS.textSecondary,
-    fontWeight: '500',
+    fontWeight: "500",
     marginBottom: 4,
   },
   calendarDayNameSelected: {
-    color: '#fff',
+    color: "#fff",
   },
   calendarDayNumber: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     color: COLORS.text,
   },
   calendarDayNumberSelected: {
-    color: '#fff',
+    color: "#fff",
   },
   calendarDayNumberToday: {
     color: COLORS.primary,
@@ -664,7 +1282,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   calendarDotSelected: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   list: {
     paddingHorizontal: 40,
@@ -678,8 +1296,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderWidth: 1,
     borderColor: COLORS.border,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   cardCompleted: {
     opacity: 0.6,
@@ -689,17 +1307,17 @@ const styles = StyleSheet.create({
   },
   taskTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     color: COLORS.text,
     marginBottom: 8,
   },
   taskTitleCompleted: {
-    textDecorationLine: 'line-through',
+    textDecorationLine: "line-through",
     color: COLORS.textMuted,
   },
   taskMeta: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
   },
   badge: {
@@ -711,10 +1329,10 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 12,
     color: COLORS.textSecondary,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   cardActions: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 8,
     marginLeft: 12,
   },
@@ -722,14 +1340,14 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: COLORS.success + '20',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: COLORS.success + "20",
+    alignItems: "center",
+    justifyContent: "center",
   },
   completeButtonText: {
     fontSize: 18,
     color: COLORS.success,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   editButton: {
     width: 36,
@@ -743,56 +1361,56 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: COLORS.error + '20',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: COLORS.error + "20",
+    alignItems: "center",
+    justifyContent: "center",
   },
   deleteButtonText: {
     fontSize: 22,
     color: COLORS.error,
-    fontWeight: '400',
+    fontWeight: "400",
   },
   errorText: {
     color: COLORS.error,
     fontSize: 15,
   },
   empty: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: 40,
   },
   emptyText: {
     fontSize: 16,
     color: COLORS.textSecondary,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   emptySubtext: {
     fontSize: 14,
     color: COLORS.textMuted,
     marginTop: 4,
-    textAlign: 'center',
+    textAlign: "center",
   },
   // Modal styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
   },
   modalContent: {
     backgroundColor: COLORS.background,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
-    maxHeight: '85%',
+    maxHeight: "85%",
   },
   modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 20,
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: "700",
     color: COLORS.text,
   },
   modalSubtitle: {
@@ -807,7 +1425,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     color: COLORS.text,
     marginBottom: 8,
     marginTop: 12,
@@ -825,7 +1443,7 @@ const styles = StyleSheet.create({
     color: COLORS.text,
   },
   frictionRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
   },
   frictionButton: {
@@ -835,7 +1453,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.backgroundSecondary,
     borderWidth: 1,
     borderColor: COLORS.border,
-    alignItems: 'center',
+    alignItems: "center",
   },
   frictionButtonActive: {
     backgroundColor: COLORS.primary,
@@ -843,7 +1461,7 @@ const styles = StyleSheet.create({
   },
   frictionButtonText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
     color: COLORS.textSecondary,
   },
   frictionButtonTextActive: {
@@ -867,16 +1485,16 @@ const styles = StyleSheet.create({
   },
   dueDateButtonText: {
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: "500",
     color: COLORS.textSecondary,
   },
   dueDateButtonTextActive: {
-    color: '#fff',
+    color: "#fff",
   },
   formErrorText: {
     color: COLORS.error,
     fontSize: 13,
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: 12,
   },
   createButton: {
@@ -884,9 +1502,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 16,
     paddingHorizontal: 24,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     marginTop: 20,
     marginBottom: 20,
     borderWidth: 1,
@@ -897,8 +1515,7 @@ const styles = StyleSheet.create({
   },
   createButtonText: {
     fontSize: 15,
-    fontWeight: '500',
+    fontWeight: "500",
     color: COLORS.text,
   },
 });
-

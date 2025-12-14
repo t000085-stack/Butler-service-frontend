@@ -77,6 +77,99 @@ const Star = ({
   );
 };
 
+// Animated Mood Button Component - soft and comfortable
+const AnimatedMoodButton = ({
+  mood,
+  isSelected,
+  onPress,
+  index,
+}: {
+  mood: {
+    id: string;
+    icon: string;
+    label: string;
+    color: string;
+    gradient: string[];
+  };
+  isSelected: boolean;
+  onPress: () => void;
+  index: number;
+}) => {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.95,
+      friction: 8,
+      tension: 200,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      friction: 6,
+      tension: 150,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      activeOpacity={1}
+    >
+      <Animated.View
+        style={[
+          styles.moodCard,
+          { transform: [{ scale: scaleAnim }] },
+          isSelected && styles.moodCardSelected,
+        ]}
+      >
+        <LinearGradient
+          colors={
+            isSelected
+              ? (mood.gradient as [string, string])
+              : ["#FAFAFA", "#F5F5F5"]
+          }
+          style={[
+            styles.moodCardGradient,
+            isSelected && { borderColor: `${mood.color}40` },
+          ]}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+        >
+          <View
+            style={[
+              styles.moodIconWrapper,
+              {
+                backgroundColor: isSelected ? `${mood.color}15` : "#F0F0F0",
+              },
+            ]}
+          >
+            <MaterialIcons
+              name={mood.icon as any}
+              size={24}
+              color={isSelected ? mood.color : "#A3A3A3"}
+            />
+          </View>
+          <Text
+            style={[
+              styles.moodCardLabel,
+              isSelected && { color: mood.color, fontWeight: "600" },
+            ]}
+          >
+            {mood.label}
+          </Text>
+        </LinearGradient>
+      </Animated.View>
+    </TouchableOpacity>
+  );
+};
+
 // Generate random stars
 const generateStars = (count: number) => {
   return Array.from({ length: count }, (_, i) => ({
@@ -116,18 +209,43 @@ interface ConsultationResult {
   contextLogId: string;
 }
 
-// Mood options for tracker (using Feather icons for thin elegant style)
+// Mood options with soft, eye-friendly colors
 const MOODS = [
-  { id: "happy", icon: "smile" as const, label: "Happy", color: "#FFD93D" },
-  { id: "calm", icon: "sun" as const, label: "Calm", color: "#6BCB77" },
-  { id: "neutral", icon: "meh" as const, label: "Okay", color: "#95A5A6" },
+  {
+    id: "happy",
+    icon: "wb-sunny",
+    label: "Joyful",
+    color: "#D97706",
+    gradient: ["#FFFBEB", "#FEF3C7"],
+  },
+  {
+    id: "calm",
+    icon: "spa",
+    label: "Peaceful",
+    color: "#059669",
+    gradient: ["#ECFDF5", "#D1FAE5"],
+  },
+  {
+    id: "neutral",
+    icon: "circle",
+    label: "Neutral",
+    color: "#7C3AED",
+    gradient: ["#F5F3FF", "#EDE9FE"],
+  },
   {
     id: "stressed",
-    icon: "cloud" as const,
-    label: "Stressed",
-    color: "#FF6B9D",
+    icon: "air",
+    label: "Restless",
+    color: "#DB2777",
+    gradient: ["#FDF2F8", "#FCE7F3"],
   },
-  { id: "sad", icon: "frown" as const, label: "Sad", color: "#4D96FF" },
+  {
+    id: "sad",
+    icon: "water-drop",
+    label: "Melancholy",
+    color: "#2563EB",
+    gradient: ["#EFF6FF", "#DBEAFE"],
+  },
 ];
 
 // Face images for each mood
@@ -322,7 +440,7 @@ const getTasksForDay = (allTasks: Task[], date: Date) => {
 };
 
 export default function ConsultationScreen() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { tasks, fetchTasks, completeTask: completeTaskContext } = useTasks();
   const navigation = useNavigation();
   const [isLoading, setIsLoading] = useState(true);
@@ -547,6 +665,24 @@ export default function ConsultationScreen() {
     }
   };
 
+  // Handle logout
+  const handleLogout = () => {
+    Alert.alert("Logout", "Are you sure you want to logout?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Logout",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await signOut();
+          } catch (err: any) {
+            Alert.alert("Error", err.message || "Failed to logout");
+          }
+        },
+      },
+    ]);
+  };
+
   const floatTranslateY = floatAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [0, -8],
@@ -592,16 +728,31 @@ export default function ConsultationScreen() {
         ))}
       </View>
 
+      {/* App Header */}
+      <View style={styles.appHeader}>
+        <View style={styles.appHeaderLeft} />
+        <View style={styles.appHeaderCenter} />
+        <TouchableOpacity
+          style={styles.appHeaderRight}
+          onPress={handleLogout}
+          activeOpacity={0.7}
+        >
+          <LinearGradient
+            colors={["rgba(168, 85, 247, 0.15)", "rgba(236, 72, 153, 0.1)"]}
+            style={styles.logoutGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <Feather name="power" size={18} color={COLORS.primary} />
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
+
       <ScrollView
         style={styles.content}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>SIMI</Text>
-        </View>
-
         {/* Greeting Section */}
         <View style={styles.greetingSection}>
           <Text style={styles.greetingText}>
@@ -654,35 +805,14 @@ export default function ConsultationScreen() {
           </Animated.View>
 
           <View style={styles.moodOptions}>
-            {MOODS.map((mood) => (
-              <TouchableOpacity
+            {MOODS.map((mood, index) => (
+              <AnimatedMoodButton
                 key={mood.id}
-                style={[
-                  styles.moodButton,
-                  selectedMood === mood.id && styles.moodButtonSelected,
-                  selectedMood === mood.id && { borderColor: mood.color },
-                ]}
+                mood={mood}
+                isSelected={selectedMood === mood.id}
                 onPress={() => setSelectedMood(mood.id)}
-                activeOpacity={0.7}
-              >
-                <Feather
-                  name={mood.icon}
-                  size={28}
-                  color={
-                    selectedMood === mood.id ? mood.color : COLORS.textSecondary
-                  }
-                  strokeWidth={1.5}
-                />
-                <Text
-                  style={[
-                    styles.moodLabel,
-                    selectedMood === mood.id && styles.moodLabelSelected,
-                    selectedMood === mood.id && { color: mood.color },
-                  ]}
-                >
-                  {mood.label}
-                </Text>
-              </TouchableOpacity>
+                index={index}
+              />
             ))}
           </View>
         </View>
@@ -1077,6 +1207,38 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.8,
     shadowRadius: 4,
   },
+  appHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: "transparent",
+  },
+  appHeaderLeft: {
+    width: 44,
+  },
+  appHeaderCenter: {
+    flex: 1,
+  },
+  appHeaderRight: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  logoutGradient: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: "rgba(168, 85, 247, 0.2)",
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+  },
   content: {
     flex: 1,
   },
@@ -1287,7 +1449,44 @@ const styles = StyleSheet.create({
   moodOptions: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingHorizontal: 4,
+    paddingHorizontal: 2,
+    marginTop: 16,
+    gap: 8,
+  },
+  moodCard: {
+    flex: 1,
+    borderRadius: 16,
+    overflow: "hidden",
+  },
+  moodCardSelected: {
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  moodCardGradient: {
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 6,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: "#EBEBEB",
+  },
+  moodIconWrapper: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+  },
+  moodCardLabel: {
+    fontSize: 11,
+    fontWeight: "500",
+    color: "#888",
+    letterSpacing: 0.1,
+    textAlign: "center",
   },
   moodButton: {
     alignItems: "center",
