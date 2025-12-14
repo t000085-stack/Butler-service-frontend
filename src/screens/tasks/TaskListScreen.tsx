@@ -1131,14 +1131,6 @@ export default function TaskListScreen() {
         </View>
       </View>
       <View style={styles.cardActions}>
-        {!item.is_completed && (
-          <TouchableOpacity
-            style={styles.completeButton}
-            onPress={() => handleComplete(item)}
-          >
-            <Text style={styles.completeButtonText}>✓</Text>
-          </TouchableOpacity>
-        )}
         <TouchableOpacity
           style={styles.editButton}
           onPress={() => handleEdit(item)}
@@ -1219,10 +1211,7 @@ export default function TaskListScreen() {
               activeOpacity={0.7}
             >
               <Text
-                style={[
-                  styles.calendarDayName,
-                  day.isSelected && styles.calendarDayNameSelected,
-                ]}
+                style={[styles.calendarDayName, day.isSelected && styles.edit]}
               >
                 {day.dayName}
               </Text>
@@ -1445,9 +1434,13 @@ export default function TaskListScreen() {
             <View style={styles.modalHeader}>
               <View>
                 <Text style={styles.modalTitle}>
-                  {isAIParsed ? "✨ AI Parsed Task" : "New Task"}
+                  {editingTask
+                    ? "Edit Task"
+                    : isAIParsed
+                    ? "✨ AI Parsed Task"
+                    : "New Task"}
                 </Text>
-                {isAIParsed && (
+                {isAIParsed && !editingTask && (
                   <Text style={styles.modalSubtitle}>
                     Review and adjust if needed
                   </Text>
@@ -1649,6 +1642,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.borderDark,
   },
+  edit: {
+    color: COLORS.primary,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.borderDark,
+  },
   addButtonText: {
     color: COLORS.text,
     fontSize: 15,
@@ -1758,19 +1759,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
     marginLeft: 12,
-  },
-  completeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: COLORS.success + "20",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  completeButtonText: {
-    fontSize: 18,
-    color: COLORS.success,
-    fontWeight: "600",
   },
   editButton: {
     width: 36,
