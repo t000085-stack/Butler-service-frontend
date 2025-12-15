@@ -11,9 +11,14 @@ import {
   ActivityIndicator,
   Dimensions,
   Animated,
+<<<<<<< HEAD
+  Image,
+  Easing,
+=======
   Alert,
   Easing,
   Image,
+>>>>>>> 2ae5de19e9eebc9a518bbff27f341e9fb5ddf505
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -166,7 +171,8 @@ const TypingIndicator = () => {
   );
 };
 
-// Animated Orb Component (matching SignInScreen style) - for message avatars
+<<<<<<< HEAD
+// Animated Orb Component (matching SignInScreen style)
 const AnimatedOrb = ({ size = 48 }: { size?: number }) => {
   const floatAnim = useRef(new Animated.Value(0)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
@@ -280,13 +286,10 @@ const AnimatedOrb = ({ size = 48 }: { size?: number }) => {
   );
 };
 
-const MessageBubble = ({
-  message,
-  index,
-}: {
-  message: Message;
-  index: number;
-}) => {
+const MessageBubble = ({ message }: { message: Message }) => {
+=======
+const MessageBubble = ({ message, index }: { message: Message; index: number }) => {
+>>>>>>> 2ae5de19e9eebc9a518bbff27f341e9fb5ddf505
   const isUser = message.role === "user";
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(isUser ? 30 : -30)).current;
@@ -321,7 +324,18 @@ const MessageBubble = ({
     >
       {!isUser && (
         <View style={styles.avatarContainer}>
+<<<<<<< HEAD
           <AnimatedOrb size={48} />
+=======
+          <LinearGradient
+            colors={["#522861", "#7a4d84", "#9b6fa1"]}
+            style={styles.avatar}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <Text style={styles.avatarText}>✨</Text>
+          </LinearGradient>
+>>>>>>> 2ae5de19e9eebc9a518bbff27f341e9fb5ddf505
         </View>
       )}
       {isUser ? (
@@ -347,7 +361,7 @@ const MessageBubble = ({
 };
 
 // Animated header orb
-const AnimatedHeaderOrb = () => {
+const AnimatedOrb = () => {
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
@@ -386,7 +400,10 @@ const AnimatedHeaderOrb = () => {
 
   return (
     <Animated.View
-      style={[styles.headerOrbContainer, { transform: [{ scale: pulseAnim }] }]}
+      style={[
+        styles.headerOrbContainer,
+        { transform: [{ scale: pulseAnim }] },
+      ]}
     >
       <Animated.Image
         source={require("../../../assets/signinImage.png")}
@@ -498,6 +515,10 @@ export default function ChatScreen() {
         end={{ x: 1, y: 1 }}
       />
 
+<<<<<<< HEAD
+      {/* Header */}
+      <View style={styles.header}></View>
+=======
       {/* Floating particles */}
       <View style={styles.particlesContainer}>
         {particles.map((particle) => (
@@ -534,7 +555,7 @@ export default function ChatScreen() {
 
       {/* Chat Title Section */}
       <View style={styles.titleSection}>
-        <AnimatedHeaderOrb />
+        <AnimatedOrb />
         <View style={styles.titleTextContainer}>
           <Text style={styles.titleText}>Simi</Text>
           <View style={styles.onlineIndicator}>
@@ -543,6 +564,7 @@ export default function ChatScreen() {
           </View>
         </View>
       </View>
+>>>>>>> 2ae5de19e9eebc9a518bbff27f341e9fb5ddf505
 
       <KeyboardAvoidingView
         style={styles.container}
@@ -562,7 +584,18 @@ export default function ChatScreen() {
             isLoading ? (
               <View style={styles.loadingBubbleContainer}>
                 <View style={styles.avatarContainer}>
+<<<<<<< HEAD
                   <AnimatedOrb size={48} />
+=======
+                  <LinearGradient
+                    colors={["#522861", "#7a4d84", "#9b6fa1"]}
+                    style={styles.avatar}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    <Text style={styles.avatarText}>✨</Text>
+                  </LinearGradient>
+>>>>>>> 2ae5de19e9eebc9a518bbff27f341e9fb5ddf505
                 </View>
                 <View style={[styles.messageBubble, styles.assistantBubble]}>
                   <TypingIndicator />
@@ -597,9 +630,7 @@ export default function ChatScreen() {
                 <ActivityIndicator color="#fff" size="small" />
               ) : (
                 <LinearGradient
-                  colors={
-                    inputText.trim() ? ["#522861", "#7a4d84"] : ["#ccc", "#aaa"]
-                  }
+                  colors={inputText.trim() ? ["#522861", "#7a4d84"] : ["#ccc", "#aaa"]}
                   style={styles.sendButtonGradient}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
@@ -642,6 +673,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+<<<<<<< HEAD
+  header: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
+=======
   appHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -731,6 +770,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
+>>>>>>> 2ae5de19e9eebc9a518bbff27f341e9fb5ddf505
   },
   messagesList: {
     padding: 16,
@@ -757,7 +797,14 @@ const styles = StyleSheet.create({
     marginRight: 10,
     marginTop: 4,
   },
+<<<<<<< HEAD
   avatarOrb: {
+=======
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+>>>>>>> 2ae5de19e9eebc9a518bbff27f341e9fb5ddf505
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#522861",
