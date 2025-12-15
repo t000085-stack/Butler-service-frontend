@@ -21,6 +21,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
 import { Feather } from "@expo/vector-icons";
 import { useTasks } from "../../contexts/TaskContext";
+import { useAuth } from "../../contexts/AuthContext";
 import { COLORS, EMOTIONAL_FRICTION } from "../../constants/config";
 import MagicTaskInput, {
   ParsedTaskData,
@@ -399,10 +400,10 @@ const MotivationSlider = ({
       <View
         style={[
           sliderStyles.descriptionCard,
-          { borderColor: COLORS.primary + "20" },
+          { borderColor: "rgba(82, 40, 97, 0.2)" },
         ]}
       >
-        <Text style={[sliderStyles.cardTitle, { color: COLORS.primary }]}>
+        <Text style={[sliderStyles.cardTitle, { color: "#522861" }]}>
           {currentPoint.title}
         </Text>
         <Text style={sliderStyles.cardDescription}>
@@ -544,10 +545,10 @@ const DifficultySlider = ({
       <View
         style={[
           sliderStyles.descriptionCard,
-          { borderColor: COLORS.primary + "20" },
+          { borderColor: "rgba(82, 40, 97, 0.2)" },
         ]}
       >
-        <Text style={[sliderStyles.cardTitle, { color: COLORS.primary }]}>
+        <Text style={[sliderStyles.cardTitle, { color: "#522861" }]}>
           {currentPoint.title}
         </Text>
         <Text style={sliderStyles.cardDescription}>
@@ -573,30 +574,32 @@ const sliderStyles = StyleSheet.create({
     paddingVertical: 13,
   },
   sliderTrackBackground: {
-    height: 4,
-    backgroundColor: COLORS.border,
-    borderRadius: 2,
+    height: 6,
+    backgroundColor: "rgba(240, 235, 245, 0.9)",
+    borderRadius: 3,
     position: "absolute",
     left: 0,
     right: 0,
-    top: 23,
+    top: 22,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.6)",
   },
   sliderTrackFill: {
-    height: 4,
-    backgroundColor: COLORS.primary,
-    borderRadius: 2,
+    height: 6,
+    backgroundColor: "#522861",
+    borderRadius: 3,
   },
   sliderThumb: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: COLORS.primary,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "#522861",
     borderWidth: 3,
-    borderColor: COLORS.background,
+    borderColor: "#fff",
     position: "absolute",
-    top: 11,
-    marginLeft: -12,
-    shadowColor: COLORS.primary,
+    top: 10,
+    marginLeft: -13,
+    shadowColor: "#522861",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
@@ -619,7 +622,7 @@ const sliderStyles = StyleSheet.create({
     backgroundColor: COLORS.border,
   },
   sliderDotActive: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: "#522861",
     width: 10,
     height: 10,
     borderRadius: 5,
@@ -635,8 +638,8 @@ const sliderStyles = StyleSheet.create({
     fontWeight: "500",
   },
   descriptionCard: {
-    backgroundColor: COLORS.primary + "10",
-    borderRadius: 12,
+    backgroundColor: "rgba(82, 40, 97, 0.08)",
+    borderRadius: 14,
     padding: 16,
     marginTop: 8,
     borderWidth: 1,
@@ -684,12 +687,12 @@ const feelingStyles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: "700",
-    color: COLORS.text,
+    color: "#522861",
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 15,
-    color: COLORS.textSecondary,
+    color: "#7a4d84",
     textAlign: "center",
     fontStyle: "italic",
   },
@@ -706,9 +709,9 @@ const feelingStyles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 8,
     borderRadius: 16,
-    backgroundColor: COLORS.backgroundSecondary,
+    backgroundColor: "rgba(240, 235, 245, 0.8)",
     borderWidth: 2,
-    borderColor: COLORS.border,
+    borderColor: "rgba(255, 255, 255, 0.6)",
   },
   optionEmoji: {
     fontSize: 28,
@@ -717,7 +720,7 @@ const feelingStyles = StyleSheet.create({
   optionLabel: {
     fontSize: 13,
     fontWeight: "600",
-    color: COLORS.textSecondary,
+    color: "#7a4d84",
   },
   descriptionContainer: {
     marginBottom: 20,
@@ -725,17 +728,17 @@ const feelingStyles = StyleSheet.create({
   descriptionLabel: {
     fontSize: 14,
     fontWeight: "600",
-    color: COLORS.text,
+    color: "#3d1e49",
     marginBottom: 8,
   },
   descriptionInput: {
-    backgroundColor: COLORS.backgroundSecondary,
-    borderRadius: 12,
+    backgroundColor: "rgba(240, 235, 245, 0.8)",
+    borderRadius: 14,
     padding: 14,
     fontSize: 15,
-    color: COLORS.text,
+    color: "#3d1e49",
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: "rgba(255, 255, 255, 0.6)",
     minHeight: 80,
     textAlignVertical: "top",
   },
@@ -746,22 +749,22 @@ const feelingStyles = StyleSheet.create({
   skipButton: {
     flex: 1,
     paddingVertical: 14,
-    borderRadius: 12,
-    backgroundColor: COLORS.backgroundSecondary,
+    borderRadius: 14,
+    backgroundColor: "rgba(240, 235, 245, 0.8)",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: "rgba(255, 255, 255, 0.6)",
   },
   skipButtonText: {
     fontSize: 16,
     fontWeight: "600",
-    color: COLORS.textSecondary,
+    color: "#7a4d84",
   },
   continueButton: {
     flex: 2,
     paddingVertical: 14,
-    borderRadius: 12,
-    backgroundColor: COLORS.primary,
+    borderRadius: 14,
+    backgroundColor: "#522861",
     alignItems: "center",
   },
   continueButtonDisabled: {
@@ -773,17 +776,17 @@ const feelingStyles = StyleSheet.create({
     color: "#fff",
   },
   aiPreview: {
-    backgroundColor: COLORS.primary + "10",
-    borderRadius: 12,
+    backgroundColor: "rgba(82, 40, 97, 0.08)",
+    borderRadius: 14,
     padding: 14,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: COLORS.primary + "20",
+    borderColor: "rgba(82, 40, 97, 0.15)",
   },
   aiPreviewTitle: {
     fontSize: 13,
     fontWeight: "600",
-    color: COLORS.primary,
+    color: "#522861",
     marginBottom: 10,
   },
   aiPreviewRow: {
@@ -804,6 +807,7 @@ const feelingStyles = StyleSheet.create({
 });
 
 export default function TaskListScreen() {
+  const { signOut } = useAuth();
   const {
     tasks,
     isLoading,
@@ -816,6 +820,24 @@ export default function TaskListScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
+
+  // Handle logout
+  const handleLogout = () => {
+    Alert.alert("Logout", "Are you sure you want to logout?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Logout",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await signOut();
+          } catch (err: any) {
+            Alert.alert("Error", err.message || "Failed to logout");
+          }
+        },
+      },
+    ]);
+  };
 
   // Form state
   const [title, setTitle] = useState("");
@@ -1135,7 +1157,7 @@ export default function TaskListScreen() {
           style={styles.editButton}
           onPress={() => handleEdit(item)}
         >
-          <Feather name="edit-2" size={16} color={COLORS.primary} />
+          <Feather name="edit-2" size={16} color="#522861" />
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.deleteButton}
@@ -1151,7 +1173,7 @@ export default function TaskListScreen() {
     return (
       <SafeAreaView style={styles.centered} edges={["top"]}>
         <StatusBar style="dark" />
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color="#522861" />
       </SafeAreaView>
     );
   }
@@ -1168,8 +1190,29 @@ export default function TaskListScreen() {
         end={{ x: 1, y: 1 }}
       />
 
-      <View style={styles.header}>
-        <View>
+      {/* Simple Header - Just Signout */}
+      <View style={styles.appHeader}>
+        <View style={styles.appHeaderLeft} />
+        <View style={styles.appHeaderCenter} />
+        <TouchableOpacity
+          style={styles.appHeaderRight}
+          onPress={handleLogout}
+          activeOpacity={0.7}
+        >
+          <LinearGradient
+            colors={["rgba(82, 40, 97, 0.15)", "rgba(122, 77, 132, 0.1)"]}
+            style={styles.logoutGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <Feather name="power" size={18} color="#522861" />
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
+
+      {/* Title Section */}
+      <View style={styles.titleSection}>
+        <View style={styles.titleLeft}>
           <Text style={styles.title}>Your Tasks</Text>
           <Text style={styles.subtitle}>
             {filteredTasks.filter((t) => !t.is_completed).length} tasks for{" "}
@@ -1188,7 +1231,14 @@ export default function TaskListScreen() {
           }}
           activeOpacity={0.7}
         >
-          <Text style={styles.addButtonText}>+ Add</Text>
+          <LinearGradient
+            colors={["#522861", "#7a4d84"]}
+            style={styles.addButtonGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <Feather name="plus" size={18} color="#fff" />
+          </LinearGradient>
         </TouchableOpacity>
       </View>
 
@@ -1263,7 +1313,7 @@ export default function TaskListScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor={COLORS.primary}
+              tintColor="#522861"
             />
           }
           ListEmptyComponent={
@@ -1604,7 +1654,7 @@ export default function TaskListScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: "#faf5ff",
   },
   backgroundGradient: {
     position: "absolute",
@@ -1617,73 +1667,132 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: COLORS.background,
+    backgroundColor: "#faf5ff",
   },
-  header: {
-    paddingHorizontal: 40,
-    paddingVertical: 20,
+  appHeader: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: "transparent",
+  },
+  appHeaderLeft: {
+    width: 44,
+  },
+  appHeaderCenter: {
+    flex: 1,
+  },
+  appHeaderRight: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  logoutGradient: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: "rgba(82, 40, 97, 0.2)",
+    shadowColor: "#522861",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  titleSection: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    marginBottom: 8,
+  },
+  titleLeft: {
+    flex: 1,
   },
   title: {
-    fontSize: 26,
-    fontWeight: "600",
-    color: COLORS.text,
+    fontSize: 28,
+    fontWeight: "700",
+    color: "#522861",
     letterSpacing: -0.5,
   },
   subtitle: {
-    fontSize: 15,
-    color: COLORS.textSecondary,
+    fontSize: 14,
+    color: "#7a4d84",
     marginTop: 4,
-  },
-  addButton: {
-    backgroundColor: COLORS.backgroundSecondary,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: COLORS.borderDark,
-  },
-  edit: {
-    color: COLORS.primary,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: COLORS.borderDark,
-  },
-  addButtonText: {
-    color: COLORS.text,
-    fontSize: 15,
     fontWeight: "500",
   },
-  // Calendar styles
+  addButton: {
+    overflow: "hidden",
+    borderRadius: 14,
+    shadowColor: "#522861",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  addButtonGradient: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 14,
+  },
+  edit: {
+    color: "#522861",
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(82, 40, 97, 0.2)",
+  },
+  // Calendar styles - Glass effect
   calendarContainer: {
     marginBottom: 12,
+    marginHorizontal: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.7)",
+    borderRadius: 20,
+    padding: 12,
+    borderWidth: 1.5,
+    borderColor: "rgba(255, 255, 255, 0.8)",
+    shadowColor: "#522861",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 6,
   },
   calendarContent: {
-    paddingHorizontal: 24,
-    gap: 8,
+    gap: 6,
   },
   calendarDay: {
     alignItems: "center",
     paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 16,
-    backgroundColor: COLORS.backgroundSecondary,
-    minWidth: 52,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    backgroundColor: "rgba(240, 235, 245, 0.8)",
+    minWidth: 50,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.6)",
   },
   calendarDaySelected: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: "#522861",
+    borderColor: "#522861",
+    shadowColor: "#522861",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   calendarDayToday: {
     borderWidth: 2,
-    borderColor: COLORS.primary,
+    borderColor: "#522861",
+    backgroundColor: "rgba(82, 40, 97, 0.1)",
   },
   calendarDayName: {
     fontSize: 11,
-    color: COLORS.textSecondary,
+    color: "#7a4d84",
     fontWeight: "500",
     marginBottom: 4,
   },
@@ -1693,41 +1802,47 @@ const styles = StyleSheet.create({
   calendarDayNumber: {
     fontSize: 16,
     fontWeight: "600",
-    color: COLORS.text,
+    color: "#3d1e49",
   },
   calendarDayNumberSelected: {
     color: "#fff",
   },
   calendarDayNumberToday: {
-    color: COLORS.primary,
+    color: "#522861",
   },
   calendarDot: {
     width: 5,
     height: 5,
     borderRadius: 2.5,
-    backgroundColor: COLORS.primary,
+    backgroundColor: "#522861",
     marginTop: 4,
   },
   calendarDotSelected: {
     backgroundColor: "#fff",
   },
   list: {
-    paddingHorizontal: 40,
+    paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 24,
   },
   card: {
-    backgroundColor: COLORS.backgroundSecondary,
-    borderRadius: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.7)",
+    borderRadius: 20,
     padding: 16,
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    borderWidth: 1.5,
+    borderColor: "rgba(255, 255, 255, 0.8)",
     flexDirection: "row",
     alignItems: "center",
+    shadowColor: "#522861",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
   },
   cardCompleted: {
     opacity: 0.6,
+    backgroundColor: "rgba(240, 235, 245, 0.6)",
   },
   cardContent: {
     flex: 1,
@@ -1735,12 +1850,12 @@ const styles = StyleSheet.create({
   taskTitle: {
     fontSize: 16,
     fontWeight: "600",
-    color: COLORS.text,
+    color: "#3d1e49",
     marginBottom: 8,
   },
   taskTitleCompleted: {
     textDecorationLine: "line-through",
-    color: COLORS.textMuted,
+    color: "#9b6fa1",
   },
   taskMeta: {
     flexDirection: "row",
@@ -1748,14 +1863,16 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   badge: {
-    backgroundColor: COLORS.border,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    backgroundColor: "rgba(240, 235, 245, 0.9)",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.6)",
   },
   badgeText: {
     fontSize: 12,
-    color: COLORS.textSecondary,
+    color: "#7a4d84",
     fontWeight: "500",
   },
   cardActions: {
@@ -1766,18 +1883,22 @@ const styles = StyleSheet.create({
   editButton: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: COLORS.primary + "20",
+    borderRadius: 12,
+    backgroundColor: "rgba(82, 40, 97, 0.15)",
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.6)",
   },
   deleteButton: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: COLORS.error + "20",
+    borderRadius: 12,
+    backgroundColor: "rgba(239, 68, 68, 0.15)",
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.6)",
   },
   deleteButtonText: {
     fontSize: 22,
@@ -1791,30 +1912,43 @@ const styles = StyleSheet.create({
   empty: {
     alignItems: "center",
     paddingVertical: 40,
+    backgroundColor: "rgba(255, 255, 255, 0.5)",
+    borderRadius: 20,
+    marginHorizontal: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.6)",
   },
   emptyText: {
     fontSize: 16,
-    color: COLORS.textSecondary,
+    color: "#7a4d84",
     fontWeight: "500",
+    marginTop: 12,
   },
   emptySubtext: {
     fontSize: 14,
-    color: COLORS.textMuted,
+    color: "#9b6fa1",
     marginTop: 4,
     textAlign: "center",
   },
-  // Modal styles
+  // Modal styles - Glass effect
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: "rgba(61, 30, 73, 0.4)",
     justifyContent: "flex-end",
   },
   modalContent: {
-    backgroundColor: COLORS.background,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     padding: 24,
     maxHeight: "85%",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.8)",
+    shadowColor: "#522861",
+    shadowOffset: { width: 0, height: -8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 24,
+    elevation: 16,
   },
   modalHeader: {
     flexDirection: "row",
@@ -1823,38 +1957,38 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "700",
-    color: COLORS.text,
+    color: "#522861",
   },
   modalSubtitle: {
     fontSize: 13,
-    color: COLORS.primary,
+    color: "#7a4d84",
     marginTop: 2,
   },
   modalClose: {
-    fontSize: 20,
-    color: COLORS.textMuted,
+    fontSize: 24,
+    color: "#9b6fa1",
     padding: 4,
   },
   label: {
     fontSize: 14,
     fontWeight: "600",
-    color: COLORS.text,
+    color: "#3d1e49",
     marginBottom: 8,
     marginTop: 12,
   },
   inputWrapper: {
-    backgroundColor: COLORS.backgroundSecondary,
-    borderRadius: 14,
+    backgroundColor: "rgba(240, 235, 245, 0.8)",
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: "rgba(255, 255, 255, 0.6)",
   },
   input: {
     paddingHorizontal: 18,
     paddingVertical: 15,
     fontSize: 15,
-    color: COLORS.text,
+    color: "#3d1e49",
   },
   frictionRow: {
     flexDirection: "row",
@@ -1863,23 +1997,23 @@ const styles = StyleSheet.create({
   frictionButton: {
     flex: 1,
     paddingVertical: 12,
-    borderRadius: 10,
-    backgroundColor: COLORS.backgroundSecondary,
+    borderRadius: 12,
+    backgroundColor: "rgba(240, 235, 245, 0.8)",
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: "rgba(255, 255, 255, 0.6)",
     alignItems: "center",
   },
   frictionButtonActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
+    backgroundColor: "#522861",
+    borderColor: "#522861",
   },
   frictionButtonText: {
     fontSize: 14,
     fontWeight: "500",
-    color: COLORS.textSecondary,
+    color: "#7a4d84",
   },
   frictionButtonTextActive: {
-    color: COLORS.background,
+    color: "#fff",
   },
   valuesGrid: {
     flexDirection: "row",
@@ -1891,18 +2025,18 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 20,
-    backgroundColor: COLORS.backgroundSecondary,
+    backgroundColor: "rgba(240, 235, 245, 0.8)",
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: "rgba(255, 255, 255, 0.6)",
   },
   valueButtonActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
+    backgroundColor: "#522861",
+    borderColor: "#522861",
   },
   valueButtonText: {
     fontSize: 13,
     fontWeight: "500",
-    color: COLORS.textSecondary,
+    color: "#7a4d84",
   },
   valueButtonTextActive: {
     color: "#fff",
@@ -1915,7 +2049,7 @@ const styles = StyleSheet.create({
   },
   clearValuesText: {
     fontSize: 13,
-    color: COLORS.primary,
+    color: "#522861",
     fontWeight: "500",
   },
   dueDateScroll: {
@@ -1924,20 +2058,20 @@ const styles = StyleSheet.create({
   dueDateButton: {
     paddingVertical: 10,
     paddingHorizontal: 16,
-    borderRadius: 12,
-    backgroundColor: COLORS.backgroundSecondary,
+    borderRadius: 14,
+    backgroundColor: "rgba(240, 235, 245, 0.8)",
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: "rgba(255, 255, 255, 0.6)",
     marginRight: 10,
   },
   dueDateButtonActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
+    backgroundColor: "#522861",
+    borderColor: "#522861",
   },
   dueDateButtonText: {
     fontSize: 13,
     fontWeight: "500",
-    color: COLORS.textSecondary,
+    color: "#7a4d84",
   },
   dueDateButtonTextActive: {
     color: "#fff",
@@ -1949,8 +2083,8 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   createButton: {
-    backgroundColor: COLORS.backgroundSecondary,
-    borderRadius: 14,
+    backgroundColor: "#522861",
+    borderRadius: 16,
     paddingVertical: 16,
     paddingHorizontal: 24,
     flexDirection: "row",
@@ -1958,15 +2092,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: 20,
     marginBottom: 20,
-    borderWidth: 1,
-    borderColor: COLORS.borderDark,
+    shadowColor: "#522861",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   createButtonDisabled: {
     opacity: 0.6,
   },
   createButtonText: {
     fontSize: 15,
-    fontWeight: "500",
-    color: COLORS.text,
+    fontWeight: "600",
+    color: "#fff",
   },
 });
