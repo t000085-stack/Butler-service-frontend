@@ -57,23 +57,23 @@ export default function MainTabs() {
         tabBarLabelStyle: styles.tabLabel,
       })}
     >
-      <Tab.Screen 
-        name="Home" 
+      <Tab.Screen
+        name="Home"
         component={ConsultationScreen}
         options={{ tabBarLabel: "Home" }}
       />
-      <Tab.Screen 
-        name="Chat" 
+      <Tab.Screen
+        name="Chat"
         component={ChatScreen}
         options={{ tabBarLabel: "Chat" }}
       />
-      <Tab.Screen 
-        name="Tasks" 
+      <Tab.Screen
+        name="Tasks"
         component={TaskListScreen}
         options={{ tabBarLabel: "Tasks" }}
       />
-      <Tab.Screen 
-        name="Profile" 
+      <Tab.Screen
+        name="Profile"
         component={ProfileScreen}
         options={{ tabBarLabel: "Profile" }}
       />
