@@ -11,6 +11,8 @@ import {
   ActivityIndicator,
   Dimensions,
   Animated,
+  Image,
+  Easing,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -81,6 +83,120 @@ const TypingIndicator = () => {
   );
 };
 
+// Animated Orb Component (matching SignInScreen style)
+const AnimatedOrb = ({ size = 48 }: { size?: number }) => {
+  const floatAnim = useRef(new Animated.Value(0)).current;
+  const rotateAnim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(0)).current;
+  const glowAnim = useRef(new Animated.Value(0.85)).current;
+
+  useEffect(() => {
+    // Continuous floating animation
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatAnim, {
+          toValue: 1,
+          duration: 3000,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(floatAnim, {
+          toValue: 0,
+          duration: 3000,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // Slow rotation
+    Animated.loop(
+      Animated.timing(rotateAnim, {
+        toValue: 1,
+        duration: 25000,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    ).start();
+
+    // Pulse scale animation (breathing effect)
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 3000,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 0,
+          duration: 3000,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // Glow/opacity animation
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowAnim, {
+          toValue: 1,
+          duration: 4000,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(glowAnim, {
+          toValue: 0.8,
+          duration: 4000,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
+
+  const floatTranslateY = floatAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -8],
+  });
+
+  const spin = rotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "360deg"],
+  });
+
+  const pulseScale = pulseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.05],
+  });
+
+  return (
+    <Animated.View
+      style={[
+        styles.avatarOrb,
+        {
+          transform: [{ translateY: floatTranslateY }, { scale: pulseScale }],
+        },
+      ]}
+    >
+      <Animated.Image
+        source={require("../../../assets/signinImage.png")}
+        style={[
+          styles.avatarOrbImage,
+          {
+            width: size,
+            height: size,
+            transform: [{ rotate: spin }],
+            opacity: glowAnim,
+          },
+        ]}
+        resizeMode="contain"
+      />
+    </Animated.View>
+  );
+};
+
 const MessageBubble = ({ message }: { message: Message }) => {
   const isUser = message.role === "user";
 
@@ -93,12 +209,7 @@ const MessageBubble = ({ message }: { message: Message }) => {
     >
       {!isUser && (
         <View style={styles.avatarContainer}>
-          <LinearGradient
-            colors={[COLORS.primary, COLORS.primaryLight]}
-            style={styles.avatar}
-          >
-            <Text style={styles.avatarText}>🌙</Text>
-          </LinearGradient>
+          <AnimatedOrb size={48} />
         </View>
       )}
       <View
@@ -205,20 +316,7 @@ export default function ChatScreen() {
       />
 
       {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <LinearGradient
-            colors={[COLORS.primary, COLORS.primaryLight]}
-            style={styles.headerAvatar}
-          >
-            <Text style={styles.headerAvatarText}>🌙</Text>
-          </LinearGradient>
-          <View>
-            <Text style={styles.headerTitle}>Chat with Simi</Text>
-            <Text style={styles.headerSubtitle}>Your personal butler</Text>
-          </View>
-        </View>
-      </View>
+      <View style={styles.header}></View>
 
       <KeyboardAvoidingView
         style={styles.container}
@@ -238,12 +336,7 @@ export default function ChatScreen() {
             isLoading ? (
               <View style={styles.loadingBubbleContainer}>
                 <View style={styles.avatarContainer}>
-                  <LinearGradient
-                    colors={[COLORS.primary, COLORS.primaryLight]}
-                    style={styles.avatar}
-                  >
-                    <Text style={styles.avatarText}>🌙</Text>
-                  </LinearGradient>
+                  <AnimatedOrb size={48} />
                 </View>
                 <View style={[styles.messageBubble, styles.assistantBubble]}>
                   <TypingIndicator />
@@ -309,31 +402,6 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.border,
     backgroundColor: "rgba(255, 255, 255, 0.9)",
   },
-  headerContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  headerAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerAvatarText: {
-    fontSize: 22,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: COLORS.text,
-  },
-  headerSubtitle: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    marginTop: 2,
-  },
   messagesList: {
     padding: 16,
     paddingBottom: 8,
@@ -359,15 +427,12 @@ const styles = StyleSheet.create({
     marginRight: 10,
     marginTop: 4,
   },
-  avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  avatarOrb: {
     alignItems: "center",
     justifyContent: "center",
   },
-  avatarText: {
-    fontSize: 16,
+  avatarOrbImage: {
+    // Size is controlled by the AnimatedOrb component
   },
   messageBubble: {
     paddingHorizontal: 16,
