@@ -6,13 +6,11 @@ import { MaterialIcons } from "@expo/vector-icons";
 import ConsultationScreen from "../screens/butler/ConsultationScreen";
 import TaskListScreen from "../screens/tasks/TaskListScreen";
 import ChatScreen from "../screens/chat/ChatScreen";
-import MoodStack from "./MoodStack";
 import ProfileScreen from "../screens/profile/ProfileScreen";
 import { COLORS } from "../constants/config";
 
 export type MainTabsParamList = {
   Home: undefined;
-  "Check-in": undefined;
   Chat: undefined;
   Tasks: undefined;
   Profile: undefined;
@@ -23,7 +21,6 @@ const Tab = createBottomTabNavigator<MainTabsParamList>();
 function TabIcon({ label, focused }: { label: string; focused: boolean }) {
   const iconMap: Record<string, keyof typeof MaterialIcons.glyphMap> = {
     Home: "home",
-    "Check-in": "mood",
     Chat: "chat-bubble",
     Tasks: "checklist",
     Profile: "person",
@@ -64,11 +61,6 @@ export default function MainTabs() {
         name="Home" 
         component={ConsultationScreen}
         options={{ tabBarLabel: "Home" }}
-      />
-      <Tab.Screen 
-        name="Check-in" 
-        component={MoodStack}
-        options={{ tabBarLabel: "Check-in" }}
       />
       <Tab.Screen 
         name="Chat" 

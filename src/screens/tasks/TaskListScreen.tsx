@@ -1211,7 +1211,10 @@ export default function TaskListScreen() {
               activeOpacity={0.7}
             >
               <Text
-                style={[styles.calendarDayName, day.isSelected && styles.edit]}
+                style={[
+                  styles.calendarDayName,
+                  day.isSelected && styles.calendarDayNameSelected,
+                ]}
               >
                 {day.dayName}
               </Text>

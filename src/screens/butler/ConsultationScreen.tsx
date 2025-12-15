@@ -77,25 +77,34 @@ const Star = ({
   );
 };
 
-// Animated Mood Button Component - soft and comfortable
-const AnimatedMoodButton = ({
+// Animated Mood Button with grow and glow effect
+const AnimatedMoodImageButton = ({
   mood,
   isSelected,
   onPress,
-  index,
 }: {
-  mood: {
-    id: string;
-    icon: string;
-    label: string;
-    color: string;
-    gradient: string[];
-  };
+  mood: { id: string; image: any; label: string; color: string };
   isSelected: boolean;
   onPress: () => void;
-  index: number;
 }) => {
-  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const scaleAnim = useRef(new Animated.Value(isSelected ? 1.2 : 1)).current;
+  const opacityAnim = useRef(new Animated.Value(isSelected ? 1 : 0.35)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(scaleAnim, {
+        toValue: isSelected ? 1.2 : 1,
+        friction: 5,
+        tension: 120,
+        useNativeDriver: true,
+      }),
+      Animated.timing(opacityAnim, {
+        toValue: isSelected ? 1 : 0.35,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [isSelected]);
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
@@ -108,67 +117,534 @@ const AnimatedMoodButton = ({
 
   const handlePressOut = () => {
     Animated.spring(scaleAnim, {
-      toValue: 1,
-      friction: 6,
-      tension: 150,
+      toValue: isSelected ? 1.2 : 1,
+      friction: 5,
+      tension: 120,
       useNativeDriver: true,
     }).start();
   };
 
   return (
     <TouchableOpacity
+      style={moodSelectorStyles.emojiButton}
       onPress={onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       activeOpacity={1}
     >
+      {/* Glow effect behind selected icon */}
+      {isSelected && <View style={moodSelectorStyles.glowEffect} />}
       <Animated.View
         style={[
-          styles.moodCard,
-          { transform: [{ scale: scaleAnim }] },
-          isSelected && styles.moodCardSelected,
+          moodSelectorStyles.emojiCircle,
+          {
+            transform: [{ scale: scaleAnim }],
+          },
         ]}
       >
-        <LinearGradient
-          colors={
-            isSelected
-              ? (mood.gradient as [string, string])
-              : ["#FAFAFA", "#F5F5F5"]
-          }
-          style={[
-            styles.moodCardGradient,
-            isSelected && { borderColor: `${mood.color}40` },
-          ]}
-          start={{ x: 0.5, y: 0 }}
-          end={{ x: 0.5, y: 1 }}
-        >
-          <View
-            style={[
-              styles.moodIconWrapper,
-              {
-                backgroundColor: isSelected ? `${mood.color}15` : "#F0F0F0",
-              },
-            ]}
-          >
-            <MaterialIcons
-              name={mood.icon as any}
-              size={24}
-              color={isSelected ? mood.color : "#A3A3A3"}
+        <Animated.Image
+          source={mood.image}
+          style={[moodSelectorStyles.moodImage, { opacity: opacityAnim }]}
+          resizeMode="contain"
+        />
+      </Animated.View>
+      <Text
+        style={[
+          moodSelectorStyles.label,
+          isSelected && moodSelectorStyles.labelActive,
+        ]}
+        numberOfLines={1}
+      >
+        {mood.label}
+      </Text>
+    </TouchableOpacity>
+  );
+};
+
+// Mood Selector Component with custom images - matching the rating style
+const MoodImageSelector = ({
+  moods,
+  selectedMood,
+  onSelect,
+}: {
+  moods: Array<{
+    id: string;
+    image: any;
+    label: string;
+    color: string;
+  }>;
+  selectedMood: string | null;
+  onSelect: (id: string) => void;
+}) => {
+  return (
+    <View style={moodSelectorStyles.container}>
+      {/* Mood Image Buttons with connecting lines */}
+      <View style={moodSelectorStyles.emojisRow}>
+        {moods.map((mood, index) => (
+          <React.Fragment key={mood.id}>
+            <AnimatedMoodImageButton
+              mood={mood}
+              isSelected={selectedMood === mood.id}
+              onPress={() => onSelect(mood.id)}
             />
-          </View>
-          <Text
-            style={[
-              styles.moodCardLabel,
-              isSelected && { color: mood.color, fontWeight: "600" },
-            ]}
-          >
-            {mood.label}
-          </Text>
-        </LinearGradient>
+            {/* Connecting line between icons */}
+            {index < moods.length - 1 && (
+              <View style={moodSelectorStyles.connectorLine} />
+            )}
+          </React.Fragment>
+        ))}
+      </View>
+    </View>
+  );
+};
+
+// Get energy color based on level - using app's purple theme
+const getEnergyColor = (level: number) => {
+  if (level <= 2) return "#d8b4fe"; // Very light purple - very low
+  if (level <= 4) return "#c084fc"; // Light purple - low
+  if (level <= 6) return "#a855f7"; // Primary purple - medium
+  if (level <= 8) return "#9333ea"; // Darker purple - good
+  return "#7c3aed"; // Violet - excellent
+};
+
+// Get energy label based on level
+const getEnergyLabel = (level: number) => {
+  if (level <= 2) return "Exhausted";
+  if (level <= 4) return "Tired";
+  if (level <= 6) return "Moderate";
+  if (level <= 8) return "Energized";
+  return "Supercharged!";
+};
+
+// Get energy emoji based on level
+const getEnergyEmoji = (level: number) => {
+  if (level <= 2) return "🪫";
+  if (level <= 4) return "😴";
+  if (level <= 6) return "✨";
+  if (level <= 8) return "⚡";
+  return "🔥";
+};
+
+// Animated Energy Orb Component - using signinImage like the mood section
+const AnimatedEnergyOrb = ({ level }: { level: number }) => {
+  const rotateAnim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    // Slower rotation - 25 to 35 seconds per rotation
+    const rotationDuration = 35000 - level * 1000;
+    // Slower pulse - 4 to 5 seconds
+    const pulseDuration = 5000 - level * 100;
+
+    // Continuous rotation (slow and gentle)
+    Animated.loop(
+      Animated.timing(rotateAnim, {
+        toValue: 1,
+        duration: rotationDuration,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    ).start();
+
+    // Gentle pulse animation
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.03 + level * 0.005,
+          duration: pulseDuration,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: pulseDuration,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, [level]);
+
+  const spin = rotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "360deg"],
+  });
+
+  return (
+    <Animated.View
+      style={[
+        energyStyles.orbContainer,
+        {
+          transform: [{ scale: pulseAnim }],
+        },
+      ]}
+    >
+      <Animated.Image
+        source={require("../../../assets/signinImage.png")}
+        style={[energyStyles.orbImage, { transform: [{ rotate: spin }] }]}
+        resizeMode="contain"
+      />
+    </Animated.View>
+  );
+};
+
+// Animated Energy Dot Component
+const AnimatedEnergyDot = ({
+  level,
+  currentLevel,
+  onPress,
+}: {
+  level: number;
+  currentLevel: number;
+  onPress: () => void;
+}) => {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const isActive = level <= currentLevel;
+  const isSelected = level === currentLevel;
+  const color = getEnergyColor(level);
+
+  useEffect(() => {
+    if (isSelected) {
+      Animated.sequence([
+        Animated.spring(scaleAnim, {
+          toValue: 1.4,
+          friction: 3,
+          tension: 200,
+          useNativeDriver: true,
+        }),
+        Animated.spring(scaleAnim, {
+          toValue: 1.2,
+          friction: 5,
+          tension: 100,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 5,
+        tension: 100,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [isSelected]);
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.7}
+      style={energyStyles.dotTouchable}
+    >
+      <Animated.View
+        style={[
+          energyStyles.dot,
+          {
+            backgroundColor: isActive ? color : "rgba(200, 200, 200, 0.3)",
+            transform: [{ scale: scaleAnim }],
+            borderWidth: isSelected ? 3 : 0,
+            borderColor: "#fff",
+            shadowColor: isActive ? color : "transparent",
+            shadowOpacity: isActive ? 0.6 : 0,
+            shadowRadius: isActive ? 8 : 0,
+            elevation: isActive ? 6 : 0,
+          },
+        ]}
+      >
+        {isSelected && <View style={energyStyles.dotInnerGlow} />}
       </Animated.View>
     </TouchableOpacity>
   );
 };
+
+// Creative Energy Level Selector Component
+const CreativeEnergySelector = ({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (level: number) => void;
+}) => {
+  const label = getEnergyLabel(value);
+
+  return (
+    <View style={energyStyles.container}>
+      {/* Header with animated orb */}
+      <View style={energyStyles.header}>
+        <AnimatedEnergyOrb level={value} />
+        <View style={energyStyles.headerText}>
+          <Text style={energyStyles.title}>Energy Level</Text>
+          <Text style={energyStyles.levelLabel}>{label}</Text>
+        </View>
+        <View style={energyStyles.valueContainer}>
+          <Text style={energyStyles.valueText}>{value}</Text>
+          <Text style={energyStyles.valueMax}>/10</Text>
+        </View>
+      </View>
+
+      {/* Progress bar background */}
+      <View style={energyStyles.progressContainer}>
+        <LinearGradient
+          colors={[
+            "#e9d5ff",
+            "#d8b4fe",
+            "#c084fc",
+            "#a855f7",
+            "#9333ea",
+            "#7c3aed",
+          ]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={energyStyles.progressGradient}
+        >
+          {/* Overlay to show progress */}
+          <View
+            style={[
+              energyStyles.progressOverlay,
+              { width: `${100 - value * 10}%` },
+            ]}
+          />
+        </LinearGradient>
+      </View>
+
+      {/* Interactive dots */}
+      <View style={energyStyles.dotsContainer}>
+        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((level) => (
+          <AnimatedEnergyDot
+            key={level}
+            level={level}
+            currentLevel={value}
+            onPress={() => onChange(level)}
+          />
+        ))}
+      </View>
+
+      {/* Labels */}
+      <View style={energyStyles.labelsContainer}>
+        <View style={energyStyles.labelItem}>
+          <Text style={energyStyles.labelEmoji}>🪫</Text>
+          <Text style={energyStyles.labelText}>Low</Text>
+        </View>
+        <View style={energyStyles.labelItem}>
+          <Text style={energyStyles.labelEmoji}>✨</Text>
+          <Text style={energyStyles.labelText}>Medium</Text>
+        </View>
+        <View style={energyStyles.labelItem}>
+          <Text style={energyStyles.labelEmoji}>🔥</Text>
+          <Text style={energyStyles.labelText}>High</Text>
+        </View>
+      </View>
+    </View>
+  );
+};
+
+// Styles for the creative energy selector
+const energyStyles = StyleSheet.create({
+  container: {
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    borderRadius: 24,
+    padding: 20,
+    marginTop: 16,
+    marginHorizontal: -8,
+    borderWidth: 1,
+    borderColor: COLORS.primary + "20",
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  orbContainer: {
+    width: 52,
+    height: 52,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  orbImage: {
+    width: 52,
+    height: 52,
+  },
+  headerText: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  title: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: COLORS.primary,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  levelLabel: {
+    fontSize: 18,
+    fontWeight: "700",
+    marginTop: 2,
+    color: COLORS.text,
+  },
+  valueContainer: {
+    flexDirection: "row",
+    alignItems: "baseline",
+  },
+  valueText: {
+    fontSize: 36,
+    fontWeight: "800",
+    color: COLORS.primary,
+  },
+  valueMax: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: COLORS.textMuted,
+    marginLeft: 2,
+  },
+  progressContainer: {
+    height: 8,
+    borderRadius: 4,
+    overflow: "hidden",
+    marginBottom: 16,
+  },
+  progressGradient: {
+    flex: 1,
+    flexDirection: "row",
+    borderRadius: 4,
+  },
+  progressOverlay: {
+    position: "absolute",
+    right: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: "rgba(240, 240, 240, 0.9)",
+  },
+  dotsContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 4,
+    marginBottom: 16,
+  },
+  dotTouchable: {
+    padding: 4,
+  },
+  dot: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowOffset: { width: 0, height: 2 },
+  },
+  dotInnerGlow: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "rgba(255, 255, 255, 0.8)",
+  },
+  labelsContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 8,
+  },
+  labelItem: {
+    alignItems: "center",
+  },
+  labelEmoji: {
+    fontSize: 16,
+    marginBottom: 2,
+  },
+  labelText: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+    fontWeight: "500",
+  },
+});
+
+// Styles for the emoji mood selector
+const moodSelectorStyles = StyleSheet.create({
+  container: {
+    paddingVertical: 24,
+    paddingHorizontal: 8,
+    direction: "ltr",
+  },
+  lineContainer: {
+    position: "absolute",
+    left: 45,
+    right: 45,
+    top: 48,
+    height: 3,
+  },
+  line: {
+    flex: 1,
+    height: 3,
+    backgroundColor: "#E8E8E8",
+    borderRadius: 2,
+  },
+  emojisRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "flex-start",
+    direction: "ltr",
+    writingDirection: "ltr",
+  },
+  connectorLine: {
+    height: 3,
+    backgroundColor: COLORS.primary + "30",
+    flex: 1,
+    marginTop: 38,
+    marginHorizontal: -8,
+    borderRadius: 2,
+  },
+  emojiButton: {
+    alignItems: "center",
+    minWidth: 60,
+    paddingTop: 4,
+  },
+  glowEffect: {
+    position: "absolute",
+    top: 0,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: COLORS.primary,
+    opacity: 0.15,
+  },
+  emojiCircle: {
+    width: 75,
+    height: 75,
+    borderRadius: 38,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "transparent",
+  },
+  moodImage: {
+    width: 70,
+    height: 70,
+  },
+  moodImageInactive: {
+    opacity: 0.3,
+  },
+  emoji: {
+    fontSize: 36,
+  },
+  emojiInactive: {
+    opacity: 0.4,
+  },
+  label: {
+    fontSize: 11,
+    color: "#9CA3AF",
+    marginTop: 10,
+    fontWeight: "500",
+    letterSpacing: 0.2,
+    textAlign: "center",
+  },
+  labelActive: {
+    color: COLORS.primary,
+    fontWeight: "700",
+    fontSize: 12,
+  },
+});
 
 // Generate random stars
 const generateStars = (count: number) => {
@@ -209,42 +685,37 @@ interface ConsultationResult {
   contextLogId: string;
 }
 
-// Mood options with soft, eye-friendly colors
+// Mood options with custom face images (Great to Terrible for RTL display)
 const MOODS = [
   {
     id: "happy",
-    icon: "wb-sunny",
-    label: "Joyful",
-    color: "#D97706",
-    gradient: ["#FFFBEB", "#FEF3C7"],
+    image: require("../../../assets/great.png"),
+    label: "Great",
+    color: "#10B981",
   },
   {
     id: "calm",
-    icon: "spa",
-    label: "Peaceful",
-    color: "#059669",
-    gradient: ["#ECFDF5", "#D1FAE5"],
+    image: require("../../../assets/good.png"),
+    label: "Good",
+    color: "#22C55E",
   },
   {
     id: "neutral",
-    icon: "circle",
-    label: "Neutral",
-    color: "#7C3AED",
-    gradient: ["#F5F3FF", "#EDE9FE"],
+    image: require("../../../assets/okey.png"),
+    label: "Okay",
+    color: "#EAB308",
   },
   {
     id: "stressed",
-    icon: "air",
-    label: "Restless",
-    color: "#DB2777",
-    gradient: ["#FDF2F8", "#FCE7F3"],
+    image: require("../../../assets/bad.png"),
+    label: "Bad",
+    color: "#F97316",
   },
   {
     id: "sad",
-    icon: "water-drop",
-    label: "Melancholy",
-    color: "#2563EB",
-    gradient: ["#EFF6FF", "#DBEAFE"],
+    image: require("../../../assets/terrible.png"),
+    label: "Terrible",
+    color: "#EF4444",
   },
 ];
 
@@ -451,6 +922,7 @@ export default function ConsultationScreen() {
   const [selectedMood, setSelectedMood] = useState<string | null>("neutral");
   const [displayedMood, setDisplayedMood] = useState<string>("neutral");
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
+  const [energyLevel, setEnergyLevel] = useState<number>(5);
 
   // Memoize stars
   const stars = useMemo(() => generateStars(25), []);
@@ -463,10 +935,77 @@ export default function ConsultationScreen() {
   const faceScale = useRef(new Animated.Value(1)).current;
   const faceRotate = useRef(new Animated.Value(0)).current;
 
+  // Container entrance animations
+  const moodSectionAnim = useRef(new Animated.Value(0)).current;
+  const tasksSectionAnim = useRef(new Animated.Value(0)).current;
+  const aiSectionAnim = useRef(new Animated.Value(0)).current;
+
+  // Scroll-based animations
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const tasksScrollAnim = useRef(new Animated.Value(0)).current;
+  const weeklyScrollAnim = useRef(new Animated.Value(0)).current;
+  const [tasksVisible, setTasksVisible] = useState(false);
+  const [weeklyVisible, setWeeklyVisible] = useState(false);
+
+  // Handle scroll to trigger animations
+  const handleScroll = Animated.event(
+    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+    {
+      useNativeDriver: false,
+      listener: (event: any) => {
+        const offsetY = event.nativeEvent.contentOffset.y;
+
+        // Trigger tasks section animation when scrolled past 200px
+        if (offsetY > 150 && !tasksVisible) {
+          setTasksVisible(true);
+          Animated.spring(tasksScrollAnim, {
+            toValue: 1,
+            friction: 6,
+            tension: 50,
+            useNativeDriver: true,
+          }).start();
+        }
+
+        // Trigger weekly section animation when scrolled past 400px
+        if (offsetY > 350 && !weeklyVisible) {
+          setWeeklyVisible(true);
+          Animated.spring(weeklyScrollAnim, {
+            toValue: 1,
+            friction: 6,
+            tension: 50,
+            useNativeDriver: true,
+          }).start();
+        }
+      },
+    }
+  );
+
   useEffect(() => {
     fetchConsultation();
     startAnimations();
     fetchTasks(false); // Fetch incomplete tasks
+
+    // Staggered entrance animations for containers
+    Animated.stagger(150, [
+      Animated.spring(moodSectionAnim, {
+        toValue: 1,
+        friction: 8,
+        tension: 40,
+        useNativeDriver: true,
+      }),
+      Animated.spring(tasksSectionAnim, {
+        toValue: 1,
+        friction: 8,
+        tension: 40,
+        useNativeDriver: true,
+      }),
+      Animated.spring(aiSectionAnim, {
+        toValue: 1,
+        friction: 8,
+        tension: 40,
+        useNativeDriver: true,
+      }),
+    ]).start();
   }, []);
 
   // Smooth face transition when mood changes - realistic morph effect
@@ -752,28 +1291,31 @@ export default function ConsultationScreen() {
         style={styles.content}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
       >
-        {/* Greeting Section */}
-        <View style={styles.greetingSection}>
+        {/* Greeting & Mood Section - Centralized */}
+        <Animated.View
+          style={[
+            styles.headerSection,
+            {
+              opacity: moodSectionAnim,
+              transform: [
+                {
+                  translateY: moodSectionAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [20, 0],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
           <Text style={styles.greetingText}>
             {getGreeting()}, {user?.username || "there"}
           </Text>
-          <Text style={styles.dateText}>Today is {formatDate()}</Text>
-        </View>
-
-        {/* Mood Tracker */}
-        <View style={styles.moodSection}>
-          <LinearGradient
-            colors={[
-              "rgba(168, 85, 247, 0.08)",
-              "rgba(236, 72, 153, 0.05)",
-              "rgba(255, 255, 255, 0.9)",
-            ]}
-            style={styles.moodGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          />
           <Text style={styles.moodQuestion}>How are you feeling today?</Text>
+          <Text style={styles.dateText}>{formatDate()}</Text>
 
           {/* Centered Orb Image with Face */}
           <Animated.View
@@ -804,21 +1346,46 @@ export default function ConsultationScreen() {
             />
           </Animated.View>
 
-          <View style={styles.moodOptions}>
-            {MOODS.map((mood, index) => (
-              <AnimatedMoodButton
-                key={mood.id}
-                mood={mood}
-                isSelected={selectedMood === mood.id}
-                onPress={() => setSelectedMood(mood.id)}
-                index={index}
-              />
-            ))}
-          </View>
-        </View>
+          <MoodImageSelector
+            moods={MOODS}
+            selectedMood={selectedMood}
+            onSelect={setSelectedMood}
+          />
+
+          {/* Creative Energy Level Section */}
+          <CreativeEnergySelector
+            value={energyLevel}
+            onChange={setEnergyLevel}
+          />
+        </Animated.View>
 
         {/* My Tasks Today Section */}
-        <View style={styles.tasksSection}>
+        <Animated.View
+          style={[
+            styles.tasksSection,
+            styles.glassContainer,
+            {
+              opacity: tasksScrollAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0, 1],
+              }),
+              transform: [
+                {
+                  translateY: tasksScrollAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [50, 0],
+                  }),
+                },
+                {
+                  scale: tasksScrollAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.9, 1],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
           <View style={styles.tasksSectionHeader}>
             <View>
               <Text style={styles.tasksSectionTitle}>My Tasks Today</Text>
@@ -941,7 +1508,7 @@ export default function ConsultationScreen() {
               )}
             </View>
           )}
-        </View>
+        </Animated.View>
 
         {/* Daily Progress Section */}
         <View style={styles.progressSection}>
@@ -1012,7 +1579,32 @@ export default function ConsultationScreen() {
         </View>
 
         {/* Weekly Overview Section */}
-        <View style={styles.weeklySection}>
+        <Animated.View
+          style={[
+            styles.weeklySection,
+            styles.glassContainer,
+            {
+              opacity: weeklyScrollAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0, 1],
+              }),
+              transform: [
+                {
+                  translateY: weeklyScrollAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [50, 0],
+                  }),
+                },
+                {
+                  scale: weeklyScrollAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.9, 1],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
           <Text style={styles.weeklySectionTitle}>This Week</Text>
 
           <View style={styles.weekDaysRow}>
@@ -1082,7 +1674,7 @@ export default function ConsultationScreen() {
               week
             </Text>
           </View>
-        </View>
+        </Animated.View>
 
         {/* Main Content */}
         {isLoading ? (
@@ -1184,6 +1776,16 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  glassContainer: {
+    backgroundColor: "rgba(255, 255, 255, 0.85)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.5)",
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    elevation: 8,
   },
   backgroundGradient: {
     position: "absolute",
@@ -1380,21 +1982,29 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
+  headerSection: {
+    alignItems: "center",
+    marginBottom: 16,
+    paddingHorizontal: 16,
+  },
   greetingSection: {
     marginBottom: 20,
     paddingHorizontal: 4,
   },
   greetingText: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: "300",
     color: COLORS.text,
-    marginBottom: 6,
+    marginBottom: 8,
     letterSpacing: 0.5,
     fontStyle: "italic",
+    textAlign: "center",
   },
   dateText: {
-    fontSize: 14,
+    fontSize: 13,
     color: COLORS.textSecondary,
+    marginTop: 12,
+    textAlign: "center",
   },
   moodSection: {
     marginBottom: 24,
@@ -1410,6 +2020,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderWidth: 1,
     borderColor: "rgba(168, 85, 247, 0.1)",
+  },
+  moodSectionSimple: {
+    marginBottom: 24,
+    paddingHorizontal: 8,
   },
   moodGradient: {
     position: "absolute",
@@ -1428,23 +2042,23 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
   },
   moodOrbContainer: {
-    width: 240,
-    height: 240,
+    width: 300,
+    height: 300,
     alignSelf: "center",
     marginVertical: 24,
   },
   moodOrbImage: {
-    width: 240,
-    height: 240,
+    width: 300,
+    height: 300,
   },
   moodFaceOverlay: {
     position: "absolute",
-    width: 220,
-    height: 220,
+    width: 280,
+    height: 280,
     top: "50%",
     left: "50%",
-    marginTop: -110,
-    marginLeft: -110,
+    marginTop: -140,
+    marginLeft: -140,
   },
   moodOptions: {
     flexDirection: "row",
@@ -1540,9 +2154,10 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   tasksSectionTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: COLORS.text,
+    fontSize: 20,
+    fontWeight: "700",
+    color: COLORS.primary,
+    letterSpacing: 0.3,
   },
   moodTaskHint: {
     fontSize: 12,
@@ -1725,10 +2340,11 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   weeklySectionTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: COLORS.text,
+    fontSize: 20,
+    fontWeight: "700",
+    color: COLORS.primary,
     marginBottom: 16,
+    letterSpacing: 0.3,
   },
   weekDaysRow: {
     flexDirection: "row",
