@@ -198,13 +198,13 @@ const MoodImageSelector = ({
   );
 };
 
-// Get energy color based on level - using app's purple theme
+// Get energy color based on level - using #522861 shades
 const getEnergyColor = (level: number) => {
-  if (level <= 2) return "#d8b4fe"; // Very light purple - very low
-  if (level <= 4) return "#c084fc"; // Light purple - low
-  if (level <= 6) return "#a855f7"; // Primary purple - medium
-  if (level <= 8) return "#9333ea"; // Darker purple - good
-  return "#7c3aed"; // Violet - excellent
+  if (level <= 2) return "#c9a3d1"; // Very light shade - very low
+  if (level <= 4) return "#9b6fa1"; // Light shade - low
+  if (level <= 6) return "#7a4d84"; // Medium shade - medium
+  if (level <= 8) return "#522861"; // Main color - good
+  return "#3d1e49"; // Dark shade - excellent
 };
 
 // Get energy label based on level
@@ -225,138 +225,7 @@ const getEnergyEmoji = (level: number) => {
   return "🔥";
 };
 
-// Animated Energy Orb Component - using signinImage like the mood section
-const AnimatedEnergyOrb = ({ level }: { level: number }) => {
-  const rotateAnim = useRef(new Animated.Value(0)).current;
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    // Slower rotation - 25 to 35 seconds per rotation
-    const rotationDuration = 35000 - level * 1000;
-    // Slower pulse - 4 to 5 seconds
-    const pulseDuration = 5000 - level * 100;
-
-    // Continuous rotation (slow and gentle)
-    Animated.loop(
-      Animated.timing(rotateAnim, {
-        toValue: 1,
-        duration: rotationDuration,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      })
-    ).start();
-
-    // Gentle pulse animation
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.03 + level * 0.005,
-          duration: pulseDuration,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: pulseDuration,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-  }, [level]);
-
-  const spin = rotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0deg", "360deg"],
-  });
-
-  return (
-    <Animated.View
-      style={[
-        energyStyles.orbContainer,
-        {
-          transform: [{ scale: pulseAnim }],
-        },
-      ]}
-    >
-      <Animated.Image
-        source={require("../../../assets/signinImage.png")}
-        style={[energyStyles.orbImage, { transform: [{ rotate: spin }] }]}
-        resizeMode="contain"
-      />
-    </Animated.View>
-  );
-};
-
-// Animated Energy Dot Component
-const AnimatedEnergyDot = ({
-  level,
-  currentLevel,
-  onPress,
-}: {
-  level: number;
-  currentLevel: number;
-  onPress: () => void;
-}) => {
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-  const isActive = level <= currentLevel;
-  const isSelected = level === currentLevel;
-  const color = getEnergyColor(level);
-
-  useEffect(() => {
-    if (isSelected) {
-      Animated.sequence([
-        Animated.spring(scaleAnim, {
-          toValue: 1.4,
-          friction: 3,
-          tension: 200,
-          useNativeDriver: true,
-        }),
-        Animated.spring(scaleAnim, {
-          toValue: 1.2,
-          friction: 5,
-          tension: 100,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    } else {
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        friction: 5,
-        tension: 100,
-        useNativeDriver: true,
-      }).start();
-    }
-  }, [isSelected]);
-
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      activeOpacity={0.7}
-      style={energyStyles.dotTouchable}
-    >
-      <Animated.View
-        style={[
-          energyStyles.dot,
-          {
-            backgroundColor: isActive ? color : "rgba(200, 200, 200, 0.3)",
-            transform: [{ scale: scaleAnim }],
-            borderWidth: isSelected ? 3 : 0,
-            borderColor: "#fff",
-            shadowColor: isActive ? color : "transparent",
-            shadowOpacity: isActive ? 0.6 : 0,
-            shadowRadius: isActive ? 8 : 0,
-            elevation: isActive ? 6 : 0,
-          },
-        ]}
-      >
-        {isSelected && <View style={energyStyles.dotInnerGlow} />}
-      </Animated.View>
-    </TouchableOpacity>
-  );
-};
-
-// Creative Energy Level Selector Component
+// Simple Energy Level Selector Component
 const CreativeEnergySelector = ({
   value,
   onChange,
@@ -368,196 +237,125 @@ const CreativeEnergySelector = ({
 
   return (
     <View style={energyStyles.container}>
-      {/* Header with animated orb */}
+      {/* Header */}
       <View style={energyStyles.header}>
-        <AnimatedEnergyOrb level={value} />
-        <View style={energyStyles.headerText}>
-          <Text style={energyStyles.title}>Energy Level</Text>
-          <Text style={energyStyles.levelLabel}>{label}</Text>
-        </View>
-        <View style={energyStyles.valueContainer}>
-          <Text style={energyStyles.valueText}>{value}</Text>
-          <Text style={energyStyles.valueMax}>/10</Text>
-        </View>
+        <Feather name="zap" size={20} color="#522861" />
+        <Text style={energyStyles.title}>Energy Level</Text>
+        <Text style={energyStyles.levelLabel}>{label}</Text>
       </View>
 
-      {/* Progress bar background */}
-      <View style={energyStyles.progressContainer}>
-        <LinearGradient
-          colors={[
-            "#e9d5ff",
-            "#d8b4fe",
-            "#c084fc",
-            "#a855f7",
-            "#9333ea",
-            "#7c3aed",
-          ]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={energyStyles.progressGradient}
-        >
-          {/* Overlay to show progress */}
-          <View
-            style={[
-              energyStyles.progressOverlay,
-              { width: `${100 - value * 10}%` },
-            ]}
-          />
-        </LinearGradient>
-      </View>
+      {/* Number buttons in a row */}
+      <View style={energyStyles.numbersRow}>
+        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((level) => {
+          const isSelected = level === value;
 
-      {/* Interactive dots */}
-      <View style={energyStyles.dotsContainer}>
-        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((level) => (
-          <AnimatedEnergyDot
-            key={level}
-            level={level}
-            currentLevel={value}
-            onPress={() => onChange(level)}
-          />
-        ))}
+          return (
+            <TouchableOpacity
+              key={level}
+              onPress={() => onChange(level)}
+              activeOpacity={0.7}
+              style={[
+                energyStyles.numberButton,
+                isSelected && energyStyles.numberButtonSelected,
+              ]}
+            >
+              <Text
+                style={[
+                  energyStyles.numberText,
+                  isSelected && energyStyles.numberTextSelected,
+                ]}
+              >
+                {level}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       {/* Labels */}
       <View style={energyStyles.labelsContainer}>
-        <View style={energyStyles.labelItem}>
-          <Text style={energyStyles.labelEmoji}>🪫</Text>
-          <Text style={energyStyles.labelText}>Low</Text>
-        </View>
-        <View style={energyStyles.labelItem}>
-          <Text style={energyStyles.labelEmoji}>✨</Text>
-          <Text style={energyStyles.labelText}>Medium</Text>
-        </View>
-        <View style={energyStyles.labelItem}>
-          <Text style={energyStyles.labelEmoji}>🔥</Text>
-          <Text style={energyStyles.labelText}>High</Text>
-        </View>
+        <Text style={energyStyles.labelText}>Low</Text>
+        <Text style={energyStyles.labelText}>High</Text>
       </View>
     </View>
   );
 };
 
-// Styles for the creative energy selector
+// Styles for the energy selector
 const energyStyles = StyleSheet.create({
   container: {
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    backgroundColor: "rgba(255, 255, 255, 0.7)",
     borderRadius: 24,
-    padding: 20,
+    padding: 18,
     marginTop: 16,
     marginHorizontal: -8,
-    borderWidth: 1,
-    borderColor: COLORS.primary + "20",
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
+    borderWidth: 1.5,
+    borderColor: "rgba(255, 255, 255, 0.8)",
+    shadowColor: "#522861",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
     shadowRadius: 20,
-    elevation: 8,
+    elevation: 10,
+    // Inner shadow effect
+    borderTopColor: "rgba(255, 255, 255, 0.9)",
+    borderLeftColor: "rgba(255, 255, 255, 0.9)",
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 20,
-  },
-  orbContainer: {
-    width: 52,
-    height: 52,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  orbImage: {
-    width: 52,
-    height: 52,
-  },
-  headerText: {
-    flex: 1,
-    marginLeft: 12,
+    marginBottom: 16,
+    gap: 8,
   },
   title: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "600",
-    color: COLORS.primary,
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
+    color: "#522861",
+    flex: 1,
   },
   levelLabel: {
-    fontSize: 18,
-    fontWeight: "700",
-    marginTop: 2,
-    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: "600",
+    color: COLORS.textSecondary,
   },
-  valueContainer: {
-    flexDirection: "row",
-    alignItems: "baseline",
-  },
-  valueText: {
-    fontSize: 36,
-    fontWeight: "800",
-    color: COLORS.primary,
-  },
-  valueMax: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: COLORS.textMuted,
-    marginLeft: 2,
-  },
-  progressContainer: {
-    height: 8,
-    borderRadius: 4,
-    overflow: "hidden",
-    marginBottom: 16,
-  },
-  progressGradient: {
-    flex: 1,
-    flexDirection: "row",
-    borderRadius: 4,
-  },
-  progressOverlay: {
-    position: "absolute",
-    right: 0,
-    top: 0,
-    bottom: 0,
-    backgroundColor: "rgba(240, 240, 240, 0.9)",
-  },
-  dotsContainer: {
+  numbersRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 4,
-    marginBottom: 16,
+    marginBottom: 12,
   },
-  dotTouchable: {
-    padding: 4,
-  },
-  dot: {
-    width: 24,
-    height: 24,
+  numberButton: {
+    width: 32,
+    height: 40,
     borderRadius: 12,
+    backgroundColor: "rgba(240, 235, 245, 0.8)",
     alignItems: "center",
     justifyContent: "center",
-    shadowOffset: { width: 0, height: 2 },
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.6)",
   },
-  dotInnerGlow: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: "rgba(255, 255, 255, 0.8)",
+  numberButtonSelected: {
+    backgroundColor: "#522861",
+    borderColor: "#522861",
+    shadowColor: "#522861",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  numberText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: COLORS.textSecondary,
+  },
+  numberTextSelected: {
+    color: "#fff",
   },
   labelsContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingHorizontal: 8,
-  },
-  labelItem: {
-    alignItems: "center",
-  },
-  labelEmoji: {
-    fontSize: 16,
-    marginBottom: 2,
   },
   labelText: {
-    fontSize: 11,
+    fontSize: 12,
     color: COLORS.textMuted,
-    fontWeight: "500",
   },
 });
 
@@ -640,7 +438,7 @@ const moodSelectorStyles = StyleSheet.create({
     textAlign: "center",
   },
   labelActive: {
-    color: COLORS.primary,
+    color: "#522861",
     fontWeight: "700",
     fontSize: 12,
   },
@@ -1277,12 +1075,12 @@ export default function ConsultationScreen() {
           activeOpacity={0.7}
         >
           <LinearGradient
-            colors={["rgba(168, 85, 247, 0.15)", "rgba(236, 72, 153, 0.1)"]}
+            colors={["rgba(82, 40, 97, 0.15)", "rgba(122, 77, 132, 0.1)"]}
             style={styles.logoutGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           >
-            <Feather name="power" size={18} color={COLORS.primary} />
+            <Feather name="power" size={18} color="#522861" />
           </LinearGradient>
         </TouchableOpacity>
       </View>
@@ -1432,16 +1230,9 @@ export default function ConsultationScreen() {
                   >
                     <View style={styles.taskCheckbox}>
                       {completingTaskId === task._id ? (
-                        <ActivityIndicator
-                          size="small"
-                          color={COLORS.primary}
-                        />
+                        <ActivityIndicator size="small" color="#522861" />
                       ) : (
-                        <Feather
-                          name="circle"
-                          size={22}
-                          color={COLORS.primary}
-                        />
+                        <Feather name="circle" size={22} color="#522861" />
                       )}
                     </View>
                     <View style={styles.taskContent}>
@@ -1834,8 +1625,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1.5,
-    borderColor: "rgba(168, 85, 247, 0.2)",
-    shadowColor: COLORS.primary,
+    borderColor: "rgba(82, 40, 97, 0.2)",
+    shadowColor: "#522861",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
@@ -1929,7 +1720,7 @@ const styles = StyleSheet.create({
   microStepLabel: {
     fontSize: 11,
     fontWeight: "700",
-    color: COLORS.primary,
+    color: "#522861",
     letterSpacing: 1.5,
     marginBottom: 8,
   },
@@ -2132,20 +1923,24 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   moodLabelSelected: {
-    color: COLORS.primary,
+    color: "#522861",
     fontWeight: "700",
   },
   // Tasks Section Styles
   tasksSection: {
     marginBottom: 24,
-    backgroundColor: "#fff",
+    backgroundColor: "rgba(255, 255, 255, 0.7)",
     borderRadius: 24,
     padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 6,
+    borderWidth: 1.5,
+    borderColor: "rgba(255, 255, 255, 0.8)",
+    borderTopColor: "rgba(255, 255, 255, 0.9)",
+    borderLeftColor: "rgba(255, 255, 255, 0.9)",
+    shadowColor: "#522861",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 10,
   },
   tasksSectionHeader: {
     flexDirection: "row",
@@ -2156,19 +1951,19 @@ const styles = StyleSheet.create({
   tasksSectionTitle: {
     fontSize: 20,
     fontWeight: "700",
-    color: COLORS.primary,
+    color: "#522861",
     letterSpacing: 0.3,
   },
   moodTaskHint: {
     fontSize: 12,
-    color: COLORS.primary,
+    color: "#522861",
     marginTop: 4,
     fontStyle: "italic",
   },
   addTaskButton: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: COLORS.primary,
+    backgroundColor: "#522861",
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
@@ -2200,10 +1995,12 @@ const styles = StyleSheet.create({
   taskItem: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: COLORS.backgroundSecondary,
+    backgroundColor: "rgba(240, 235, 245, 0.8)",
     padding: 14,
     borderRadius: 16,
     gap: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.6)",
   },
   taskCheckbox: {
     width: 24,
@@ -2247,20 +2044,24 @@ const styles = StyleSheet.create({
   },
   viewAllTasksText: {
     fontSize: 14,
-    color: COLORS.primary,
+    color: "#522861",
     fontWeight: "500",
   },
   // Daily Progress Section Styles
   progressSection: {
     marginBottom: 24,
-    backgroundColor: "#fff",
+    backgroundColor: "rgba(255, 255, 255, 0.7)",
     borderRadius: 24,
     padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 6,
+    borderWidth: 1.5,
+    borderColor: "rgba(255, 255, 255, 0.8)",
+    borderTopColor: "rgba(255, 255, 255, 0.9)",
+    borderLeftColor: "rgba(255, 255, 255, 0.9)",
+    shadowColor: "#522861",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 10,
   },
   progressSectionTitle: {
     fontSize: 18,
@@ -2278,8 +2079,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 12,
     marginHorizontal: 4,
-    backgroundColor: COLORS.backgroundSecondary,
+    backgroundColor: "rgba(240, 235, 245, 0.8)",
     borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.6)",
   },
   statIconContainer: {
     width: 40,
@@ -2330,19 +2133,23 @@ const styles = StyleSheet.create({
   // Weekly Overview Section Styles
   weeklySection: {
     marginBottom: 24,
-    backgroundColor: "#fff",
+    backgroundColor: "rgba(255, 255, 255, 0.7)",
     borderRadius: 24,
     padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 6,
+    borderWidth: 1.5,
+    borderColor: "rgba(255, 255, 255, 0.8)",
+    borderTopColor: "rgba(255, 255, 255, 0.9)",
+    borderLeftColor: "rgba(255, 255, 255, 0.9)",
+    shadowColor: "#522861",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 10,
   },
   weeklySectionTitle: {
     fontSize: 20,
     fontWeight: "700",
-    color: COLORS.primary,
+    color: "#522861",
     marginBottom: 16,
     letterSpacing: 0.3,
   },
@@ -2357,9 +2164,11 @@ const styles = StyleSheet.create({
     marginHorizontal: 2,
   },
   weekDayCardToday: {
-    backgroundColor: "rgba(168, 85, 247, 0.08)",
+    backgroundColor: "rgba(82, 40, 97, 0.1)",
     borderRadius: 12,
     paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: "rgba(82, 40, 97, 0.15)",
   },
   weekDayName: {
     fontSize: 10,
@@ -2368,7 +2177,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   weekDayNameToday: {
-    color: COLORS.primary,
+    color: "#522861",
     fontWeight: "600",
   },
   weekDayNumber: {
@@ -2378,7 +2187,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   weekDayNumberToday: {
-    color: COLORS.primary,
+    color: "#522861",
   },
   weekDayProgress: {
     width: 8,
