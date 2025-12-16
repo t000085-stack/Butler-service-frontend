@@ -1044,6 +1044,13 @@ export default function TaskListScreen() {
 
   const renderItem = ({ item }: { item: Task }) => (
     <View style={[styles.card, item.is_completed && styles.cardCompleted]}>
+      {/* Completed indicator */}
+      {item.is_completed && (
+        <View style={styles.completedBadge}>
+          <Feather name="check" size={12} color="#fff" />
+          <Text style={styles.completedBadgeText}>Done</Text>
+        </View>
+      )}
       <View style={styles.cardContent}>
         <Text
           style={[
@@ -1144,7 +1151,8 @@ export default function TaskListScreen() {
         <View style={styles.titleLeft}>
           <Text style={styles.title}>Your Tasks</Text>
           <Text style={styles.subtitle}>
-            {filteredTasks.filter((t) => !t.is_completed).length} tasks for{" "}
+            {filteredTasks.filter((t) => !t.is_completed).length} remaining,{" "}
+            {filteredTasks.filter((t) => t.is_completed).length} done for{" "}
             {selectedDate.toLocaleDateString("en-US", {
               month: "short",
               day: "numeric",
@@ -1885,8 +1893,26 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   cardCompleted: {
-    opacity: 0.6,
-    backgroundColor: "rgba(240, 235, 245, 0.6)",
+    opacity: 0.85,
+    backgroundColor: "rgba(232, 245, 233, 0.8)",
+    borderColor: "#4CAF50",
+  },
+  completedBadge: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#4CAF50",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  completedBadgeText: {
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: "600",
   },
   cardContent: {
     flex: 1,

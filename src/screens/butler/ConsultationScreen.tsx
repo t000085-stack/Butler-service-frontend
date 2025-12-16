@@ -569,30 +569,36 @@ const getFilteredTasks = (allTasks: Task[], mood: string | null) => {
   }
 };
 
-// Get daily stats
+// Get today's task stats only
 const getDailyStats = (allTasks: Task[]) => {
   const today = new Date();
   const todayStr = `${today.getFullYear()}-${String(
     today.getMonth() + 1
   ).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
+  // Filter tasks for today only
   const todayTasks = allTasks.filter((t) => {
     if (t.due_date) {
-      // Extract just the date part (YYYY-MM-DD) to avoid timezone issues
       const taskDateStr = t.due_date.substring(0, 10);
       return taskDateStr === todayStr;
     }
-    return true; // Tasks without due_date count as today
+    // Tasks without due_date: only count if created today
+    if (t.created_at) {
+      const createdDateStr = t.created_at.substring(0, 10);
+      return createdDateStr === todayStr;
+    }
+    return false; // No date info, don't count
   });
 
   const completed = todayTasks.filter((t) => t.is_completed).length;
   const total = todayTasks.length;
+  const remaining = todayTasks.filter((t) => !t.is_completed).length;
   const energySpent = todayTasks
     .filter((t) => t.is_completed)
     .reduce((sum, t) => sum + t.energy_cost, 0);
   const totalEnergy = todayTasks.reduce((sum, t) => sum + t.energy_cost, 0);
 
-  return { completed, total, energySpent, totalEnergy };
+  return { completed, total, remaining, energySpent, totalEnergy };
 };
 
 // Get AI suggestion based on mood
@@ -1448,7 +1454,7 @@ export default function ConsultationScreen() {
           )}
         </Animated.View>
 
-        {/* Daily Progress Section */}
+        {/* Today's Progress Section */}
         <View style={styles.progressSection}>
           <Text style={styles.progressSectionTitle}>Today's Progress</Text>
 
@@ -1456,12 +1462,25 @@ export default function ConsultationScreen() {
           <View style={styles.statsRow}>
             <View style={styles.statCard}>
               <View style={styles.statIconContainer}>
+                <Feather name="list" size={20} color="#522861" />
+              </View>
+              <Text style={styles.statValue}>{getDailyStats(tasks).total}</Text>
+              <Text style={styles.statLabel}>Today's Tasks</Text>
+            </View>
+
+            <View style={styles.statCard}>
+              <View
+                style={[
+                  styles.statIconContainer,
+                  { backgroundColor: "#E8F5E9" },
+                ]}
+              >
                 <Feather name="check-circle" size={20} color={COLORS.success} />
               </View>
               <Text style={styles.statValue}>
-                {getDailyStats(tasks).completed}/{getDailyStats(tasks).total}
+                {getDailyStats(tasks).completed}
               </Text>
-              <Text style={styles.statLabel}>Tasks Done</Text>
+              <Text style={styles.statLabel}>Completed</Text>
             </View>
 
             <View style={styles.statCard}>
@@ -1471,33 +1490,39 @@ export default function ConsultationScreen() {
                   { backgroundColor: "#FFF3E0" },
                 ]}
               >
-                <Feather name="zap" size={20} color="#FF9800" />
+                <Feather name="clock" size={20} color="#FF9800" />
               </View>
               <Text style={styles.statValue}>
-                {getDailyStats(tasks).energySpent}
+                {getDailyStats(tasks).remaining}
               </Text>
-              <Text style={styles.statLabel}>Energy Spent</Text>
+              <Text style={styles.statLabel}>Remaining</Text>
             </View>
+          </View>
 
-            <View style={styles.statCard}>
+          {/* Progress Bar */}
+          <View style={styles.progressBarContainer}>
+            <View style={styles.progressBarBackground}>
               <View
                 style={[
-                  styles.statIconContainer,
-                  { backgroundColor: "#E3F2FD" },
+                  styles.progressBarFill,
+                  {
+                    width: `${Math.round(
+                      (getDailyStats(tasks).completed /
+                        Math.max(getDailyStats(tasks).total, 1)) *
+                        100
+                    )}%`,
+                  },
                 ]}
-              >
-                <Feather name="target" size={20} color="#2196F3" />
-              </View>
-              <Text style={styles.statValue}>
-                {Math.round(
-                  (getDailyStats(tasks).completed /
-                    Math.max(getDailyStats(tasks).total, 1)) *
-                    100
-                )}
-                %
-              </Text>
-              <Text style={styles.statLabel}>Complete</Text>
+              />
             </View>
+            <Text style={styles.progressPercentage}>
+              {Math.round(
+                (getDailyStats(tasks).completed /
+                  Math.max(getDailyStats(tasks).total, 1)) *
+                  100
+              )}
+              % Complete
+            </Text>
           </View>
 
           {/* AI Suggestion */}
@@ -2400,6 +2425,28 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: COLORS.textSecondary,
     marginTop: 2,
+  },
+  progressBarContainer: {
+    marginTop: 16,
+    alignItems: "center",
+  },
+  progressBarBackground: {
+    width: "100%",
+    height: 8,
+    backgroundColor: "rgba(82, 40, 97, 0.1)",
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  progressBarFill: {
+    height: "100%",
+    backgroundColor: "#522861",
+    borderRadius: 4,
+  },
+  progressPercentage: {
+    marginTop: 8,
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#522861",
   },
   aiSuggestionCard: {
     flexDirection: "row",
