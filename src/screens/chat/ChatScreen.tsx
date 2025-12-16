@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Dimensions,
   Animated,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -81,8 +82,119 @@ const TypingIndicator = () => {
   );
 };
 
+const LoadingAvatarBubble = () => {
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const floatAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    // Pulse animation
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.1,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // Float animation
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatAnim, {
+          toValue: 1,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(floatAnim, {
+          toValue: 0,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
+
+  const translateY = floatAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -3],
+  });
+
+  return (
+    <View style={styles.loadingBubbleContainer}>
+      <View style={styles.avatarContainer}>
+        <Animated.View
+          style={[
+            styles.avatar,
+            {
+              transform: [{ scale: pulseAnim }, { translateY: translateY }],
+            },
+          ]}
+        >
+          <Image
+            source={require("../../../assets/simiicon.png")}
+            style={styles.avatarImage}
+            resizeMode="cover"
+          />
+        </Animated.View>
+      </View>
+      <View style={[styles.messageBubble, styles.assistantBubble]}>
+        <TypingIndicator />
+      </View>
+    </View>
+  );
+};
+
 const MessageBubble = ({ message }: { message: Message }) => {
   const isUser = message.role === "user";
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const floatAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!isUser) {
+      // Pulse animation
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.1,
+            duration: 1500,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 1500,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+
+      // Float animation
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(floatAnim, {
+            toValue: 1,
+            duration: 2000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(floatAnim, {
+            toValue: 0,
+            duration: 2000,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    }
+  }, [isUser]);
+
+  const translateY = floatAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -3],
+  });
 
   return (
     <View
@@ -93,12 +205,20 @@ const MessageBubble = ({ message }: { message: Message }) => {
     >
       {!isUser && (
         <View style={styles.avatarContainer}>
-          <LinearGradient
-            colors={["#522861", "#7a4d84"]}
-            style={styles.avatar}
+          <Animated.View
+            style={[
+              styles.avatar,
+              {
+                transform: [{ scale: pulseAnim }, { translateY: translateY }],
+              },
+            ]}
           >
-            <Text style={styles.avatarText}>🌙</Text>
-          </LinearGradient>
+            <Image
+              source={require("../../../assets/simiicon.png")}
+              style={styles.avatarImage}
+              resizeMode="cover"
+            />
+          </Animated.View>
         </View>
       )}
       <View
@@ -207,12 +327,13 @@ export default function ChatScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
-          <LinearGradient
-            colors={["#522861", "#7a4d84"]}
-            style={styles.headerAvatar}
-          >
-            <Text style={styles.headerAvatarText}>🌙</Text>
-          </LinearGradient>
+          <View style={styles.headerAvatar}>
+            <Image
+              source={require("../../../assets/simiicon.png")}
+              style={styles.headerAvatarImage}
+              resizeMode="cover"
+            />
+          </View>
           <View>
             <Text style={styles.headerTitle}>Chat with Simi</Text>
             <Text style={styles.headerSubtitle}>Your personal butler</Text>
@@ -234,23 +355,7 @@ export default function ChatScreen() {
           contentContainerStyle={styles.messagesList}
           showsVerticalScrollIndicator={false}
           onContentSizeChange={scrollToBottom}
-          ListFooterComponent={
-            isLoading ? (
-              <View style={styles.loadingBubbleContainer}>
-                <View style={styles.avatarContainer}>
-                  <LinearGradient
-                    colors={["#522861", "#7a4d84"]}
-                    style={styles.avatar}
-                  >
-                    <Text style={styles.avatarText}>🌙</Text>
-                  </LinearGradient>
-                </View>
-                <View style={[styles.messageBubble, styles.assistantBubble]}>
-                  <TypingIndicator />
-                </View>
-              </View>
-            ) : null
-          }
+          ListFooterComponent={isLoading ? <LoadingAvatarBubble /> : null}
         />
 
         {/* Input Area */}
@@ -318,11 +423,13 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
+    overflow: "hidden",
+    borderWidth: 2,
+    borderColor: "#522861",
   },
-  headerAvatarText: {
-    fontSize: 22,
+  headerAvatarImage: {
+    width: "100%",
+    height: "100%",
   },
   headerTitle: {
     fontSize: 18,
@@ -363,11 +470,11 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
+    overflow: "hidden",
   },
-  avatarText: {
-    fontSize: 16,
+  avatarImage: {
+    width: "100%",
+    height: "100%",
   },
   messageBubble: {
     paddingHorizontal: 16,

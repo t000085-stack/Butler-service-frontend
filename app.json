@@ -24,7 +24,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/simiicon.png",
         "backgroundColor": "#ffffff"
       },
       "usesCleartextTraffic": true,
