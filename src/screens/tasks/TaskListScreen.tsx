@@ -15,6 +15,7 @@ import {
   ScrollView,
   Animated,
   GestureResponderEvent,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -555,10 +556,139 @@ const simpleSliderStyles = StyleSheet.create({
 });
 
 // Feeling Modal Styles
+// Animated Mood Image Button Component - matching home page design
+const AnimatedMoodImageButton = ({
+  mood,
+  isSelected,
+  onPress,
+}: {
+  mood: { id: string; image: any; label: string; color: string };
+  isSelected: boolean;
+  onPress: () => void;
+}) => {
+  const scaleAnim = useRef(new Animated.Value(isSelected ? 1.2 : 1)).current;
+  const opacityAnim = useRef(new Animated.Value(isSelected ? 1 : 0.35)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(scaleAnim, {
+        toValue: isSelected ? 1.2 : 1,
+        friction: 5,
+        tension: 120,
+        useNativeDriver: true,
+      }),
+      Animated.timing(opacityAnim, {
+        toValue: isSelected ? 1 : 0.35,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [isSelected]);
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.95,
+      friction: 8,
+      tension: 200,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: isSelected ? 1.2 : 1,
+      friction: 5,
+      tension: 120,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  return (
+    <TouchableOpacity
+      style={feelingStyles.emojiButton}
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      activeOpacity={1}
+    >
+      {/* Glow effect behind selected icon */}
+      {isSelected && <View style={feelingStyles.glowEffect} />}
+      <Animated.View
+        style={[
+          feelingStyles.emojiCircle,
+          {
+            transform: [{ scale: scaleAnim }],
+          },
+        ]}
+      >
+        <Animated.Image
+          source={mood.image}
+          style={[feelingStyles.moodImage, { opacity: opacityAnim }]}
+          resizeMode="contain"
+        />
+      </Animated.View>
+      <Text
+        style={[
+          feelingStyles.moodLabel,
+          isSelected && feelingStyles.moodLabelActive,
+        ]}
+        numberOfLines={1}
+      >
+        {mood.label}
+      </Text>
+    </TouchableOpacity>
+  );
+};
+
+// Mood Image Selector Component - matching home page design
+const MoodImageSelector = ({
+  moods,
+  selectedMood,
+  onSelect,
+}: {
+  moods: Array<{
+    id: string;
+    image: any;
+    label: string;
+    color: string;
+  }>;
+  selectedMood: string | null;
+  onSelect: (id: string) => void;
+}) => {
+  return (
+    <View style={feelingStyles.moodContainer}>
+      {/* Mood Image Buttons with connecting lines */}
+      <View style={feelingStyles.emojisRow}>
+        {moods.map((mood, index) => (
+          <React.Fragment key={mood.id}>
+            <AnimatedMoodImageButton
+              mood={mood}
+              isSelected={selectedMood === mood.id}
+              onPress={() => onSelect(mood.id)}
+            />
+            {/* Connecting line between icons */}
+            {index < moods.length - 1 && (
+              <View style={feelingStyles.connectorLine} />
+            )}
+          </React.Fragment>
+        ))}
+      </View>
+    </View>
+  );
+};
+
 const feelingStyles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.6)",
+  },
+  overlayTouchable: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContentWrapper: {
+    width: "100%",
   },
   scrollContent: {
     flexGrow: 1,
@@ -594,31 +724,63 @@ const feelingStyles = StyleSheet.create({
     textAlign: "center",
     fontStyle: "italic",
   },
-  optionsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "center",
-    gap: 12,
+  // Mood selector styles - matching home page design
+  moodContainer: {
+    paddingVertical: 12,
+    paddingHorizontal: 4,
     marginBottom: 20,
   },
-  optionButton: {
-    width: "30%",
+  emojisRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "flex-start",
+  },
+  connectorLine: {
+    height: 2,
+    backgroundColor: COLORS.primary + "30",
+    flex: 1,
+    marginTop: 37.5,
+    marginHorizontal: -4,
+    borderRadius: 1,
+  },
+  emojiButton: {
     alignItems: "center",
-    paddingVertical: 16,
-    paddingHorizontal: 8,
-    borderRadius: 16,
-    backgroundColor: "rgba(240, 235, 245, 0.8)",
-    borderWidth: 2,
-    borderColor: "rgba(255, 255, 255, 0.6)",
+    minWidth: 75,
+    paddingTop: 2,
   },
-  optionEmoji: {
-    fontSize: 28,
-    marginBottom: 6,
+  glowEffect: {
+    position: "absolute",
+    top: 0,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: COLORS.primary,
+    opacity: 0.15,
   },
-  optionLabel: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#7a4d84",
+  emojiCircle: {
+    width: 75,
+    height: 75,
+    borderRadius: 37.5,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "transparent",
+  },
+  moodImage: {
+    width: 70,
+    height: 70,
+  },
+  moodLabel: {
+    fontSize: 11,
+    color: "#9CA3AF",
+    marginTop: 6,
+    fontWeight: "500",
+    letterSpacing: 0.2,
+    textAlign: "center",
+  },
+  moodLabelActive: {
+    color: "#522861",
+    fontWeight: "700",
+    fontSize: 11,
   },
   descriptionContainer: {
     marginBottom: 20,
@@ -642,24 +804,9 @@ const feelingStyles = StyleSheet.create({
   },
   actions: {
     flexDirection: "row",
-    gap: 12,
-  },
-  skipButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 14,
-    backgroundColor: "rgba(240, 235, 245, 0.8)",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.6)",
-  },
-  skipButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#7a4d84",
   },
   continueButton: {
-    flex: 2,
+    flex: 1,
     paddingVertical: 14,
     borderRadius: 14,
     backgroundColor: "#522861",
@@ -750,7 +897,7 @@ export default function TaskListScreen() {
 
   // Feeling popup state
   const [showFeelingModal, setShowFeelingModal] = useState(false);
-  const [taskFeeling, setTaskFeeling] = useState("");
+  const [taskFeeling, setTaskFeeling] = useState<string | null>(null);
   const [feelingDescription, setFeelingDescription] = useState("");
   const [pendingParsedData, setPendingParsedData] =
     useState<ParsedTaskData | null>(null);
@@ -786,7 +933,7 @@ export default function TaskListScreen() {
     setFormError(null);
     setIsAIParsed(false);
     setEditingTask(null);
-    setTaskFeeling("");
+    setTaskFeeling(null);
     setFeelingDescription("");
     setPendingParsedData(null);
   };
@@ -821,56 +968,55 @@ export default function TaskListScreen() {
   const handleMagicTaskParsed = (data: ParsedTaskData) => {
     // Store parsed data and show feeling popup first
     setPendingParsedData(data);
-    setTaskFeeling("");
+    setTaskFeeling(null);
     setFeelingDescription("");
     setShowFeelingModal(true);
   };
 
   // Feeling options with AI-determined motivation and difficulty mappings
+  // Matching the moods from the home page (ConsultationScreen) with both emojis and images
   // motivation: 0=Not Motivated, 4=Highly Motivated
   // difficulty: 0=Easy, 4=Difficult
   const FEELING_OPTIONS = [
     {
-      emoji: "😰",
-      label: "Anxious",
-      color: "#EF4444",
-      motivation: 1 as MotivationLevel,
-      difficulty: 4 as DifficultyLevel,
-    },
-    {
-      emoji: "😩",
-      label: "Overwhelmed",
-      color: "#F97316",
-      motivation: 0 as MotivationLevel,
-      difficulty: 4 as DifficultyLevel,
-    },
-    {
-      emoji: "😐",
-      label: "Neutral",
-      color: "#6B7280",
-      motivation: 2 as MotivationLevel,
-      difficulty: 2 as DifficultyLevel,
-    },
-    {
-      emoji: "🤔",
-      label: "Uncertain",
-      color: "#8B5CF6",
-      motivation: 1 as MotivationLevel,
-      difficulty: 3 as DifficultyLevel,
-    },
-    {
-      emoji: "😊",
-      label: "Confident",
+      id: "great",
+      image: require("../../../assets/great.png"),
+      label: "Great",
       color: "#10B981",
+      motivation: 4 as MotivationLevel,
+      difficulty: 0 as DifficultyLevel,
+    },
+    {
+      id: "good",
+      image: require("../../../assets/good.png"),
+      label: "Good",
+      color: "#22C55E",
       motivation: 3 as MotivationLevel,
       difficulty: 1 as DifficultyLevel,
     },
     {
-      emoji: "🤩",
-      label: "Excited",
-      color: "#EC4899",
-      motivation: 4 as MotivationLevel,
-      difficulty: 0 as DifficultyLevel,
+      id: "okay",
+      image: require("../../../assets/okey.png"),
+      label: "Okay",
+      color: "#EAB308",
+      motivation: 2 as MotivationLevel,
+      difficulty: 2 as DifficultyLevel,
+    },
+    {
+      id: "bad",
+      image: require("../../../assets/bad.png"),
+      label: "Bad",
+      color: "#F97316",
+      motivation: 1 as MotivationLevel,
+      difficulty: 3 as DifficultyLevel,
+    },
+    {
+      id: "terrible",
+      image: require("../../../assets/terrible.png"),
+      label: "Terrible",
+      color: "#EF4444",
+      motivation: 0 as MotivationLevel,
+      difficulty: 4 as DifficultyLevel,
     },
   ];
 
@@ -883,7 +1029,7 @@ export default function TaskListScreen() {
 
     // Find the selected feeling option
     const selectedFeeling = FEELING_OPTIONS.find(
-      (opt) => opt.label === taskFeeling
+      (opt) => opt.id === taskFeeling
     );
     if (!selectedFeeling) return;
 
@@ -918,7 +1064,7 @@ export default function TaskListScreen() {
         energy_cost: energyCost,
         emotional_friction: emotionalFriction,
         due_date: taskDueDate,
-        user_feeling: taskFeeling,
+        user_feeling: selectedFeeling.label,
         feeling_description: feelingDescription.trim() || undefined,
       });
 
@@ -963,7 +1109,7 @@ export default function TaskListScreen() {
       setDueDate(selectedDate);
     }
 
-    setTaskFeeling("");
+    setTaskFeeling(null);
     setFeelingDescription("");
     setFormError(null);
     setIsAIParsed(true);
@@ -1293,138 +1439,127 @@ export default function TaskListScreen() {
         visible={showFeelingModal}
         animationType="fade"
         transparent
-        onRequestClose={() => setShowFeelingModal(false)}
+        onRequestClose={() => {
+          setShowFeelingModal(false);
+          setTaskFeeling(null);
+          setFeelingDescription("");
+        }}
       >
         <KeyboardAvoidingView
           style={feelingStyles.overlay}
           behavior={Platform.OS === "ios" ? "padding" : "height"}
         >
-          <ScrollView
-            contentContainerStyle={feelingStyles.scrollContent}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
+          <TouchableOpacity
+            activeOpacity={1}
+            style={feelingStyles.overlayTouchable}
+            onPress={() => {
+              setShowFeelingModal(false);
+              setTaskFeeling(null);
+              setFeelingDescription("");
+            }}
           >
-            <View style={feelingStyles.container}>
-              <View style={feelingStyles.header}>
-                <Text style={feelingStyles.title}>
-                  How Do You Feel About It?
-                </Text>
-                <Text style={feelingStyles.subtitle}>
-                  "{pendingParsedData?.title}"
-                </Text>
-              </View>
-
-              {/* Feeling Options */}
-              <View style={feelingStyles.optionsGrid}>
-                {FEELING_OPTIONS.map((option) => (
-                  <TouchableOpacity
-                    key={option.label}
-                    style={[
-                      feelingStyles.optionButton,
-                      taskFeeling === option.label && {
-                        backgroundColor: option.color + "20",
-                        borderColor: option.color,
-                      },
-                    ]}
-                    onPress={() => setTaskFeeling(option.label)}
-                    disabled={feelingLoading}
-                  >
-                    <Text style={feelingStyles.optionEmoji}>
-                      {option.emoji}
+            <View
+              style={feelingStyles.modalContentWrapper}
+              onStartShouldSetResponder={() => true}
+            >
+              <ScrollView
+                contentContainerStyle={feelingStyles.scrollContent}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+              >
+                <View style={feelingStyles.container}>
+                  <View style={feelingStyles.header}>
+                    <Text style={feelingStyles.title}>
+                      How Do You Feel About It?
                     </Text>
-                    <Text
-                      style={[
-                        feelingStyles.optionLabel,
-                        taskFeeling === option.label && { color: option.color },
-                      ]}
-                    >
-                      {option.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              {/* AI-Determined Values Preview */}
-              {taskFeeling && (
-                <View style={feelingStyles.aiPreview}>
-                  <Text style={feelingStyles.aiPreviewTitle}>
-                    🤖 AI will set based on your feeling:
-                  </Text>
-                  <View style={feelingStyles.aiPreviewRow}>
-                    <Text style={feelingStyles.aiPreviewLabel}>
-                      Motivation:
-                    </Text>
-                    <Text style={feelingStyles.aiPreviewValue}>
-                      {
-                        MOTIVATION_POINTS[
-                          FEELING_OPTIONS.find((o) => o.label === taskFeeling)
-                            ?.motivation || 2
-                        ].title
-                      }
+                    <Text style={feelingStyles.subtitle}>
+                      "{pendingParsedData?.title}"
                     </Text>
                   </View>
-                  <View style={feelingStyles.aiPreviewRow}>
-                    <Text style={feelingStyles.aiPreviewLabel}>
-                      Difficulty:
+
+                  {/* Feeling Options - Matching home page design */}
+                  <MoodImageSelector
+                    moods={FEELING_OPTIONS}
+                    selectedMood={taskFeeling}
+                    onSelect={setTaskFeeling}
+                  />
+
+                  {/* AI-Determined Values Preview */}
+                  {taskFeeling && (
+                    <View style={feelingStyles.aiPreview}>
+                      <Text style={feelingStyles.aiPreviewTitle}>
+                        🤖 AI will set based on your feeling:
+                      </Text>
+                      <View style={feelingStyles.aiPreviewRow}>
+                        <Text style={feelingStyles.aiPreviewLabel}>
+                          Motivation:
+                        </Text>
+                        <Text style={feelingStyles.aiPreviewValue}>
+                          {
+                            MOTIVATION_POINTS[
+                              FEELING_OPTIONS.find((o) => o.id === taskFeeling)
+                                ?.motivation || 2
+                            ].title
+                          }
+                        </Text>
+                      </View>
+                      <View style={feelingStyles.aiPreviewRow}>
+                        <Text style={feelingStyles.aiPreviewLabel}>
+                          Difficulty:
+                        </Text>
+                        <Text style={feelingStyles.aiPreviewValue}>
+                          {
+                            DIFFICULTY_POINTS[
+                              FEELING_OPTIONS.find((o) => o.id === taskFeeling)
+                                ?.difficulty || 2
+                            ].title
+                          }
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Description Input */}
+                  <View style={feelingStyles.descriptionContainer}>
+                    <Text style={feelingStyles.descriptionLabel}>
+                      Tell us more (optional)
                     </Text>
-                    <Text style={feelingStyles.aiPreviewValue}>
-                      {
-                        DIFFICULTY_POINTS[
-                          FEELING_OPTIONS.find((o) => o.label === taskFeeling)
-                            ?.difficulty || 2
-                        ].title
-                      }
-                    </Text>
+                    <TextInput
+                      style={feelingStyles.descriptionInput}
+                      placeholder="Why do you feel this way about the task?"
+                      placeholderTextColor={COLORS.textMuted}
+                      value={feelingDescription}
+                      onChangeText={setFeelingDescription}
+                      multiline
+                      numberOfLines={3}
+                      editable={!feelingLoading}
+                    />
+                  </View>
+
+                  {/* Action Buttons */}
+                  <View style={feelingStyles.actions}>
+                    <TouchableOpacity
+                      style={[
+                        feelingStyles.continueButton,
+                        (!taskFeeling || feelingLoading) &&
+                          feelingStyles.continueButtonDisabled,
+                      ]}
+                      onPress={handleFeelingSubmit}
+                      disabled={!taskFeeling || feelingLoading}
+                    >
+                      {feelingLoading ? (
+                        <ActivityIndicator color="#fff" size="small" />
+                      ) : (
+                        <Text style={feelingStyles.continueButtonText}>
+                          ✨ Add Task
+                        </Text>
+                      )}
+                    </TouchableOpacity>
                   </View>
                 </View>
-              )}
-
-              {/* Description Input */}
-              <View style={feelingStyles.descriptionContainer}>
-                <Text style={feelingStyles.descriptionLabel}>
-                  Tell us more (optional)
-                </Text>
-                <TextInput
-                  style={feelingStyles.descriptionInput}
-                  placeholder="Why do you feel this way about the task?"
-                  placeholderTextColor={COLORS.textMuted}
-                  value={feelingDescription}
-                  onChangeText={setFeelingDescription}
-                  multiline
-                  numberOfLines={3}
-                  editable={!feelingLoading}
-                />
-              </View>
-
-              {/* Action Buttons */}
-              <View style={feelingStyles.actions}>
-                <TouchableOpacity
-                  style={feelingStyles.skipButton}
-                  onPress={handleSkipFeeling}
-                  disabled={feelingLoading}
-                >
-                  <Text style={feelingStyles.skipButtonText}>Set Manually</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    feelingStyles.continueButton,
-                    (!taskFeeling || feelingLoading) &&
-                      feelingStyles.continueButtonDisabled,
-                  ]}
-                  onPress={handleFeelingSubmit}
-                  disabled={!taskFeeling || feelingLoading}
-                >
-                  {feelingLoading ? (
-                    <ActivityIndicator color="#fff" size="small" />
-                  ) : (
-                    <Text style={feelingStyles.continueButtonText}>
-                      ✨ Add Task
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              </View>
+              </ScrollView>
             </View>
-          </ScrollView>
+          </TouchableOpacity>
         </KeyboardAvoidingView>
       </Modal>
 
@@ -1433,139 +1568,161 @@ export default function TaskListScreen() {
         visible={showModal}
         animationType="slide"
         transparent
-        onRequestClose={() => setShowModal(false)}
+        onRequestClose={() => {
+          setShowModal(false);
+          resetForm();
+        }}
       >
         <KeyboardAvoidingView
           style={styles.modalOverlay}
           behavior={Platform.OS === "ios" ? "padding" : "height"}
         >
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <View>
-                <Text style={styles.modalTitle}>
-                  {editingTask
-                    ? "Edit Task"
-                    : isAIParsed
-                    ? "✨ AI Parsed Task"
-                    : "New Task"}
-                </Text>
-                {isAIParsed && !editingTask && (
-                  <Text style={styles.modalSubtitle}>
-                    Review and adjust if needed
-                  </Text>
-                )}
-              </View>
-              <TouchableOpacity
-                onPress={() => {
-                  setShowModal(false);
-                  resetForm();
-                }}
-              >
-                <Text style={styles.modalClose}>✕</Text>
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={styles.label}>Task Title</Text>
-              <View style={styles.inputWrapper}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="What needs to be done?"
-                  placeholderTextColor={COLORS.textMuted}
-                  value={title}
-                  onChangeText={setTitle}
-                />
-              </View>
-
-              <Text style={styles.label}>
-                How Motivated Are You To Complete This Task?
-              </Text>
-              <MotivationSlider
-                value={motivation}
-                onValueChange={setMotivation}
-              />
-
-              <Text style={styles.label}>
-                How Difficult Is It To Do This Task?
-              </Text>
-              <DifficultySlider
-                value={difficulty}
-                onValueChange={setDifficulty}
-              />
-
-              <Text style={styles.label}>Due Date</Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={styles.dueDateScroll}
-              >
-                <TouchableOpacity
-                  style={[
-                    styles.dueDateButton,
-                    !dueDate && styles.dueDateButtonActive,
-                  ]}
-                  onPress={() => setDueDate(null)}
-                >
-                  <Text
-                    style={[
-                      styles.dueDateButtonText,
-                      !dueDate && styles.dueDateButtonTextActive,
-                    ]}
+          <TouchableOpacity
+            activeOpacity={1}
+            style={styles.modalOverlayTouchable}
+            onPress={() => {
+              setShowModal(false);
+              resetForm();
+            }}
+          >
+            <View
+              style={styles.modalContentWrapper}
+              onStartShouldSetResponder={() => true}
+            >
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <View>
+                    <Text style={styles.modalTitle}>
+                      {editingTask
+                        ? "Edit Task"
+                        : isAIParsed
+                        ? "✨ AI Parsed Task"
+                        : "New Task"}
+                    </Text>
+                    {isAIParsed && !editingTask && (
+                      <Text style={styles.modalSubtitle}>
+                        Review and adjust if needed
+                      </Text>
+                    )}
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setShowModal(false);
+                      resetForm();
+                    }}
                   >
-                    No date
+                    <Text style={styles.modalClose}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <ScrollView showsVerticalScrollIndicator={false}>
+                  <Text style={styles.label}>Task Title</Text>
+                  <View style={styles.inputWrapper}>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="What needs to be done?"
+                      placeholderTextColor={COLORS.textMuted}
+                      value={title}
+                      onChangeText={setTitle}
+                    />
+                  </View>
+
+                  <Text style={styles.label}>
+                    How Motivated Are You To Complete This Task?
                   </Text>
-                </TouchableOpacity>
-                {generateCalendarDays(selectedDate)
-                  .slice(3, 10)
-                  .map((day, index) => (
+                  <MotivationSlider
+                    value={motivation}
+                    onValueChange={setMotivation}
+                  />
+
+                  <Text style={styles.label}>
+                    How Difficult Is It To Do This Task?
+                  </Text>
+                  <DifficultySlider
+                    value={difficulty}
+                    onValueChange={setDifficulty}
+                  />
+
+                  <Text style={styles.label}>Due Date</Text>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.dueDateScroll}
+                  >
                     <TouchableOpacity
-                      key={index}
                       style={[
                         styles.dueDateButton,
-                        dueDate &&
-                          dueDate.toDateString() === day.date.toDateString() &&
-                          styles.dueDateButtonActive,
+                        !dueDate && styles.dueDateButtonActive,
                       ]}
-                      onPress={() => setDueDate(day.date)}
+                      onPress={() => setDueDate(null)}
                     >
                       <Text
                         style={[
                           styles.dueDateButtonText,
-                          dueDate &&
-                            dueDate.toDateString() ===
-                              day.date.toDateString() &&
-                            styles.dueDateButtonTextActive,
+                          !dueDate && styles.dueDateButtonTextActive,
                         ]}
                       >
-                        {day.isToday ? "Today" : day.dayName} {day.dayNumber}
+                        No date
                       </Text>
                     </TouchableOpacity>
-                  ))}
-              </ScrollView>
+                    {generateCalendarDays(selectedDate)
+                      .slice(3, 10)
+                      .map((day, index) => (
+                        <TouchableOpacity
+                          key={index}
+                          style={[
+                            styles.dueDateButton,
+                            dueDate &&
+                              dueDate.toDateString() ===
+                                day.date.toDateString() &&
+                              styles.dueDateButtonActive,
+                          ]}
+                          onPress={() => setDueDate(day.date)}
+                        >
+                          <Text
+                            style={[
+                              styles.dueDateButtonText,
+                              dueDate &&
+                                dueDate.toDateString() ===
+                                  day.date.toDateString() &&
+                                styles.dueDateButtonTextActive,
+                            ]}
+                          >
+                            {day.isToday ? "Today" : day.dayName}{" "}
+                            {day.dayNumber}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                  </ScrollView>
 
-              {formError && (
-                <Text style={styles.formErrorText}>{formError}</Text>
-              )}
+                  {formError && (
+                    <Text style={styles.formErrorText}>{formError}</Text>
+                  )}
 
-              <TouchableOpacity
-                style={[
-                  styles.createButton,
-                  formLoading && styles.createButtonDisabled,
-                ]}
-                onPress={handleCreateTask}
-                disabled={formLoading}
-                activeOpacity={0.7}
-              >
-                {formLoading ? (
-                  <ActivityIndicator color={COLORS.background} size="small" />
-                ) : (
-                  <Text style={styles.createButtonText}>
-                    {editingTask ? "Update Task" : "Create Task"}
-                  </Text>
-                )}
-              </TouchableOpacity>
-            </ScrollView>
-          </View>
+                  <TouchableOpacity
+                    style={[
+                      styles.createButton,
+                      formLoading && styles.createButtonDisabled,
+                    ]}
+                    onPress={handleCreateTask}
+                    disabled={formLoading}
+                    activeOpacity={0.7}
+                  >
+                    {formLoading ? (
+                      <ActivityIndicator
+                        color={COLORS.background}
+                        size="small"
+                      />
+                    ) : (
+                      <Text style={styles.createButtonText}>
+                        {editingTask ? "Update Task" : "Create Task"}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                </ScrollView>
+              </View>
+            </View>
+          </TouchableOpacity>
         </KeyboardAvoidingView>
       </Modal>
 
@@ -2005,13 +2162,27 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "rgba(61, 30, 73, 0.4)",
     justifyContent: "flex-end",
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  modalOverlayTouchable: {
+    flex: 1,
+    justifyContent: "flex-end",
+    width: "100%",
+  },
+  modalContentWrapper: {
+    width: "100%",
   },
   modalContent: {
     backgroundColor: "rgba(255, 255, 255, 0.95)",
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     padding: 24,
-    maxHeight: "85%",
+    paddingBottom: 40,
+    maxHeight: "100%",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.8)",
     shadowColor: "#522861",
