@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -10,13 +10,17 @@ import {
   PanResponder,
   Dimensions,
   Animated,
+  Easing,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
+import { Feather } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 import { useAuth } from "../../contexts/AuthContext";
-import { COLORS } from "../../constants/config";
 import * as butlerApi from "../../api/butler";
+
+const { width } = Dimensions.get("window");
 
 const CORE_VALUE_TAGS = [
   "Health",
@@ -45,6 +49,155 @@ const ENERGY_LEVELS = [
   { level: 10, description: "Maximum energy, unstoppable" },
 ];
 
+// Floating Particle Component
+const FloatingParticle = ({
+  delay,
+  size,
+  startX,
+  startY,
+}: {
+  delay: number;
+  size: number;
+  startX: number;
+  startY: number;
+}) => {
+  const floatAnim = useRef(new Animated.Value(0)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const startAnimation = () => {
+      floatAnim.setValue(0);
+      opacityAnim.setValue(0);
+
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.parallel([
+            Animated.timing(floatAnim, {
+              toValue: 1,
+              duration: 8000 + Math.random() * 4000,
+              easing: Easing.inOut(Easing.ease),
+              useNativeDriver: true,
+            }),
+            Animated.sequence([
+              Animated.timing(opacityAnim, {
+                toValue: 0.6,
+                duration: 2000,
+                useNativeDriver: true,
+              }),
+              Animated.timing(opacityAnim, {
+                toValue: 0,
+                duration: 6000,
+                useNativeDriver: true,
+              }),
+            ]),
+          ]),
+        ])
+      ).start();
+    };
+    startAnimation();
+  }, [delay, floatAnim, opacityAnim]);
+
+  return (
+    <Animated.View
+      style={[
+        styles.particle,
+        {
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          left: startX,
+          opacity: opacityAnim,
+          transform: [
+            {
+              translateY: floatAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [startY, startY - 150],
+              }),
+            },
+            {
+              translateX: floatAnim.interpolate({
+                inputRange: [0, 0.5, 1],
+                outputRange: [
+                  0,
+                  Math.random() * 30 - 15,
+                  Math.random() * 20 - 10,
+                ],
+              }),
+            },
+          ],
+        },
+      ]}
+    />
+  );
+};
+
+// Animated Profile Avatar
+const AnimatedAvatar = ({ username }: { username: string }) => {
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const rotateAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.05,
+          duration: 2000,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 2000,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    Animated.loop(
+      Animated.timing(rotateAnim, {
+        toValue: 1,
+        duration: 20000,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    ).start();
+  }, []);
+
+  const spin = rotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "360deg"],
+  });
+
+  return (
+    <Animated.View
+      style={[styles.avatarContainer, { transform: [{ scale: pulseAnim }] }]}
+    >
+      <Animated.View
+        style={[styles.avatarRing, { transform: [{ rotate: spin }] }]}
+      >
+        <LinearGradient
+          colors={["#522861", "#7a4d84", "#522861"]}
+          style={styles.avatarRingGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        />
+      </Animated.View>
+      <LinearGradient
+        colors={["#522861", "#7a4d84"]}
+        style={styles.avatar}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        <Text style={styles.avatarText}>
+          {username ? username.charAt(0).toUpperCase() : "U"}
+        </Text>
+      </LinearGradient>
+    </Animated.View>
+  );
+};
+
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
   const [baselineEnergy, setBaselineEnergy] = useState(
@@ -62,7 +215,7 @@ export default function ProfileScreen() {
   const isDragging = useRef(false);
   const sliderWidthRef = useRef(0);
   const sliderTrackRef = useRef<View>(null);
-  const sliderPageXRef = useRef(0); // Absolute X position of track on screen
+  const sliderPageXRef = useRef(0);
   const selectedCoreValuesRef = useRef(selectedCoreValues);
 
   // Keep refs in sync
@@ -95,6 +248,17 @@ export default function ProfileScreen() {
     }
   }, [baselineEnergy, sliderWidth]);
 
+  // Reset to saved values when screen comes into focus (discards unsaved changes)
+  useFocusEffect(
+    useCallback(() => {
+      if (user) {
+        setBaselineEnergy(user.baseline_energy || 5);
+        setSelectedCoreValues(user.core_values || []);
+        setHasChanges(false);
+      }
+    }, [user])
+  );
+
   const checkForChanges = (energy: number, coreValues: string[]) => {
     const energyChanged = energy !== (user?.baseline_energy || 5);
     const coreValuesChanged =
@@ -112,14 +276,13 @@ export default function ProfileScreen() {
     return Math.max(1, Math.min(10, level));
   };
 
-  // Pan responder for dragging - uses true touch position (pageX)
+  // Pan responder for dragging
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: (evt) => {
         isDragging.current = true;
-        // Update track position before calculating
         if (sliderTrackRef.current) {
           sliderTrackRef.current.measureInWindow((x, y, width, height) => {
             sliderPageXRef.current = x;
@@ -141,7 +304,6 @@ export default function ProfileScreen() {
         const currentWidth = sliderWidthRef.current;
         const trackX = sliderPageXRef.current;
         if (currentWidth > 0) {
-          // Calculate position relative to track using stored pageX
           const relativeX = pageX - trackX;
           const clampedX = Math.max(0, Math.min(currentWidth, relativeX));
           const newEnergy = getEnergyFromX(clampedX, currentWidth);
@@ -168,17 +330,14 @@ export default function ProfileScreen() {
     })
   ).current;
 
-  // Handle track layout to get actual width and store position
   const handleTrackLayout = (event: any) => {
     const { width } = event.nativeEvent.layout;
     if (width > 0 && width !== sliderWidth) {
       setSliderWidth(width);
       sliderWidthRef.current = width;
-      // Set initial position based on current energy
       const position = ((baselineEnergy - 1) / 9) * width;
       thumbPosition.setValue(position);
     }
-    // Store track's absolute position
     if (sliderTrackRef.current) {
       sliderTrackRef.current.measureInWindow((x, y, w, h) => {
         sliderPageXRef.current = x;
@@ -195,12 +354,6 @@ export default function ProfileScreen() {
         onPress: signOut,
       },
     ]);
-  };
-
-  const adjustEnergy = (delta: number) => {
-    const newValue = Math.max(1, Math.min(10, baselineEnergy + delta));
-    setBaselineEnergy(newValue);
-    checkForChanges(newValue, selectedCoreValues);
   };
 
   const toggleCoreValue = (value: string) => {
@@ -227,107 +380,159 @@ export default function ProfileScreen() {
     }
   };
 
+  const getEnergyColor = () => {
+    if (baselineEnergy <= 3) return "#522861";
+    if (baselineEnergy <= 6) return "#7a4d84";
+    return "#522861";
+  };
+
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
       <StatusBar style="dark" />
 
-      {/* Subtle background gradient */}
+      {/* Beautiful gradient background */}
       <LinearGradient
-        colors={["#ffffff", "#faf5ff", "#fdf4ff", "#ffffff"]}
+        colors={["#faf5ff", "#f3e8ff", "#ede4f5", "#faf5ff"]}
         style={styles.backgroundGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       />
+
+      {/* Floating particles */}
+      <View style={styles.particlesContainer}>
+        <FloatingParticle
+          delay={0}
+          size={6}
+          startX={width * 0.1}
+          startY={200}
+        />
+        <FloatingParticle
+          delay={1500}
+          size={4}
+          startX={width * 0.3}
+          startY={400}
+        />
+        <FloatingParticle
+          delay={3000}
+          size={5}
+          startX={width * 0.7}
+          startY={300}
+        />
+        <FloatingParticle
+          delay={4500}
+          size={3}
+          startX={width * 0.85}
+          startY={500}
+        />
+        <FloatingParticle
+          delay={2000}
+          size={4}
+          startX={width * 0.5}
+          startY={600}
+        />
+      </View>
+
+      {/* Header with logout */}
+      <View style={styles.appHeader}>
+        <View style={styles.appHeaderLeft} />
+        <View style={styles.appHeaderCenter} />
+        <TouchableOpacity
+          style={styles.appHeaderRight}
+          onPress={handleSignOut}
+          activeOpacity={0.7}
+        >
+          <LinearGradient
+            colors={["rgba(82, 40, 97, 0.15)", "rgba(122, 77, 132, 0.1)"]}
+            style={styles.logoutGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <Feather name="power" size={18} color="#522861" />
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
 
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
-          <Text style={styles.title}>Profile</Text>
-        </View>
-
-        <View style={styles.card}>
+        {/* Profile Card */}
+        <View style={styles.profileCard}>
+          <AnimatedAvatar username={user?.username || "User"} />
           <Text style={styles.username}>{user?.username || "User"}</Text>
           <Text style={styles.email}>{user?.email || ""}</Text>
+
+          {/* Quick Stats */}
+          <View style={styles.statsRow}>
+            {user?.health && (
+              <View style={styles.statBadge}>
+                <Feather name="heart" size={14} color="#522861" />
+                <Text style={styles.statBadgeText}>{user.health}</Text>
+              </View>
+            )}
+            {user?.career && (
+              <View style={styles.statBadge}>
+                <Feather name="briefcase" size={14} color="#522861" />
+                <Text style={styles.statBadgeText}>{user.career}</Text>
+              </View>
+            )}
+            {user?.relationship && (
+              <View style={styles.statBadge}>
+                <Feather name="users" size={14} color="#522861" />
+                <Text style={styles.statBadgeText}>{user.relationship}</Text>
+              </View>
+            )}
+          </View>
         </View>
 
-        <View style={styles.section}>
-          {user?.health && (
-            <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Health</Text>
-              <Text style={styles.infoValue}>{user.health}</Text>
-            </View>
-          )}
-
-          {user?.career && (
-            <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Career</Text>
-              <Text style={styles.infoValue}>{user.career}</Text>
-            </View>
-          )}
-
-          {user?.relationship && (
-            <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Relationship</Text>
-              <Text style={styles.infoValue}>{user.relationship}</Text>
-            </View>
-          )}
-        </View>
-
+        {/* Preferences Section */}
         {user?.preferences && user.preferences.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Preferences</Text>
-            <View style={styles.valuesRow}>
-              {user.preferences.map((preference, index) => (
-                <View key={index} style={styles.preferenceBadge}>
-                  <Text style={styles.preferenceBadgeText}>{preference}</Text>
-                </View>
-              ))}
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionIconContainer}>
+                <Feather name="sliders" size={16} color="#522861" />
+              </View>
+              <Text style={styles.sectionTitle}>Preferences</Text>
+            </View>
+            <View style={styles.sectionCard}>
+              <View style={styles.tagsContainer}>
+                {user.preferences.map((preference, index) => (
+                  <View key={index} style={styles.preferenceBadge}>
+                    <Text style={styles.preferenceBadgeText}>{preference}</Text>
+                  </View>
+                ))}
+              </View>
             </View>
           </View>
         )}
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Core Values</Text>
-          <Text style={styles.sectionSubtitle}>
-            Select the values that matter most to you
-          </Text>
-          <View style={styles.tagsContainer}>
-            {CORE_VALUE_TAGS.map((tag) => {
-              const isSelected = selectedCoreValues.includes(tag);
-              return (
-                <TouchableOpacity
-                  key={tag}
-                  style={[styles.tag, isSelected && styles.tagSelected]}
-                  onPress={() => toggleCoreValue(tag)}
-                  activeOpacity={0.7}
-                >
-                  <Text
-                    style={[
-                      styles.tagText,
-                      isSelected && styles.tagTextSelected,
-                    ]}
-                  >
-                    {tag}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
 
+        {/* Energy Level Section */}
         <View style={styles.section}>
-          <View style={styles.settingItem}>
-            <View style={styles.energyHeader}>
-              <Text style={styles.settingLabel}>Daily Energy Level</Text>
-              <Text style={styles.energySubLabel}>
-                How energetic do you usually feel?
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionIconContainer}>
+              <Feather name="zap" size={16} color="#522861" />
+            </View>
+            <View>
+              <Text style={styles.sectionTitle}>Daily Energy Level</Text>
+              <Text style={styles.sectionSubtitle}>
+                Your typical energy baseline
               </Text>
             </View>
+          </View>
+
+          <View style={styles.energyCard}>
+            {/* Energy Display */}
             <View style={styles.energyDisplay}>
-              <Text style={styles.energyValue}>{baselineEnergy}</Text>
+              <LinearGradient
+                colors={["#522861", "#7a4d84"]}
+                style={styles.energyValueContainer}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <Text style={styles.energyValue}>{baselineEnergy}</Text>
+              </LinearGradient>
               <Text style={styles.energyMax}>/ 10</Text>
             </View>
 
@@ -339,21 +544,31 @@ export default function ProfileScreen() {
                 onLayout={handleTrackLayout}
                 {...panResponder.panHandlers}
               >
-                {/* Track Background */}
-                <View style={styles.sliderTrackBackground}>
-                  <Animated.View
-                    style={[
-                      styles.sliderTrackFill,
-                      {
-                        width: thumbPosition.interpolate({
-                          inputRange: [0, Math.max(sliderWidth, 1)],
-                          outputRange: [0, Math.max(sliderWidth, 1)],
-                          extrapolate: "clamp",
-                        }),
-                      },
-                    ]}
+                <LinearGradient
+                  colors={["rgba(82, 40, 97, 0.2)", "rgba(122, 77, 132, 0.3)"]}
+                  style={styles.sliderTrackBackground}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                />
+                <Animated.View
+                  style={[
+                    styles.sliderTrackFill,
+                    {
+                      width: thumbPosition.interpolate({
+                        inputRange: [0, Math.max(sliderWidth, 1)],
+                        outputRange: [0, Math.max(sliderWidth, 1)],
+                        extrapolate: "clamp",
+                      }),
+                    },
+                  ]}
+                >
+                  <LinearGradient
+                    colors={["#522861", "#7a4d84"]}
+                    style={StyleSheet.absoluteFill}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
                   />
-                </View>
+                </Animated.View>
 
                 {/* Level Markers */}
                 {ENERGY_LEVELS.map((item) => (
@@ -391,7 +606,14 @@ export default function ProfileScreen() {
                       ],
                     },
                   ]}
-                />
+                >
+                  <LinearGradient
+                    colors={["#522861", "#7a4d84"]}
+                    style={styles.sliderThumbGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  />
+                </Animated.View>
               </View>
               <View style={styles.sliderLabels}>
                 <Text style={styles.sliderLabelText}>Low</Text>
@@ -401,6 +623,7 @@ export default function ProfileScreen() {
 
             {/* Current Level Description */}
             <View style={styles.energyDescription}>
+              <Feather name="info" size={14} color="#522861" />
               <Text style={styles.energyDescriptionText}>
                 {ENERGY_LEVELS.find((item) => item.level === baselineEnergy)
                   ?.description || ""}
@@ -409,11 +632,11 @@ export default function ProfileScreen() {
           </View>
 
           <Text style={styles.energyHint}>
-            This helps Simi understand your typical energy level to suggest
-            tasks that match how you usually feel
+            This helps Simi suggest tasks that match your typical energy level
           </Text>
         </View>
 
+        {/* Save Button */}
         {hasChanges && (
           <TouchableOpacity
             style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
@@ -421,19 +644,31 @@ export default function ProfileScreen() {
             disabled={isSaving}
             activeOpacity={0.7}
           >
-            {isSaving ? (
-              <ActivityIndicator color={COLORS.text} size="small" />
-            ) : (
-              <Text style={styles.saveButtonText}>Save Changes</Text>
-            )}
+            <LinearGradient
+              colors={["#522861", "#7a4d84"]}
+              style={styles.saveButtonGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              {isSaving ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <>
+                  <Feather name="check" size={18} color="#fff" />
+                  <Text style={styles.saveButtonText}>Save Changes</Text>
+                </>
+              )}
+            </LinearGradient>
           </TouchableOpacity>
         )}
 
+        {/* Sign Out Button */}
         <TouchableOpacity
           style={styles.signOutButton}
           onPress={handleSignOut}
           activeOpacity={0.7}
         >
+          <Feather name="log-out" size={18} color="#dc2626" />
           <Text style={styles.signOutButtonText}>Sign Out</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -444,7 +679,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: "#faf5ff",
   },
   backgroundGradient: {
     position: "absolute",
@@ -453,196 +688,270 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
   },
+  particlesContainer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    pointerEvents: "none",
+  },
+  particle: {
+    position: "absolute",
+    backgroundColor: "#522861",
+  },
+  appHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: "transparent",
+  },
+  appHeaderLeft: {
+    width: 44,
+  },
+  appHeaderCenter: {
+    flex: 1,
+  },
+  appHeaderRight: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  logoutGradient: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: "rgba(82, 40, 97, 0.2)",
+    shadowColor: "#522861",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+  },
   container: {
     flex: 1,
   },
   content: {
-    paddingHorizontal: 40,
-    paddingTop: 20,
+    paddingHorizontal: 20,
     paddingBottom: 40,
   },
-  header: {
-    marginBottom: 24,
-    alignItems: "center",
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: "600",
-    color: COLORS.text,
-    letterSpacing: -0.5,
-  },
-  card: {
-    backgroundColor: COLORS.backgroundSecondary,
-    borderRadius: 16,
+  profileCard: {
+    backgroundColor: "rgba(255, 255, 255, 0.7)",
+    borderRadius: 24,
     padding: 24,
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    marginBottom: 24,
+    borderWidth: 1.5,
+    borderColor: "rgba(255, 255, 255, 0.8)",
+    marginBottom: 20,
+    shadowColor: "#522861",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 24,
+    elevation: 8,
+  },
+  avatarContainer: {
+    width: 100,
+    height: 100,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  avatarRing: {
+    position: "absolute",
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    overflow: "hidden",
+  },
+  avatarRingGradient: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 50,
+    opacity: 0.3,
+  },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#522861",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  avatarText: {
+    fontSize: 32,
+    fontWeight: "700",
+    color: "#fff",
   },
   username: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: "700",
-    color: COLORS.text,
+    color: "#522861",
     marginBottom: 4,
+    letterSpacing: -0.5,
   },
   email: {
-    fontSize: 15,
-    color: COLORS.textSecondary,
+    fontSize: 14,
+    color: "#7a4d84",
+    marginBottom: 16,
+  },
+  statsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    justifyContent: "center",
+  },
+  statBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(82, 40, 97, 0.08)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "rgba(82, 40, 97, 0.15)",
+  },
+  statBadgeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#522861",
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 20,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 12,
+  },
+  sectionIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: "rgba(82, 40, 97, 0.1)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: COLORS.text,
-    marginBottom: 16,
-  },
-  infoItem: {
-    backgroundColor: COLORS.backgroundSecondary,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  infoLabel: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: COLORS.textSecondary,
-    marginBottom: 6,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  infoValue: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: COLORS.text,
-  },
-  textInput: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: COLORS.text,
-    padding: 0,
-    marginTop: 4,
-  },
-  valuesRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  valueBadge: {
-    backgroundColor: COLORS.primary + "20",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  valueBadgeText: {
-    fontSize: 14,
-    color: COLORS.primary,
-    fontWeight: "500",
+    color: "#522861",
+    letterSpacing: -0.3,
   },
   sectionSubtitle: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    marginBottom: 20,
-    marginTop: -4,
-    lineHeight: 20,
+    fontSize: 12,
+    color: "#7a4d84",
+    marginTop: 2,
+  },
+  sectionCard: {
+    backgroundColor: "rgba(255, 255, 255, 0.7)",
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1.5,
+    borderColor: "rgba(255, 255, 255, 0.8)",
+    shadowColor: "#522861",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
   },
   tagsContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 10,
-    marginTop: 4,
   },
   tag: {
-    paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
     paddingVertical: 10,
-    borderRadius: 16,
-    backgroundColor: COLORS.background,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.8)",
     borderWidth: 1.5,
-    borderColor: COLORS.borderDark,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    borderColor: "rgba(82, 40, 97, 0.15)",
   },
   tagSelected: {
-    backgroundColor: COLORS.primary + "12",
-    borderColor: COLORS.primary,
+    backgroundColor: "rgba(82, 40, 97, 0.12)",
+    borderColor: "#522861",
     borderWidth: 2,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
+  },
+  tagIcon: {
+    marginRight: 4,
   },
   tagText: {
     fontSize: 13,
     fontWeight: "500",
-    color: COLORS.textSecondary,
-    letterSpacing: 0.2,
+    color: "#7a4d84",
   },
   tagTextSelected: {
-    color: COLORS.primary,
+    color: "#522861",
     fontWeight: "600",
-    letterSpacing: 0.3,
   },
   preferenceBadge: {
-    backgroundColor: COLORS.primaryLight + "30",
+    backgroundColor: "rgba(82, 40, 97, 0.1)",
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 10,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: COLORS.primaryLight,
+    borderColor: "rgba(82, 40, 97, 0.2)",
   },
   preferenceBadgeText: {
-    fontSize: 14,
-    color: COLORS.primary,
-    fontWeight: "600",
-  },
-  settingItem: {
-    backgroundColor: COLORS.backgroundSecondary,
-    borderRadius: 12,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  settingLabel: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.text,
-    marginBottom: 4,
-  },
-  energyHeader: {
-    marginBottom: 16,
-  },
-  energySubLabel: {
     fontSize: 13,
-    color: COLORS.textSecondary,
-    marginTop: 2,
+    color: "#522861",
+    fontWeight: "600",
+  },
+  energyCard: {
+    backgroundColor: "rgba(255, 255, 255, 0.7)",
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1.5,
+    borderColor: "rgba(255, 255, 255, 0.8)",
+    shadowColor: "#522861",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
   },
   energyDisplay: {
     flexDirection: "row",
-    alignItems: "baseline",
+    alignItems: "center",
     justifyContent: "center",
     marginBottom: 24,
+    gap: 8,
+  },
+  energyValueContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#522861",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   energyValue: {
-    fontSize: 36,
+    fontSize: 28,
     fontWeight: "700",
-    color: COLORS.primary,
+    color: "#fff",
   },
   energyMax: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "500",
-    color: COLORS.textSecondary,
-    marginLeft: 4,
+    color: "#7a4d84",
   },
   sliderContainer: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
   sliderTrack: {
     height: 50,
@@ -651,121 +960,138 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
   },
   sliderTrackBackground: {
-    height: 4,
-    backgroundColor: COLORS.border,
-    borderRadius: 2,
+    height: 6,
+    borderRadius: 3,
     position: "absolute",
     left: 0,
     right: 0,
-    top: 23,
+    top: 22,
   },
   sliderTrackFill: {
-    height: 4,
-    backgroundColor: COLORS.primary,
-    borderRadius: 2,
+    height: 6,
+    borderRadius: 3,
+    position: "absolute",
+    left: 0,
+    top: 22,
+    overflow: "hidden",
   },
   sliderThumb: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: COLORS.primary,
-    borderWidth: 3,
-    borderColor: COLORS.background,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     position: "absolute",
     top: 11,
-    marginLeft: -12,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 2 },
+    marginLeft: -14,
+    shadowColor: "#522861",
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
+    shadowRadius: 8,
+    elevation: 8,
     zIndex: 10,
+    overflow: "hidden",
+  },
+  sliderThumbGradient: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 14,
+    borderWidth: 3,
+    borderColor: "#fff",
   },
   sliderMarker: {
     position: "absolute",
     alignItems: "center",
     justifyContent: "center",
-    top: 19,
-    marginLeft: -6,
-    width: 12,
-    height: 12,
-  },
-  sliderDot: {
+    top: 21,
+    marginLeft: -4,
     width: 8,
     height: 8,
-    borderRadius: 4,
-    backgroundColor: COLORS.border,
+  },
+  sliderDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "rgba(82, 40, 97, 0.2)",
   },
   sliderDotActive: {
-    backgroundColor: COLORS.primary,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    backgroundColor: "rgba(82, 40, 97, 0.5)",
   },
   sliderLabels: {
     flexDirection: "row",
     justifyContent: "space-between",
     paddingHorizontal: 4,
+    marginTop: 4,
   },
   sliderLabelText: {
     fontSize: 12,
-    color: COLORS.textSecondary,
+    color: "#7a4d84",
     fontWeight: "500",
   },
   energyDescription: {
-    backgroundColor: COLORS.primary + "10",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "rgba(82, 40, 97, 0.08)",
     borderRadius: 12,
-    padding: 16,
-    marginTop: 8,
+    padding: 12,
     borderWidth: 1,
-    borderColor: COLORS.primary + "20",
+    borderColor: "rgba(82, 40, 97, 0.12)",
   },
   energyDescriptionText: {
-    fontSize: 14,
-    color: COLORS.text,
-    textAlign: "center",
-    lineHeight: 20,
+    flex: 1,
+    fontSize: 13,
+    color: "#522861",
+    lineHeight: 18,
     fontWeight: "500",
   },
   energyHint: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
+    fontSize: 12,
+    color: "#7a4d84",
     marginTop: 12,
     lineHeight: 18,
     textAlign: "center",
+    paddingHorizontal: 20,
   },
   saveButton: {
-    backgroundColor: COLORS.backgroundSecondary,
-    borderRadius: 14,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: COLORS.borderDark,
+    borderRadius: 16,
+    overflow: "hidden",
+    shadowColor: "#522861",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 6,
   },
   saveButtonDisabled: {
     opacity: 0.6,
   },
+  saveButtonGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+  },
   saveButtonText: {
-    fontSize: 15,
-    fontWeight: "500",
-    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#fff",
   },
   signOutButton: {
-    backgroundColor: COLORS.error + "15",
-    borderRadius: 14,
-    paddingVertical: 16,
+    flexDirection: "row",
     alignItems: "center",
-    marginTop: 16,
-    borderWidth: 1,
-    borderColor: COLORS.error + "30",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "rgba(220, 38, 38, 0.08)",
+    borderRadius: 16,
+    paddingVertical: 16,
+    marginTop: 8,
+    borderWidth: 1.5,
+    borderColor: "rgba(220, 38, 38, 0.2)",
   },
   signOutButtonText: {
     fontSize: 16,
     fontWeight: "600",
-    color: COLORS.error,
+    color: "#dc2626",
   },
 });

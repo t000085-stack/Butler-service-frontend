@@ -5,8 +5,8 @@ export const API_URL = 'http://134.122.96.197:3000/api';
 
 // App Colors
 export const COLORS = {
-  primary: '#a855f7',
-  primaryLight: '#c084fc',
+  primary: '#522861',
+  primaryLight: '#7a4d84',
   background: '#ffffff',
   backgroundSecondary: '#fafafa',
   text: '#18181b',
