@@ -37,20 +37,20 @@ interface CalendarDay {
   isSelected: boolean;
 }
 
-// Generate calendar days (7 days starting from today)
+// Generate calendar days (10 days: 2 past + today + 7 future)
 const generateCalendarDays = (selectedDate: Date): CalendarDay[] => {
   const days: CalendarDay[] = [];
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Start from 3 days ago to show context
-  for (let i = -3; i <= 10; i++) {
+  const selectedDateNormalized = new Date(selectedDate);
+  selectedDateNormalized.setHours(0, 0, 0, 0);
+
+  // Generate 10 days: 2 days before today to 7 days after today
+  for (let i = -2; i <= 7; i++) {
     const date = new Date(today);
     date.setDate(today.getDate() + i);
     date.setHours(0, 0, 0, 0);
-
-    const selectedDateNormalized = new Date(selectedDate);
-    selectedDateNormalized.setHours(0, 0, 0, 0);
 
     days.push({
       date,
@@ -63,27 +63,174 @@ const generateCalendarDays = (selectedDate: Date): CalendarDay[] => {
   return days;
 };
 
-// Check if task is on selected date
-const isTaskOnDate = (task: Task, date: Date): boolean => {
-  if (!task.due_date) {
-    // Tasks without due_date show on "today" only
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const normalizedDate = new Date(date);
-    normalizedDate.setHours(0, 0, 0, 0);
-    return today.getTime() === normalizedDate.getTime();
+// Helper to extract date string (YYYY-MM-DD) from ISO string or Date
+const getDateString = (date: Date | string): string => {
+  if (typeof date === "string") {
+    // If it's an ISO string like "2025-12-22T00:00:00.000Z", extract just the date part
+    return date.split("T")[0];
   }
-
-  const taskDate = new Date(task.due_date);
-  taskDate.setHours(0, 0, 0, 0);
-  const normalizedDate = new Date(date);
-  normalizedDate.setHours(0, 0, 0, 0);
-  return taskDate.getTime() === normalizedDate.getTime();
+  // For Date objects, use local date parts
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 };
 
-// Check if a date has any tasks
+// Helper to convert Date to ISO string preserving local date (avoids timezone shift)
+const toLocalISOString = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  // Return ISO format with midnight UTC to preserve the local date
+  return `${year}-${month}-${day}T00:00:00.000Z`;
+};
+
+// Parse date from text (handles "tomorrow", "on Sunday", "next Monday", etc.)
+const parseDateFromText = (text: string): Date | null => {
+  const lowerText = text.toLowerCase();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Check for "today"
+  if (lowerText.includes("today")) {
+    return today;
+  }
+
+  // Check for "tomorrow"
+  if (lowerText.includes("tomorrow")) {
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+    return tomorrow;
+  }
+
+  // Check for "day after tomorrow"
+  if (lowerText.includes("day after tomorrow")) {
+    const dayAfter = new Date(today);
+    dayAfter.setDate(today.getDate() + 2);
+    return dayAfter;
+  }
+
+  // Day name mapping
+  const dayNames: Record<string, number> = {
+    sunday: 0,
+    sun: 0,
+    monday: 1,
+    mon: 1,
+    tuesday: 2,
+    tue: 2,
+    tues: 2,
+    wednesday: 3,
+    wed: 3,
+    thursday: 4,
+    thu: 4,
+    thur: 4,
+    thurs: 4,
+    friday: 5,
+    fri: 5,
+    saturday: 6,
+    sat: 6,
+  };
+
+  // Check for "next [day]" or "on [day]" or "this [day]"
+  const dayPatterns = [
+    /(?:next|on|this)\s+(sunday|sun|monday|mon|tuesday|tue|tues|wednesday|wed|thursday|thu|thur|thurs|friday|fri|saturday|sat)/i,
+    /\b(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i,
+  ];
+
+  for (const pattern of dayPatterns) {
+    const match = lowerText.match(pattern);
+    if (match) {
+      const dayName = match[1].toLowerCase();
+      const targetDay = dayNames[dayName];
+      if (targetDay !== undefined) {
+        const currentDay = today.getDay();
+        let daysToAdd = targetDay - currentDay;
+
+        // If the day has already passed this week, or it's today, go to next week
+        if (daysToAdd <= 0) {
+          daysToAdd += 7;
+        }
+
+        const targetDate = new Date(today);
+        targetDate.setDate(today.getDate() + daysToAdd);
+        return targetDate;
+      }
+    }
+  }
+
+  // Check for "in X days"
+  const inDaysMatch = lowerText.match(/in\s+(\d+)\s+days?/i);
+  if (inDaysMatch) {
+    const daysToAdd = parseInt(inDaysMatch[1], 10);
+    const targetDate = new Date(today);
+    targetDate.setDate(today.getDate() + daysToAdd);
+    return targetDate;
+  }
+
+  // Check for "next week" (7 days from today)
+  if (lowerText.includes("next week")) {
+    const nextWeek = new Date(today);
+    nextWeek.setDate(today.getDate() + 7);
+    return nextWeek;
+  }
+
+  return null;
+};
+
+// Check if task is on selected date (comparing date strings to avoid timezone issues)
+const isTaskOnDate = (task: Task, date: Date): boolean => {
+  const selectedDateStr = getDateString(date);
+
+  // If task has a due_date, use it for comparison
+  if (task.due_date) {
+    const taskDateStr = getDateString(task.due_date);
+    return taskDateStr === selectedDateStr;
+  }
+
+  // Tasks without due_date: show on the day they were created
+  if (task.created_at) {
+    const createdDateStr = getDateString(task.created_at);
+    return createdDateStr === selectedDateStr;
+  }
+
+  // Fallback: show on today
+  const todayStr = getDateString(new Date());
+  return todayStr === selectedDateStr;
+};
+
+// Check if a date has any tasks (including completed ones)
 const dateHasTasks = (tasks: Task[], date: Date): boolean => {
-  return tasks.some((task) => isTaskOnDate(task, date) && !task.is_completed);
+  return tasks.some((task) => isTaskOnDate(task, date));
+};
+
+// Generate full month calendar data
+const generateMonthCalendar = (viewDate: Date): Date[][] => {
+  const year = viewDate.getFullYear();
+  const month = viewDate.getMonth();
+
+  // First day of the month
+  const firstDay = new Date(year, month, 1);
+  // Last day of the month
+  const lastDay = new Date(year, month + 1, 0);
+
+  // Start from the Sunday of the week containing the first day
+  const startDate = new Date(firstDay);
+  startDate.setDate(firstDay.getDate() - firstDay.getDay());
+
+  // Generate 6 weeks (42 days) to cover all possible month layouts
+  const weeks: Date[][] = [];
+  const currentDate = new Date(startDate);
+
+  for (let week = 0; week < 6; week++) {
+    const weekDays: Date[] = [];
+    for (let day = 0; day < 7; day++) {
+      weekDays.push(new Date(currentDate));
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    weeks.push(weekDays);
+  }
+
+  return weeks;
 };
 
 const frictionColors: Record<string, string> = {
@@ -269,7 +416,7 @@ const frictionToDifficulty = (friction: EmotionalFriction): DifficultyLevel => {
   }
 };
 
-// Touch-Based Motivation Slider Component (Profile Style)
+// Simple Button-Based Motivation Selector (matches Home page style)
 const MotivationSlider = ({
   value,
   onValueChange,
@@ -278,143 +425,42 @@ const MotivationSlider = ({
   onValueChange: (level: MotivationLevel) => void;
 }) => {
   const currentPoint = MOTIVATION_POINTS[value];
-  const trackRef = useRef<View>(null);
-  const [trackWidth, setTrackWidth] = useState(0);
-  const thumbPosition = useRef(new Animated.Value(0)).current;
-
-  // Update thumb position when value or width changes
-  useEffect(() => {
-    if (trackWidth > 0) {
-      const position = (value / 4) * trackWidth;
-      Animated.spring(thumbPosition, {
-        toValue: position,
-        friction: 8,
-        tension: 100,
-        useNativeDriver: false,
-      }).start();
-    }
-  }, [value, trackWidth]);
-
-  const handleTrackLayout = (event: any) => {
-    const { width } = event.nativeEvent.layout;
-    if (width > 0) {
-      setTrackWidth(width);
-    }
-  };
-
-  // Calculate level from touch position
-  const getLevelFromTouch = (
-    pageX: number,
-    trackX: number
-  ): MotivationLevel => {
-    const relativeX = pageX - trackX;
-    const percentage = Math.max(0, Math.min(1, relativeX / trackWidth));
-    const level = Math.round(percentage * 4) as MotivationLevel;
-    return level;
-  };
-
-  // Handle touch events
-  const handleTouch = (e: GestureResponderEvent) => {
-    trackRef.current?.measureInWindow((x) => {
-      const level = getLevelFromTouch(e.nativeEvent.pageX, x);
-      onValueChange(level);
-    });
-  };
 
   return (
-    <View style={sliderStyles.container}>
-      {/* Slider Track */}
-      <View style={sliderStyles.sliderContainer}>
-        <View
-          ref={trackRef}
-          style={sliderStyles.sliderTrack}
-          onLayout={handleTrackLayout}
-          onStartShouldSetResponder={() => true}
-          onMoveShouldSetResponder={() => true}
-          onResponderGrant={handleTouch}
-          onResponderMove={handleTouch}
-        >
-          {/* Track Background */}
-          <View style={sliderStyles.sliderTrackBackground}>
-            <Animated.View
-              style={[
-                sliderStyles.sliderTrackFill,
-                {
-                  width: thumbPosition.interpolate({
-                    inputRange: [0, Math.max(trackWidth, 1)],
-                    outputRange: [0, Math.max(trackWidth, 1)],
-                    extrapolate: "clamp",
-                  }),
-                },
-              ]}
-            />
-          </View>
-
-          {/* Level Markers */}
-          {MOTIVATION_POINTS.map((point, index) => (
-            <TouchableOpacity
-              key={point.level}
-              style={[
-                sliderStyles.sliderMarker,
-                { left: `${(index / 4) * 100}%` },
-              ]}
-              onPress={() => onValueChange(point.level)}
-              activeOpacity={0.7}
-            >
-              <View
-                style={[
-                  sliderStyles.sliderDot,
-                  value >= point.level && sliderStyles.sliderDotActive,
-                ]}
-              />
-            </TouchableOpacity>
-          ))}
-
-          {/* Thumb */}
-          <Animated.View
+    <View style={simpleSliderStyles.container}>
+      <Text style={simpleSliderStyles.currentValue}>
+        {currentPoint.shortLabel}
+      </Text>
+      <View style={simpleSliderStyles.buttonRow}>
+        {[0, 1, 2, 3, 4].map((level) => (
+          <TouchableOpacity
+            key={level}
             style={[
-              sliderStyles.sliderThumb,
-              {
-                transform: [
-                  {
-                    translateX: thumbPosition.interpolate({
-                      inputRange: [0, Math.max(trackWidth, 1)],
-                      outputRange: [0, Math.max(trackWidth, 1)],
-                      extrapolate: "clamp",
-                    }),
-                  },
-                ],
-              },
+              simpleSliderStyles.button,
+              value === level && simpleSliderStyles.buttonActive,
             ]}
-          />
-        </View>
-
-        {/* Labels */}
-        <View style={sliderStyles.sliderLabels}>
-          <Text style={sliderStyles.sliderLabelText}>Low</Text>
-          <Text style={sliderStyles.sliderLabelText}>High</Text>
-        </View>
+            onPress={() => onValueChange(level as MotivationLevel)}
+          >
+            <Text
+              style={[
+                simpleSliderStyles.buttonText,
+                value === level && simpleSliderStyles.buttonTextActive,
+              ]}
+            >
+              {level + 1}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
-
-      {/* Description Card */}
-      <View
-        style={[
-          sliderStyles.descriptionCard,
-          { borderColor: "rgba(82, 40, 97, 0.2)" },
-        ]}
-      >
-        <Text style={[sliderStyles.cardTitle, { color: "#522861" }]}>
-          {currentPoint.title}
-        </Text>
-        <Text style={sliderStyles.cardDescription}>
-          {currentPoint.description}
-        </Text>
+      <View style={simpleSliderStyles.labels}>
+        <Text style={simpleSliderStyles.labelText}>Low</Text>
+        <Text style={simpleSliderStyles.labelText}>High</Text>
       </View>
     </View>
   );
 };
 
-// Touch-Based Difficulty Slider Component (Profile Style)
+// Simple Button-Based Difficulty Selector (matches Home page style)
 const DifficultySlider = ({
   value,
   onValueChange,
@@ -423,236 +469,88 @@ const DifficultySlider = ({
   onValueChange: (level: DifficultyLevel) => void;
 }) => {
   const currentPoint = DIFFICULTY_POINTS[value];
-  const trackRef = useRef<View>(null);
-  const [trackWidth, setTrackWidth] = useState(0);
-  const thumbPosition = useRef(new Animated.Value(0)).current;
-
-  // Update thumb position when value or width changes
-  useEffect(() => {
-    if (trackWidth > 0) {
-      const position = (value / 4) * trackWidth;
-      Animated.spring(thumbPosition, {
-        toValue: position,
-        friction: 8,
-        tension: 100,
-        useNativeDriver: false,
-      }).start();
-    }
-  }, [value, trackWidth]);
-
-  const handleTrackLayout = (event: any) => {
-    const { width } = event.nativeEvent.layout;
-    if (width > 0) {
-      setTrackWidth(width);
-    }
-  };
-
-  // Calculate level from touch position
-  const getLevelFromTouch = (
-    pageX: number,
-    trackX: number
-  ): DifficultyLevel => {
-    const relativeX = pageX - trackX;
-    const percentage = Math.max(0, Math.min(1, relativeX / trackWidth));
-    const level = Math.round(percentage * 4) as DifficultyLevel;
-    return level;
-  };
-
-  // Handle touch events
-  const handleTouch = (e: GestureResponderEvent) => {
-    trackRef.current?.measureInWindow((x) => {
-      const level = getLevelFromTouch(e.nativeEvent.pageX, x);
-      onValueChange(level);
-    });
-  };
 
   return (
-    <View style={sliderStyles.container}>
-      {/* Slider Track */}
-      <View style={sliderStyles.sliderContainer}>
-        <View
-          ref={trackRef}
-          style={sliderStyles.sliderTrack}
-          onLayout={handleTrackLayout}
-          onStartShouldSetResponder={() => true}
-          onMoveShouldSetResponder={() => true}
-          onResponderGrant={handleTouch}
-          onResponderMove={handleTouch}
-        >
-          {/* Track Background */}
-          <View style={sliderStyles.sliderTrackBackground}>
-            <Animated.View
-              style={[
-                sliderStyles.sliderTrackFill,
-                {
-                  width: thumbPosition.interpolate({
-                    inputRange: [0, Math.max(trackWidth, 1)],
-                    outputRange: [0, Math.max(trackWidth, 1)],
-                    extrapolate: "clamp",
-                  }),
-                },
-              ]}
-            />
-          </View>
-
-          {/* Level Markers */}
-          {DIFFICULTY_POINTS.map((point, index) => (
-            <TouchableOpacity
-              key={point.level}
-              style={[
-                sliderStyles.sliderMarker,
-                { left: `${(index / 4) * 100}%` },
-              ]}
-              onPress={() => onValueChange(point.level)}
-              activeOpacity={0.7}
-            >
-              <View
-                style={[
-                  sliderStyles.sliderDot,
-                  value >= point.level && sliderStyles.sliderDotActive,
-                ]}
-              />
-            </TouchableOpacity>
-          ))}
-
-          {/* Thumb */}
-          <Animated.View
+    <View style={simpleSliderStyles.container}>
+      <Text style={simpleSliderStyles.currentValue}>
+        {currentPoint.shortLabel}
+      </Text>
+      <View style={simpleSliderStyles.buttonRow}>
+        {[0, 1, 2, 3, 4].map((level) => (
+          <TouchableOpacity
+            key={level}
             style={[
-              sliderStyles.sliderThumb,
-              {
-                transform: [
-                  {
-                    translateX: thumbPosition.interpolate({
-                      inputRange: [0, Math.max(trackWidth, 1)],
-                      outputRange: [0, Math.max(trackWidth, 1)],
-                      extrapolate: "clamp",
-                    }),
-                  },
-                ],
-              },
+              simpleSliderStyles.button,
+              value === level && simpleSliderStyles.buttonActive,
             ]}
-          />
-        </View>
-
-        {/* Labels */}
-        <View style={sliderStyles.sliderLabels}>
-          <Text style={sliderStyles.sliderLabelText}>Easy</Text>
-          <Text style={sliderStyles.sliderLabelText}>Difficult</Text>
-        </View>
+            onPress={() => onValueChange(level as DifficultyLevel)}
+          >
+            <Text
+              style={[
+                simpleSliderStyles.buttonText,
+                value === level && simpleSliderStyles.buttonTextActive,
+              ]}
+            >
+              {level + 1}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
-
-      {/* Description Card */}
-      <View
-        style={[
-          sliderStyles.descriptionCard,
-          { borderColor: "rgba(82, 40, 97, 0.2)" },
-        ]}
-      >
-        <Text style={[sliderStyles.cardTitle, { color: "#522861" }]}>
-          {currentPoint.title}
-        </Text>
-        <Text style={sliderStyles.cardDescription}>
-          {currentPoint.description}
-        </Text>
+      <View style={simpleSliderStyles.labels}>
+        <Text style={simpleSliderStyles.labelText}>Easy</Text>
+        <Text style={simpleSliderStyles.labelText}>Hard</Text>
       </View>
     </View>
   );
 };
 
-const sliderStyles = StyleSheet.create({
+// Simple slider styles (matching Home page popup)
+const simpleSliderStyles = StyleSheet.create({
   container: {
     marginTop: 8,
-    marginBottom: 8,
-  },
-  sliderContainer: {
     marginBottom: 12,
   },
-  sliderTrack: {
-    height: 50,
-    justifyContent: "center",
-    position: "relative",
-    paddingVertical: 13,
+  currentValue: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#7a4d84",
+    textAlign: "center",
+    marginBottom: 8,
   },
-  sliderTrackBackground: {
-    height: 6,
-    backgroundColor: "rgba(240, 235, 245, 0.9)",
-    borderRadius: 3,
-    position: "absolute",
-    left: 0,
-    right: 0,
-    top: 22,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.6)",
-  },
-  sliderTrackFill: {
-    height: 6,
-    backgroundColor: "#522861",
-    borderRadius: 3,
-  },
-  sliderThumb: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: "#522861",
-    borderWidth: 3,
-    borderColor: "#fff",
-    position: "absolute",
-    top: 10,
-    marginLeft: -13,
-    shadowColor: "#522861",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
-    zIndex: 10,
-  },
-  sliderMarker: {
-    position: "absolute",
-    alignItems: "center",
-    justifyContent: "center",
-    top: 19,
-    marginLeft: -6,
-    width: 12,
-    height: 12,
-  },
-  sliderDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: COLORS.border,
-  },
-  sliderDotActive: {
-    backgroundColor: "#522861",
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  sliderLabels: {
+  buttonRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingHorizontal: 4,
+    gap: 8,
   },
-  sliderLabelText: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    fontWeight: "500",
+  button: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: "rgba(240, 235, 245, 0.9)",
+    borderWidth: 1.5,
+    borderColor: "rgba(82, 40, 97, 0.15)",
+    alignItems: "center",
   },
-  descriptionCard: {
-    backgroundColor: "rgba(82, 40, 97, 0.08)",
-    borderRadius: 14,
-    padding: 16,
-    marginTop: 8,
-    borderWidth: 1,
+  buttonActive: {
+    backgroundColor: "#522861",
+    borderColor: "#522861",
   },
-  cardTitle: {
+  buttonText: {
     fontSize: 15,
     fontWeight: "600",
-    marginBottom: 4,
+    color: "#522861",
   },
-  cardDescription: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    lineHeight: 20,
+  buttonTextActive: {
+    color: "#fff",
+  },
+  labels: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 6,
+  },
+  labelText: {
+    fontSize: 11,
+    color: "#9ca3af",
   },
 });
 
@@ -857,6 +755,13 @@ export default function TaskListScreen() {
   const [pendingParsedData, setPendingParsedData] =
     useState<ParsedTaskData | null>(null);
 
+  // Full calendar popup state
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
+  const [calendarViewDate, setCalendarViewDate] = useState(new Date());
+
+  // Calendar strip scroll ref
+  const calendarScrollRef = useRef<ScrollView>(null);
+
   // Calendar days
   const calendarDays = useMemo(
     () => generateCalendarDays(selectedDate),
@@ -869,7 +774,7 @@ export default function TaskListScreen() {
   }, [tasks, selectedDate]);
 
   useEffect(() => {
-    fetchTasks();
+    fetchTasks(true); // Include completed tasks
   }, [fetchTasks]);
 
   const resetForm = () => {
@@ -992,12 +897,27 @@ export default function TaskListScreen() {
       const emotionalFriction =
         DIFFICULTY_POINTS[difficultyLevel].frictionValue;
 
+      // Parse date from original text using frontend parser (more reliable)
+      // Priority: 1) Frontend-parsed date from text, 2) Backend-parsed date, 3) Selected calendar date
+      let taskDueDate: string;
+      const frontendParsedDate = pendingParsedData.originalText
+        ? parseDateFromText(pendingParsedData.originalText)
+        : null;
+
+      if (frontendParsedDate) {
+        taskDueDate = toLocalISOString(frontendParsedDate);
+      } else if (pendingParsedData.due_date) {
+        taskDueDate = pendingParsedData.due_date;
+      } else {
+        taskDueDate = toLocalISOString(selectedDate);
+      }
+
       // Create task directly with AI-determined values
       await createTask({
         title: pendingParsedData.title,
         energy_cost: energyCost,
         emotional_friction: emotionalFriction,
-        due_date: pendingParsedData.due_date || undefined,
+        due_date: taskDueDate,
         user_feeling: taskFeeling,
         feeling_description: feelingDescription.trim() || undefined,
       });
@@ -1028,10 +948,19 @@ export default function TaskListScreen() {
     setDifficulty(frictionToDifficulty(pendingParsedData.emotional_friction));
     setAssociatedValues([]);
 
-    if (pendingParsedData.due_date) {
+    // Parse date from original text using frontend parser (more reliable)
+    // Priority: 1) Frontend-parsed date from text, 2) Backend-parsed date, 3) Selected calendar date
+    const frontendParsedDate = pendingParsedData.originalText
+      ? parseDateFromText(pendingParsedData.originalText)
+      : null;
+
+    if (frontendParsedDate) {
+      setDueDate(frontendParsedDate);
+    } else if (pendingParsedData.due_date) {
       setDueDate(new Date(pendingParsedData.due_date));
     } else {
-      setDueDate(null);
+      // Use selected calendar date as fallback
+      setDueDate(selectedDate);
     }
 
     setTaskFeeling("");
@@ -1065,7 +994,7 @@ export default function TaskListScreen() {
         emotional_friction: DIFFICULTY_POINTS[difficulty].frictionValue,
         associated_value:
           associatedValues.length > 0 ? associatedValues.join(", ") : undefined,
-        due_date: dueDate ? dueDate.toISOString() : undefined,
+        due_date: dueDate ? toLocalISOString(dueDate) : undefined,
         user_feeling: taskFeeling || undefined,
         feeling_description: feelingDescription.trim() || undefined,
       });
@@ -1080,7 +1009,7 @@ export default function TaskListScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchTasks();
+    await fetchTasks(true); // Include completed tasks
     setRefreshing(false);
   };
 
@@ -1244,7 +1173,26 @@ export default function TaskListScreen() {
 
       {/* Calendar Strip */}
       <View style={styles.calendarContainer}>
+        <View style={styles.calendarHeader}>
+          <Text style={styles.calendarMonthText}>
+            {selectedDate.toLocaleDateString("en-US", {
+              month: "long",
+              year: "numeric",
+            })}
+          </Text>
+          <TouchableOpacity
+            style={styles.calendarExpandButton}
+            onPress={() => {
+              setCalendarViewDate(selectedDate);
+              setShowCalendarModal(true);
+            }}
+            activeOpacity={0.7}
+          >
+            <Feather name="calendar" size={18} color="#522861" />
+          </TouchableOpacity>
+        </View>
         <ScrollView
+          ref={calendarScrollRef}
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.calendarContent}
@@ -1537,41 +1485,6 @@ export default function TaskListScreen() {
                 onValueChange={setDifficulty}
               />
 
-              <Text style={styles.label}>
-                Associated Values (optional - select multiple)
-              </Text>
-              <View style={styles.valuesGrid}>
-                {CORE_VALUE_OPTIONS.map((value) => (
-                  <TouchableOpacity
-                    key={value}
-                    style={[
-                      styles.valueButton,
-                      associatedValues.includes(value) &&
-                        styles.valueButtonActive,
-                    ]}
-                    onPress={() => toggleAssociatedValue(value)}
-                  >
-                    <Text
-                      style={[
-                        styles.valueButtonText,
-                        associatedValues.includes(value) &&
-                          styles.valueButtonTextActive,
-                      ]}
-                    >
-                      {value}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              {associatedValues.length > 0 && (
-                <TouchableOpacity
-                  style={styles.clearValuesButton}
-                  onPress={() => setAssociatedValues([])}
-                >
-                  <Text style={styles.clearValuesText}>Clear all</Text>
-                </TouchableOpacity>
-              )}
-
               <Text style={styles.label}>Due Date</Text>
               <ScrollView
                 horizontal
@@ -1646,6 +1559,137 @@ export default function TaskListScreen() {
             </ScrollView>
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Full Calendar Modal */}
+      <Modal
+        visible={showCalendarModal}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setShowCalendarModal(false)}
+      >
+        <View style={styles.calendarModalOverlay}>
+          <View style={styles.calendarModalContent}>
+            {/* Modal Header */}
+            <View style={styles.calendarModalHeader}>
+              <TouchableOpacity
+                onPress={() => {
+                  const newDate = new Date(calendarViewDate);
+                  newDate.setMonth(newDate.getMonth() - 1);
+                  setCalendarViewDate(newDate);
+                }}
+                style={styles.calendarNavButton}
+              >
+                <Feather name="chevron-left" size={24} color="#522861" />
+              </TouchableOpacity>
+              <Text style={styles.calendarModalTitle}>
+                {calendarViewDate.toLocaleDateString("en-US", {
+                  month: "long",
+                  year: "numeric",
+                })}
+              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  const newDate = new Date(calendarViewDate);
+                  newDate.setMonth(newDate.getMonth() + 1);
+                  setCalendarViewDate(newDate);
+                }}
+                style={styles.calendarNavButton}
+              >
+                <Feather name="chevron-right" size={24} color="#522861" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Week Day Headers */}
+            <View style={styles.calendarWeekHeader}>
+              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+                <Text key={day} style={styles.calendarWeekDayText}>
+                  {day}
+                </Text>
+              ))}
+            </View>
+
+            {/* Calendar Grid */}
+            <View style={styles.calendarGrid}>
+              {generateMonthCalendar(calendarViewDate).map(
+                (week, weekIndex) => (
+                  <View key={weekIndex} style={styles.calendarWeekRow}>
+                    {week.map((date, dayIndex) => {
+                      const isCurrentMonth =
+                        date.getMonth() === calendarViewDate.getMonth();
+                      const isToday =
+                        getDateString(date) === getDateString(new Date());
+                      const isSelected =
+                        getDateString(date) === getDateString(selectedDate);
+                      const hasTasks = dateHasTasks(tasks, date);
+
+                      return (
+                        <TouchableOpacity
+                          key={dayIndex}
+                          style={[
+                            styles.calendarGridDay,
+                            isSelected && styles.calendarGridDaySelected,
+                            isToday &&
+                              !isSelected &&
+                              styles.calendarGridDayToday,
+                          ]}
+                          onPress={() => {
+                            setSelectedDate(date);
+                            setShowCalendarModal(false);
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <Text
+                            style={[
+                              styles.calendarGridDayText,
+                              !isCurrentMonth &&
+                                styles.calendarGridDayTextMuted,
+                              isSelected && styles.calendarGridDayTextSelected,
+                              isToday &&
+                                !isSelected &&
+                                styles.calendarGridDayTextToday,
+                            ]}
+                          >
+                            {date.getDate()}
+                          </Text>
+                          {hasTasks && (
+                            <View
+                              style={[
+                                styles.calendarGridDot,
+                                isSelected && styles.calendarGridDotSelected,
+                              ]}
+                            />
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )
+              )}
+            </View>
+
+            {/* Today Button */}
+            <TouchableOpacity
+              style={styles.calendarTodayButton}
+              onPress={() => {
+                const today = new Date();
+                setSelectedDate(today);
+                setCalendarViewDate(today);
+                setShowCalendarModal(false);
+              }}
+            >
+              <Text style={styles.calendarTodayButtonText}>Go to Today</Text>
+            </TouchableOpacity>
+
+            {/* Close Button */}
+            <TouchableOpacity
+              style={styles.calendarCloseButton}
+              onPress={() => setShowCalendarModal(false)}
+            >
+              <Text style={styles.calendarCloseButtonText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </Modal>
     </SafeAreaView>
   );
@@ -2105,5 +2149,150 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
     color: "#fff",
+  },
+  // Calendar header styles
+  calendarHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  calendarMonthText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#522861",
+  },
+  calendarExpandButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: "rgba(82, 40, 97, 0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(82, 40, 97, 0.15)",
+  },
+  // Full calendar modal styles
+  calendarModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  calendarModalContent: {
+    backgroundColor: "#fff",
+    borderRadius: 24,
+    padding: 20,
+    width: "100%",
+    maxWidth: 380,
+    shadowColor: "#522861",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 24,
+    elevation: 10,
+  },
+  calendarModalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  calendarNavButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "rgba(82, 40, 97, 0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  calendarModalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#522861",
+  },
+  calendarWeekHeader: {
+    flexDirection: "row",
+    marginBottom: 8,
+  },
+  calendarWeekDayText: {
+    flex: 1,
+    textAlign: "center",
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#7a4d84",
+  },
+  calendarGrid: {
+    gap: 4,
+  },
+  calendarWeekRow: {
+    flexDirection: "row",
+  },
+  calendarGridDay: {
+    flex: 1,
+    aspectRatio: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+    margin: 2,
+  },
+  calendarGridDaySelected: {
+    backgroundColor: "#522861",
+  },
+  calendarGridDayToday: {
+    backgroundColor: "rgba(82, 40, 97, 0.1)",
+    borderWidth: 2,
+    borderColor: "#522861",
+  },
+  calendarGridDayText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#1f2937",
+  },
+  calendarGridDayTextMuted: {
+    color: "#d1d5db",
+  },
+  calendarGridDayTextSelected: {
+    color: "#fff",
+    fontWeight: "600",
+  },
+  calendarGridDayTextToday: {
+    color: "#522861",
+    fontWeight: "700",
+  },
+  calendarGridDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#522861",
+    marginTop: 2,
+  },
+  calendarGridDotSelected: {
+    backgroundColor: "#fff",
+  },
+  calendarTodayButton: {
+    backgroundColor: "rgba(82, 40, 97, 0.1)",
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: "rgba(82, 40, 97, 0.2)",
+  },
+  calendarTodayButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#522861",
+  },
+  calendarCloseButton: {
+    paddingVertical: 12,
+    alignItems: "center",
+    marginTop: 8,
+  },
+  calendarCloseButtonText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#7a4d84",
   },
 });

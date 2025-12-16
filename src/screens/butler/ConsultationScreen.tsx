@@ -11,6 +11,8 @@ import {
   ScrollView,
   Image,
   Alert,
+  Modal,
+  TextInput,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -526,59 +528,59 @@ const MOOD_FACES: Record<string, any> = {
   sad: require("../../../assets/sad1.png"),
 };
 
-// Check if a task is for today
+// Check if a task is for today (comparing date strings to avoid timezone issues)
 const isTaskForToday = (task: Task) => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
   if (!task.due_date) {
     // Tasks without due_date show on today
     return true;
   }
 
-  const taskDate = new Date(task.due_date);
-  taskDate.setHours(0, 0, 0, 0);
-  return taskDate.getTime() === today.getTime();
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(
+    today.getMonth() + 1
+  ).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+
+  // Extract just the date part from due_date (YYYY-MM-DD) to avoid timezone issues
+  // This handles both "2024-12-17" and "2024-12-17T00:00:00.000Z" formats
+  const taskDateStr = task.due_date.substring(0, 10);
+
+  return taskDateStr === todayStr;
 };
 
-// Filter tasks based on current mood - be gentle when feeling down
-// Also filters to show only today's tasks
+// Filter tasks for "My Tasks Today" - shows only today's incomplete tasks
+// When mood is low, filter to show only low energy tasks
 const getFilteredTasks = (allTasks: Task[], mood: string | null) => {
-  // First filter for today's incomplete tasks only
-  const todayTasks = allTasks.filter(
+  // Get today's incomplete tasks only
+  const todayIncompleteTasks = allTasks.filter(
     (t) => !t.is_completed && isTaskForToday(t)
   );
 
   switch (mood) {
     case "sad":
-      // When sad: only show very easy, low-friction tasks
-      return todayTasks.filter(
-        (t) => t.energy_cost <= 3 && t.emotional_friction === "Low"
-      );
     case "stressed":
-      // When stressed: show easy to medium tasks, avoid high friction
-      return todayTasks.filter(
-        (t) => t.energy_cost <= 5 && t.emotional_friction !== "High"
-      );
-    case "calm":
+      // When feeling bad or terrible: only show low energy tasks (energy_cost <= 3)
+      return todayIncompleteTasks.filter((t) => t.energy_cost <= 3);
     case "happy":
+    case "calm":
     case "neutral":
     default:
-      // Show all today's tasks
-      return todayTasks;
+      // Great/Good/Okay mood: Show all today's incomplete tasks
+      return todayIncompleteTasks;
   }
 };
 
 // Get daily stats
 const getDailyStats = (allTasks: Task[]) => {
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const todayStr = `${today.getFullYear()}-${String(
+    today.getMonth() + 1
+  ).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
   const todayTasks = allTasks.filter((t) => {
     if (t.due_date) {
-      const taskDate = new Date(t.due_date);
-      taskDate.setHours(0, 0, 0, 0);
-      return taskDate.getTime() === today.getTime();
+      // Extract just the date part (YYYY-MM-DD) to avoid timezone issues
+      const taskDateStr = t.due_date.substring(0, 10);
+      return taskDateStr === todayStr;
     }
     return true; // Tasks without due_date count as today
   });
@@ -710,7 +712,12 @@ const getTasksForDay = (allTasks: Task[], date: Date) => {
 
 export default function ConsultationScreen() {
   const { user, signOut } = useAuth();
-  const { tasks, fetchTasks, completeTask: completeTaskContext } = useTasks();
+  const {
+    tasks,
+    fetchTasks,
+    completeTask: completeTaskContext,
+    updateTask,
+  } = useTasks();
   const navigation = useNavigation();
   const [isLoading, setIsLoading] = useState(true);
   const [result, setResult] = useState<ConsultationResult | null>(null);
@@ -721,6 +728,38 @@ export default function ConsultationScreen() {
   const [displayedMood, setDisplayedMood] = useState<string>("neutral");
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
   const [energyLevel, setEnergyLevel] = useState<number>(5);
+
+  // Edit task state
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editMotivation, setEditMotivation] = useState(2); // 0-4 scale
+  const [editDifficulty, setEditDifficulty] = useState(2); // 0-4 scale
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  // Motivation and difficulty mappings
+  const MOTIVATION_LABELS = [
+    "Not Motivated",
+    "Low",
+    "Moderate",
+    "Motivated",
+    "Highly Motivated",
+  ];
+  const MOTIVATION_ENERGY = [9, 7, 5, 3, 1]; // Energy cost for each level
+  const DIFFICULTY_LABELS = [
+    "Very Easy",
+    "Easy",
+    "Moderate",
+    "Hard",
+    "Very Hard",
+  ];
+  const DIFFICULTY_FRICTION: ("Low" | "Medium" | "High")[] = [
+    "Low",
+    "Low",
+    "Medium",
+    "High",
+    "High",
+  ];
 
   // Memoize stars
   const stars = useMemo(() => generateStars(25), []);
@@ -1002,6 +1041,117 @@ export default function ConsultationScreen() {
     }
   };
 
+  // Convert energy cost to motivation level (reverse mapping)
+  const energyToMotivation = (energy: number): number => {
+    if (energy >= 8) return 0;
+    if (energy >= 6) return 1;
+    if (energy >= 4) return 2;
+    if (energy >= 2) return 3;
+    return 4;
+  };
+
+  // Convert emotional friction to difficulty level
+  const frictionToDifficulty = (friction: string): number => {
+    if (friction === "Low") return 1;
+    if (friction === "Medium") return 2;
+    if (friction === "High") return 3;
+    return 2;
+  };
+
+  // Open edit modal for a task
+  const handleEditTask = (task: Task) => {
+    setEditingTask(task);
+    setEditTitle(task.title);
+    setEditMotivation(energyToMotivation(task.energy_cost));
+    setEditDifficulty(frictionToDifficulty(task.emotional_friction));
+    setShowEditModal(true);
+  };
+
+  // Helper to get tomorrow's date as ISO string
+  const getTomorrowDateString = (): string => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const year = tomorrow.getFullYear();
+    const month = String(tomorrow.getMonth() + 1).padStart(2, "0");
+    const day = String(tomorrow.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}T00:00:00.000`;
+  };
+
+  // Update task
+  const handleUpdateTask = async () => {
+    if (!editingTask || !editTitle.trim()) return;
+
+    const isHighDifficulty = editDifficulty >= 3; // Hard or Very Hard
+    const isLowMood = selectedMood === "sad" || selectedMood === "stressed";
+
+    // If mood is low and task is high difficulty, ask to transfer to tomorrow
+    if (isHighDifficulty && isLowMood) {
+      Alert.alert(
+        "💜 Take Care of Yourself",
+        "This task seems difficult. Would you like to transfer it to tomorrow?",
+        [
+          {
+            text: "Yes, transfer",
+            onPress: async () => {
+              setIsUpdating(true);
+              try {
+                await updateTask(editingTask._id, {
+                  title: editTitle.trim(),
+                  energy_cost: MOTIVATION_ENERGY[editMotivation],
+                  emotional_friction: DIFFICULTY_FRICTION[editDifficulty],
+                  due_date: getTomorrowDateString(),
+                });
+                setShowEditModal(false);
+                setEditingTask(null);
+                setEditTitle("");
+                setEditMotivation(2);
+                setEditDifficulty(2);
+                Alert.alert(
+                  "✨ Task Transferred",
+                  "The task has been moved to tomorrow. Take care of yourself today!"
+                );
+              } catch (err: any) {
+                Alert.alert("Error", err.message || "Failed to update task");
+              } finally {
+                setIsUpdating(false);
+              }
+            },
+          },
+          {
+            text: "No, keep it",
+            onPress: () => {
+              Alert.alert(
+                "💪 Be Gentle",
+                "Your mood is not at its best right now. This task might be hard for you today. Remember to take breaks and be kind to yourself!"
+              );
+            },
+            style: "cancel",
+          },
+        ]
+      );
+      return;
+    }
+
+    // Normal update without mood warning
+    setIsUpdating(true);
+    try {
+      await updateTask(editingTask._id, {
+        title: editTitle.trim(),
+        energy_cost: MOTIVATION_ENERGY[editMotivation],
+        emotional_friction: DIFFICULTY_FRICTION[editDifficulty],
+      });
+      setShowEditModal(false);
+      setEditingTask(null);
+      setEditTitle("");
+      setEditMotivation(2);
+      setEditDifficulty(2);
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Failed to update task");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   // Handle logout
   const handleLogout = () => {
     Alert.alert("Logout", "Are you sure you want to logout?", [
@@ -1187,14 +1337,9 @@ export default function ConsultationScreen() {
           <View style={styles.tasksSectionHeader}>
             <View>
               <Text style={styles.tasksSectionTitle}>My Tasks Today</Text>
-              {selectedMood === "sad" && (
+              {(selectedMood === "sad" || selectedMood === "stressed") && (
                 <Text style={styles.moodTaskHint}>
-                  💜 Showing gentle tasks only
-                </Text>
-              )}
-              {selectedMood === "stressed" && (
-                <Text style={styles.moodTaskHint}>
-                  💛 Showing lighter tasks
+                  💜 Showing low energy tasks only
                 </Text>
               )}
             </View>
@@ -1221,65 +1366,67 @@ export default function ConsultationScreen() {
               {getFilteredTasks(tasks, selectedMood)
                 .slice(0, 5)
                 .map((task) => (
-                  <TouchableOpacity
-                    key={task._id}
-                    style={styles.taskItem}
-                    onPress={() => handleCompleteTask(task._id)}
-                    disabled={completingTaskId === task._id}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.taskCheckbox}>
+                  <View key={task._id} style={styles.taskItem}>
+                    {/* Checkbox - marks task as done */}
+                    <TouchableOpacity
+                      style={styles.taskCheckbox}
+                      onPress={() => handleCompleteTask(task._id)}
+                      disabled={completingTaskId === task._id}
+                      activeOpacity={0.7}
+                    >
                       {completingTaskId === task._id ? (
                         <ActivityIndicator size="small" color="#522861" />
                       ) : (
                         <Feather name="circle" size={22} color="#522861" />
                       )}
-                    </View>
-                    <View style={styles.taskContent}>
-                      <Text style={styles.taskTitle} numberOfLines={1}>
-                        {task.title}
-                      </Text>
-                      <View style={styles.taskMeta}>
-                        <View
-                          style={[
-                            styles.taskEnergy,
-                            {
-                              backgroundColor:
-                                task.energy_cost <= 3
-                                  ? "#E8F5E9"
-                                  : task.energy_cost <= 6
-                                  ? "#FFF3E0"
-                                  : "#FFEBEE",
-                            },
-                          ]}
-                        >
-                          <Text
+                    </TouchableOpacity>
+                    {/* Task content - opens edit modal */}
+                    <TouchableOpacity
+                      style={styles.taskContentTouchable}
+                      onPress={() => handleEditTask(task)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.taskContent}>
+                        <Text style={styles.taskTitle} numberOfLines={1}>
+                          {task.title}
+                        </Text>
+                        <View style={styles.taskMeta}>
+                          <View
                             style={[
-                              styles.taskEnergyText,
+                              styles.taskEnergy,
                               {
-                                color:
+                                backgroundColor:
                                   task.energy_cost <= 3
-                                    ? "#4CAF50"
+                                    ? "#E8F5E9"
                                     : task.energy_cost <= 6
-                                    ? "#FF9800"
-                                    : "#F44336",
+                                    ? "#FFF3E0"
+                                    : "#FFEBEE",
                               },
                             ]}
                           >
-                            ⚡ {task.energy_cost}
+                            <Text
+                              style={[
+                                styles.taskEnergyText,
+                                {
+                                  color:
+                                    task.energy_cost <= 3
+                                      ? "#4CAF50"
+                                      : task.energy_cost <= 6
+                                      ? "#FF9800"
+                                      : "#F44336",
+                                },
+                              ]}
+                            >
+                              ⚡ {task.energy_cost}
+                            </Text>
+                          </View>
+                          <Text style={styles.taskFriction}>
+                            {task.emotional_friction}
                           </Text>
                         </View>
-                        <Text style={styles.taskFriction}>
-                          {task.emotional_friction}
-                        </Text>
                       </View>
-                    </View>
-                    <Feather
-                      name="chevron-right"
-                      size={20}
-                      color={COLORS.textMuted}
-                    />
-                  </TouchableOpacity>
+                    </TouchableOpacity>
+                  </View>
                 ))}
               {getFilteredTasks(tasks, selectedMood).length > 5 && (
                 <TouchableOpacity
@@ -1559,6 +1706,152 @@ export default function ConsultationScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Edit Task Modal */}
+      <Modal
+        visible={showEditModal}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setShowEditModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.editModalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowEditModal(false)}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+            style={styles.editModalScrollContent}
+          >
+            <View style={styles.editModalContent}>
+              <View style={styles.editModalHeader}>
+                <View>
+                  <Text style={styles.editModalTitle}>✏️ Edit Task</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => {
+                    setShowEditModal(false);
+                    setEditingTask(null);
+                    setEditTitle("");
+                  }}
+                  style={styles.editModalCloseButton}
+                >
+                  <Feather name="x" size={20} color="#522861" />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                style={styles.editModalScroll}
+              >
+                {/* Task Title */}
+                <Text style={styles.editModalLabel}>Task Title</Text>
+                <TextInput
+                  style={styles.editModalInput}
+                  value={editTitle}
+                  onChangeText={setEditTitle}
+                  placeholder="What needs to be done?"
+                  placeholderTextColor="#9ca3af"
+                />
+
+                {/* Motivation Level */}
+                <Text style={styles.editModalLabel}>
+                  💪 Motivation: {MOTIVATION_LABELS[editMotivation]}
+                </Text>
+                <View style={styles.editSliderRow}>
+                  {[0, 1, 2, 3, 4].map((level) => (
+                    <TouchableOpacity
+                      key={level}
+                      style={[
+                        styles.editSliderButton,
+                        editMotivation === level &&
+                          styles.editSliderButtonActive,
+                      ]}
+                      onPress={() => setEditMotivation(level)}
+                    >
+                      <Text
+                        style={[
+                          styles.editSliderButtonText,
+                          editMotivation === level &&
+                            styles.editSliderButtonTextActive,
+                        ]}
+                      >
+                        {level + 1}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <View style={styles.editSliderLabels}>
+                  <Text style={styles.editSliderLabelText}>Low</Text>
+                  <Text style={styles.editSliderLabelText}>High</Text>
+                </View>
+
+                {/* Difficulty Level */}
+                <Text style={styles.editModalLabel}>
+                  🎯 Difficulty: {DIFFICULTY_LABELS[editDifficulty]}
+                </Text>
+                <View style={styles.editSliderRow}>
+                  {[0, 1, 2, 3, 4].map((level) => (
+                    <TouchableOpacity
+                      key={level}
+                      style={[
+                        styles.editSliderButton,
+                        editDifficulty === level &&
+                          styles.editSliderButtonActive,
+                      ]}
+                      onPress={() => setEditDifficulty(level)}
+                    >
+                      <Text
+                        style={[
+                          styles.editSliderButtonText,
+                          editDifficulty === level &&
+                            styles.editSliderButtonTextActive,
+                        ]}
+                      >
+                        {level + 1}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <View style={styles.editSliderLabels}>
+                  <Text style={styles.editSliderLabelText}>Easy</Text>
+                  <Text style={styles.editSliderLabelText}>Hard</Text>
+                </View>
+              </ScrollView>
+
+              {/* Buttons */}
+              <View style={styles.editModalButtons}>
+                <TouchableOpacity
+                  style={styles.editModalCancelButton}
+                  onPress={() => {
+                    setShowEditModal(false);
+                    setEditingTask(null);
+                    setEditTitle("");
+                  }}
+                >
+                  <Text style={styles.editModalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.editModalSaveButton,
+                    (!editTitle.trim() || isUpdating) &&
+                      styles.editModalSaveButtonDisabled,
+                  ]}
+                  onPress={handleUpdateTask}
+                  disabled={!editTitle.trim() || isUpdating}
+                >
+                  {isUpdating ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <Text style={styles.editModalSaveText}>Save</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -2008,6 +2301,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  taskContentTouchable: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+  },
   taskContent: {
     flex: 1,
   },
@@ -2218,5 +2516,174 @@ const styles = StyleSheet.create({
   weeklySummaryText: {
     fontSize: 13,
     color: COLORS.textSecondary,
+  },
+  // Edit Modal Styles
+  editModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 16,
+  },
+  editModalScrollContent: {
+    flexGrow: 1,
+    justifyContent: "center",
+    width: "100%",
+    maxWidth: width - 32,
+  },
+  editModalContent: {
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    borderRadius: 28,
+    padding: 20,
+    width: "100%",
+    shadowColor: "#522861",
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.25,
+    shadowRadius: 30,
+    elevation: 15,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.8)",
+  },
+  editModalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(82, 40, 97, 0.1)",
+  },
+  editModalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#522861",
+  },
+  editModalCloseButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(82, 40, 97, 0.08)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  editModalScroll: {
+    maxHeight: 350,
+  },
+  editModalLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#522861",
+    marginBottom: 8,
+    marginTop: 14,
+  },
+  editModalInput: {
+    backgroundColor: "rgba(240, 235, 245, 0.9)",
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    color: "#1f2937",
+    borderWidth: 1.5,
+    borderColor: "rgba(82, 40, 97, 0.15)",
+  },
+  editSliderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 6,
+  },
+  editSliderButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: "rgba(240, 235, 245, 0.9)",
+    borderWidth: 1.5,
+    borderColor: "rgba(82, 40, 97, 0.15)",
+    alignItems: "center",
+  },
+  editSliderButtonActive: {
+    backgroundColor: "#522861",
+    borderColor: "#522861",
+  },
+  editSliderButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#522861",
+  },
+  editSliderButtonTextActive: {
+    color: "#fff",
+  },
+  editSliderLabels: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  editSliderLabelText: {
+    fontSize: 11,
+    color: "#9ca3af",
+  },
+  editDateScroll: {
+    marginBottom: 16,
+  },
+  editDateButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: "rgba(240, 235, 245, 0.9)",
+    borderWidth: 1.5,
+    borderColor: "rgba(82, 40, 97, 0.15)",
+    marginRight: 6,
+  },
+  editDateButtonActive: {
+    backgroundColor: "#522861",
+    borderColor: "#522861",
+  },
+  editDateButtonText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#522861",
+  },
+  editDateButtonTextActive: {
+    color: "#fff",
+  },
+  editModalButtons: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(82, 40, 97, 0.1)",
+  },
+  editModalCancelButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: "rgba(82, 40, 97, 0.08)",
+    alignItems: "center",
+  },
+  editModalCancelText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#522861",
+  },
+  editModalSaveButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: "#522861",
+    alignItems: "center",
+    shadowColor: "#522861",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  editModalSaveButtonDisabled: {
+    opacity: 0.5,
+  },
+  editModalSaveText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#fff",
   },
 });

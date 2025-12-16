@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,10 +8,10 @@ import {
   ActivityIndicator,
   Animated,
   Alert,
-} from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
-import { COLORS } from '../constants/config';
-import * as tasksApi from '../api/tasks';
+} from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
+import { COLORS } from "../constants/config";
+import * as tasksApi from "../api/tasks";
 
 // expo-speech-recognition requires a development build (not Expo Go)
 // Run: npx expo install expo-speech-recognition
@@ -21,21 +21,25 @@ let useSpeechRecognitionEvent: any = null;
 let voiceAvailable = false;
 
 try {
-  const speechModule = require('expo-speech-recognition');
+  const speechModule = require("expo-speech-recognition");
   ExpoSpeechRecognitionModule = speechModule.ExpoSpeechRecognitionModule;
   useSpeechRecognitionEvent = speechModule.useSpeechRecognitionEvent;
   // Check if the native module is actually available
-  voiceAvailable = ExpoSpeechRecognitionModule != null && 
-    typeof ExpoSpeechRecognitionModule.requestPermissionsAsync === 'function';
+  voiceAvailable =
+    ExpoSpeechRecognitionModule != null &&
+    typeof ExpoSpeechRecognitionModule.requestPermissionsAsync === "function";
 } catch (e) {
-  console.log('expo-speech-recognition not available (requires development build)');
+  console.log(
+    "expo-speech-recognition not available (requires development build)"
+  );
 }
 
 export interface ParsedTaskData {
   title: string;
   energy_cost: number;
-  emotional_friction: 'Low' | 'Medium' | 'High';
+  emotional_friction: "Low" | "Medium" | "High";
   due_date?: string;
+  originalText?: string; // Original input text for frontend date parsing
 }
 
 interface MagicTaskInputProps {
@@ -49,10 +53,10 @@ export default function MagicTaskInput({
   onError,
   placeholder = "Describe your task or tap the mic...",
 }: MagicTaskInputProps) {
-  const [text, setText] = useState('');
+  const [text, setText] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
-  const [transcript, setTranscript] = useState('');
+  const [transcript, setTranscript] = useState("");
   const pulseAnim = useState(new Animated.Value(1))[0];
 
   // Setup speech recognition events if available
@@ -87,31 +91,35 @@ export default function MagicTaskInput({
   const startListening = async () => {
     if (!voiceAvailable) {
       Alert.alert(
-        'Voice Not Available',
-        'Voice input requires a development build.\n\nTo enable:\n1. Run: npx expo run:android\n\nFor now, type your task description instead.'
+        "Voice Not Available",
+        "Voice input requires a development build.\n\nTo enable:\n1. Run: npx expo run:android\n\nFor now, type your task description instead."
       );
       return;
     }
 
     try {
-      const result = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+      const result =
+        await ExpoSpeechRecognitionModule.requestPermissionsAsync();
       if (!result.granted) {
-        Alert.alert('Permission Denied', 'Microphone permission is required for voice input');
+        Alert.alert(
+          "Permission Denied",
+          "Microphone permission is required for voice input"
+        );
         return;
       }
 
       setIsListening(true);
-      setTranscript('');
+      setTranscript("");
 
       ExpoSpeechRecognitionModule.start({
-        lang: 'en-US',
+        lang: "en-US",
         interimResults: true,
         maxAlternatives: 1,
       });
     } catch (error: any) {
-      console.error('Speech recognition error:', error);
+      console.error("Speech recognition error:", error);
       setIsListening(false);
-      onError?.('Failed to start voice recognition');
+      onError?.("Failed to start voice recognition");
     }
   };
 
@@ -120,7 +128,7 @@ export default function MagicTaskInput({
       ExpoSpeechRecognitionModule.stop();
     }
     setIsListening(false);
-    
+
     // Use transcript if available
     if (transcript) {
       setText(transcript);
@@ -130,7 +138,7 @@ export default function MagicTaskInput({
   const handleSend = async () => {
     const inputText = text.trim();
     if (!inputText) {
-      onError?.('Please enter or speak a task description');
+      onError?.("Please enter or speak a task description");
       return;
     }
 
@@ -138,12 +146,13 @@ export default function MagicTaskInput({
 
     try {
       const parsedData = await tasksApi.parseTask(inputText);
-      onTaskParsed(parsedData);
-      setText('');
-      setTranscript('');
+      // Include original text for frontend date parsing
+      onTaskParsed({ ...parsedData, originalText: inputText });
+      setText("");
+      setTranscript("");
     } catch (error: any) {
-      console.error('Parse error:', error);
-      onError?.(error.message || 'Failed to parse task');
+      console.error("Parse error:", error);
+      onError?.(error.message || "Failed to parse task");
     } finally {
       setIsParsing(false);
     }
@@ -151,8 +160,8 @@ export default function MagicTaskInput({
 
   // Handle speech recognition results
   if (useSpeechRecognitionEvent) {
-    useSpeechRecognitionEvent('result', (event: any) => {
-      const newTranscript = event.results?.[0]?.transcript || '';
+    useSpeechRecognitionEvent("result", (event: any) => {
+      const newTranscript = event.results?.[0]?.transcript || "";
       setTranscript(newTranscript);
       if (event.isFinal) {
         setText(newTranscript);
@@ -160,14 +169,14 @@ export default function MagicTaskInput({
       }
     });
 
-    useSpeechRecognitionEvent('end', () => {
+    useSpeechRecognitionEvent("end", () => {
       setIsListening(false);
     });
 
-    useSpeechRecognitionEvent('error', (event: any) => {
-      console.error('Speech error:', event);
+    useSpeechRecognitionEvent("error", (event: any) => {
+      console.error("Speech error:", event);
       setIsListening(false);
-      onError?.('Voice recognition error');
+      onError?.("Voice recognition error");
     });
   }
 
@@ -206,9 +215,15 @@ export default function MagicTaskInput({
               disabled={isParsing}
             >
               <MaterialIcons
-                name={isListening ? 'mic' : 'mic-none'}
+                name={isListening ? "mic" : "mic-none"}
                 size={24}
-                color={isListening ? '#fff' : voiceAvailable ? COLORS.primary : COLORS.textMuted}
+                color={
+                  isListening
+                    ? "#fff"
+                    : voiceAvailable
+                    ? COLORS.primary
+                    : COLORS.textMuted
+                }
               />
             </TouchableOpacity>
           </Animated.View>
@@ -243,8 +258,8 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   inputRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
+    flexDirection: "row",
+    alignItems: "flex-end",
     gap: 12,
   },
   inputWrapper: {
@@ -264,17 +279,17 @@ const styles = StyleSheet.create({
     minHeight: 56,
   },
   listeningIndicator: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 8,
     right: 12,
   },
   listeningText: {
     fontSize: 11,
     color: COLORS.primary,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   buttons: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 8,
   },
   micButton: {
@@ -284,8 +299,8 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.backgroundSecondary,
     borderWidth: 2,
     borderColor: COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   micButtonActive: {
     backgroundColor: COLORS.primary,
@@ -300,8 +315,8 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 24,
     backgroundColor: COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   sendButtonDisabled: {
     backgroundColor: COLORS.textMuted,
@@ -310,7 +325,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontSize: 12,
     color: COLORS.textMuted,
-    textAlign: 'center',
+    textAlign: "center",
   },
 });
-
