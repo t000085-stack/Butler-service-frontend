@@ -94,7 +94,7 @@ const MessageBubble = ({ message }: { message: Message }) => {
       {!isUser && (
         <View style={styles.avatarContainer}>
           <LinearGradient
-            colors={[COLORS.primary, COLORS.primaryLight]}
+            colors={["#522861", "#7a4d84"]}
             style={styles.avatar}
           >
             <Text style={styles.avatarText}>🌙</Text>
@@ -208,7 +208,7 @@ export default function ChatScreen() {
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <LinearGradient
-            colors={[COLORS.primary, COLORS.primaryLight]}
+            colors={["#522861", "#7a4d84"]}
             style={styles.headerAvatar}
           >
             <Text style={styles.headerAvatarText}>🌙</Text>
@@ -239,7 +239,7 @@ export default function ChatScreen() {
               <View style={styles.loadingBubbleContainer}>
                 <View style={styles.avatarContainer}>
                   <LinearGradient
-                    colors={[COLORS.primary, COLORS.primaryLight]}
+                    colors={["#522861", "#7a4d84"]}
                     style={styles.avatar}
                   >
                     <Text style={styles.avatarText}>🌙</Text>
@@ -327,7 +327,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: "600",
-    color: COLORS.text,
+    color: "#522861",
   },
   headerSubtitle: {
     fontSize: 13,
@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
     maxWidth: width * 0.7,
   },
   userBubble: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: "#522861",
     borderBottomRightRadius: 4,
   },
   assistantBubble: {
@@ -411,7 +411,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: COLORS.primary,
+    backgroundColor: "#522861",
   },
   inputContainer: {
     flexDirection: "row",
@@ -442,10 +442,10 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: COLORS.primary,
+    backgroundColor: "#522861",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: COLORS.primary,
+    shadowColor: "#522861",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
