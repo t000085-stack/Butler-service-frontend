@@ -1,10 +1,10 @@
 {
   "expo": {
     "name": "ai-butler",
+    "icon": "./assets/simiicon.png",
     "slug": "ai-butler",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -12,11 +12,14 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "bundleIdentifier": "com.anonymous.aibutler",
+      "bundleIdentifier": "com.simi.simi",
+      "buildNumber": "0.0.2",
       "supportsTablet": true,
       "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "SIMI uses photo access only if you choose to upload or attach images to your tasks or notes.",
         "NSSpeechRecognitionUsageDescription": "Allow $(PRODUCT_NAME) to use speech recognition.",
-        "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to use the microphone."
+        "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to use the microphone.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -31,6 +34,11 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": ["expo-speech-recognition"]
+    "plugins": ["expo-speech-recognition"],
+    "extra": {
+      "eas": {
+        "projectId": "5b24febb-f189-4b87-8df6-3a7d466a0bb5"
+      }
+    }
   }
 }
