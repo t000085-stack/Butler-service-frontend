@@ -83,66 +83,8 @@ const TypingIndicator = () => {
 };
 
 const LoadingAvatarBubble = () => {
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const floatAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    // Pulse animation
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.1,
-          duration: 1500,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1500,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    // Float animation
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(floatAnim, {
-          toValue: 1,
-          duration: 2000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(floatAnim, {
-          toValue: 0,
-          duration: 2000,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-  }, []);
-
-  const translateY = floatAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -3],
-  });
-
   return (
     <View style={styles.loadingBubbleContainer}>
-      <View style={styles.avatarContainer}>
-        <Animated.View
-          style={[
-            styles.avatar,
-            {
-              transform: [{ scale: pulseAnim }, { translateY: translateY }],
-            },
-          ]}
-        >
-          <Image
-            source={require("../../../assets/simiicon.png")}
-            style={styles.avatarImage}
-            resizeMode="cover"
-          />
-        </Animated.View>
-      </View>
       <View style={[styles.messageBubble, styles.assistantBubble]}>
         <TypingIndicator />
       </View>
@@ -152,49 +94,6 @@ const LoadingAvatarBubble = () => {
 
 const MessageBubble = ({ message }: { message: Message }) => {
   const isUser = message.role === "user";
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const floatAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    if (!isUser) {
-      // Pulse animation
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1.1,
-            duration: 1500,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 1500,
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-
-      // Float animation
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(floatAnim, {
-            toValue: 1,
-            duration: 2000,
-            useNativeDriver: true,
-          }),
-          Animated.timing(floatAnim, {
-            toValue: 0,
-            duration: 2000,
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-    }
-  }, [isUser]);
-
-  const translateY = floatAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -3],
-  });
 
   return (
     <View
@@ -203,24 +102,6 @@ const MessageBubble = ({ message }: { message: Message }) => {
         isUser ? styles.userBubbleContainer : styles.assistantBubbleContainer,
       ]}
     >
-      {!isUser && (
-        <View style={styles.avatarContainer}>
-          <Animated.View
-            style={[
-              styles.avatar,
-              {
-                transform: [{ scale: pulseAnim }, { translateY: translateY }],
-              },
-            ]}
-          >
-            <Image
-              source={require("../../../assets/simiicon.png")}
-              style={styles.avatarImage}
-              resizeMode="cover"
-            />
-          </Animated.View>
-        </View>
-      )}
       <View
         style={[
           styles.messageBubble,
@@ -232,6 +113,7 @@ const MessageBubble = ({ message }: { message: Message }) => {
             styles.messageText,
             isUser ? styles.userMessageText : styles.assistantMessageText,
           ]}
+          selectable
         >
           {message.content}
         </Text>
@@ -280,11 +162,54 @@ export default function ChatScreen() {
     try {
       const response = await chatApi.sendMessage(text);
 
+      // Log the full response for debugging
+      console.log(
+        "[ChatScreen] Full API response:",
+        JSON.stringify(response, null, 2)
+      );
+      console.log("[ChatScreen] Response type:", typeof response);
+      console.log(
+        "[ChatScreen] Response.response type:",
+        typeof response?.response
+      );
+      console.log(
+        "[ChatScreen] Response.response length:",
+        response?.response?.length
+      );
+
+      // Extract the response content - handle different possible response structures
+      let responseContent = "";
+      if (typeof response === "string") {
+        responseContent = response;
+      } else if (response?.response) {
+        responseContent = response.response;
+      } else {
+        // Check for other possible properties (type assertion needed for TypeScript)
+        const responseAny = response as any;
+        if (responseAny?.message) {
+          responseContent = responseAny.message;
+        } else if (responseAny?.content) {
+          responseContent = responseAny.content;
+        } else {
+          // Fallback: try to stringify the response
+          responseContent = JSON.stringify(response);
+        }
+      }
+
+      console.log(
+        "[ChatScreen] Extracted content length:",
+        responseContent.length
+      );
+      console.log(
+        "[ChatScreen] Content preview (first 200 chars):",
+        responseContent.substring(0, 200)
+      );
+
       // Add assistant response
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: response.response,
+        content: responseContent,
         timestamp: new Date(),
       };
 
@@ -481,6 +406,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 20,
     maxWidth: width * 0.7,
+    flexShrink: 1,
   },
   userBubble: {
     backgroundColor: "#522861",
@@ -500,6 +426,7 @@ const styles = StyleSheet.create({
   messageText: {
     fontSize: 15,
     lineHeight: 22,
+    flexShrink: 1,
   },
   userMessageText: {
     color: "#fff",

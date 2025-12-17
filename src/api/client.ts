@@ -11,6 +11,8 @@ console.log("[API Client] Configured API URL:", API_URL);
 const api: AxiosInstance = axios.create({
   baseURL: API_URL,
   timeout: 90000, // 90 seconds for AI responses
+  maxContentLength: Infinity, // Allow unlimited response size
+  maxBodyLength: Infinity, // Allow unlimited request body size
   headers: {
     "Content-Type": "application/json",
   },
@@ -40,6 +42,12 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => {
     console.log("[API Client] Response:", response.status, response.config.url);
+    // Log response data size for chat endpoints
+    if (response.config.url?.includes("/chat/message")) {
+      const dataStr = JSON.stringify(response.data);
+      console.log("[API Client] Chat response data length:", dataStr.length);
+      console.log("[API Client] Chat response preview:", dataStr.substring(0, 500));
+    }
     return response;
   },
   (error: AxiosError<{ message?: string; context_log_id?: string }>) => {
