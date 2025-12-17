@@ -1224,7 +1224,11 @@ export default function ConsultationScreen() {
 
       {/* App Header */}
       <View style={styles.appHeader}>
-        <View style={styles.appHeaderLeft} />
+        <View style={styles.appHeaderLeft}>
+          <Text style={styles.headerGreeting}>
+            {getGreeting()}, {user?.username || "there"}
+          </Text>
+        </View>
         <View style={styles.appHeaderCenter} />
         <TouchableOpacity
           style={styles.appHeaderRight}
@@ -1266,11 +1270,7 @@ export default function ConsultationScreen() {
             },
           ]}
         >
-          <Text style={styles.greetingText}>
-            {getGreeting()}, {user?.username || "there"}
-          </Text>
           <Text style={styles.moodQuestion}>How are you feeling today?</Text>
-          <Text style={styles.dateText}>{formatDate()}</Text>
 
           {/* Centered Orb Image with Face */}
           <Animated.View
@@ -1344,6 +1344,7 @@ export default function ConsultationScreen() {
           <View style={styles.tasksSectionHeader}>
             <View>
               <Text style={styles.tasksSectionTitle}>My Tasks Today</Text>
+              <Text style={styles.tasksSectionDate}>{formatDate()}</Text>
               {(selectedMood === "sad" || selectedMood === "stressed") && (
                 <Text style={styles.moodTaskHint}>
                   💜 Showing low energy tasks only
@@ -1928,7 +1929,14 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
   },
   appHeaderLeft: {
-    width: 44,
+    flex: 1,
+  },
+  headerGreeting: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#522861",
+    letterSpacing: 0.3,
+    opacity: 0.7,
   },
   appHeaderCenter: {
     flex: 1,
@@ -2272,6 +2280,11 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#522861",
     letterSpacing: 0.3,
+  },
+  tasksSectionDate: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    marginTop: 2,
   },
   moodTaskHint: {
     fontSize: 12,
