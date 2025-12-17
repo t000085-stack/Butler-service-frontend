@@ -12,7 +12,6 @@ import {
   Dimensions,
   Animated,
   Image,
-  Easing,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -83,181 +82,9 @@ const TypingIndicator = () => {
   );
 };
 
-// Animated Orb Component (matching SignInScreen style) - for message avatars
-const AnimatedOrb = ({ size = 48 }: { size?: number }) => {
-  const floatAnim = useRef(new Animated.Value(0)).current;
-  const rotateAnim = useRef(new Animated.Value(0)).current;
-  const pulseAnim = useRef(new Animated.Value(0)).current;
-  const glowAnim = useRef(new Animated.Value(0.85)).current;
-
-  useEffect(() => {
-    // Continuous floating animation
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(floatAnim, {
-          toValue: 1,
-          duration: 3000,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(floatAnim, {
-          toValue: 0,
-          duration: 3000,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    // Slow rotation
-    Animated.loop(
-      Animated.timing(rotateAnim, {
-        toValue: 1,
-        duration: 25000,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      })
-    ).start();
-
-    // Pulse scale animation (breathing effect)
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 3000,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 0,
-          duration: 3000,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    // Glow/opacity animation
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(glowAnim, {
-          toValue: 1,
-          duration: 4000,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(glowAnim, {
-          toValue: 0.8,
-          duration: 4000,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-  }, []);
-
-  const floatTranslateY = floatAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -8],
-  });
-
-  const spin = rotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0deg", "360deg"],
-  });
-
-  const pulseScale = pulseAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 1.05],
-  });
-
-  return (
-    <Animated.View
-      style={[
-        styles.avatarOrb,
-        {
-          transform: [{ translateY: floatTranslateY }, { scale: pulseScale }],
-        },
-      ]}
-    >
-      <Animated.Image
-        source={require("../../../assets/simiicon.png")}
-        style={[
-          styles.avatarOrbImage,
-          {
-            width: size,
-            height: size,
-            transform: [{ rotate: spin }],
-            opacity: glowAnim,
-          },
-        ]}
-        resizeMode="contain"
-      />
-    </Animated.View>
-  );
-};
-
 const LoadingAvatarBubble = () => {
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const floatAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    // Pulse animation
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.1,
-          duration: 1500,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1500,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    // Float animation
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(floatAnim, {
-          toValue: 1,
-          duration: 2000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(floatAnim, {
-          toValue: 0,
-          duration: 2000,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-  }, []);
-
-  const translateY = floatAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -3],
-  });
-
   return (
     <View style={styles.loadingBubbleContainer}>
-      <View style={styles.avatarContainer}>
-        <Animated.View
-          style={[
-            styles.avatar,
-            {
-              transform: [{ scale: pulseAnim }, { translateY: translateY }],
-            },
-          ]}
-        >
-          <Image
-            source={require("../../../assets/simiicon.png")}
-            style={styles.avatarImage}
-            resizeMode="cover"
-          />
-        </Animated.View>
-      </View>
       <View style={[styles.messageBubble, styles.assistantBubble]}>
         <TypingIndicator />
       </View>
@@ -275,11 +102,6 @@ const MessageBubble = ({ message }: { message: Message }) => {
         isUser ? styles.userBubbleContainer : styles.assistantBubbleContainer,
       ]}
     >
-      {!isUser && (
-        <View style={styles.avatarContainer}>
-          <AnimatedOrb size={48} />
-        </View>
-      )}
       <View
         style={[
           styles.messageBubble,
@@ -291,6 +113,7 @@ const MessageBubble = ({ message }: { message: Message }) => {
             styles.messageText,
             isUser ? styles.userMessageText : styles.assistantMessageText,
           ]}
+          selectable
         >
           {message.content}
         </Text>
@@ -339,11 +162,54 @@ export default function ChatScreen() {
     try {
       const response = await chatApi.sendMessage(text);
 
+      // Log the full response for debugging
+      console.log(
+        "[ChatScreen] Full API response:",
+        JSON.stringify(response, null, 2)
+      );
+      console.log("[ChatScreen] Response type:", typeof response);
+      console.log(
+        "[ChatScreen] Response.response type:",
+        typeof response?.response
+      );
+      console.log(
+        "[ChatScreen] Response.response length:",
+        response?.response?.length
+      );
+
+      // Extract the response content - handle different possible response structures
+      let responseContent = "";
+      if (typeof response === "string") {
+        responseContent = response;
+      } else if (response?.response) {
+        responseContent = response.response;
+      } else {
+        // Check for other possible properties (type assertion needed for TypeScript)
+        const responseAny = response as any;
+        if (responseAny?.message) {
+          responseContent = responseAny.message;
+        } else if (responseAny?.content) {
+          responseContent = responseAny.content;
+        } else {
+          // Fallback: try to stringify the response
+          responseContent = JSON.stringify(response);
+        }
+      }
+
+      console.log(
+        "[ChatScreen] Extracted content length:",
+        responseContent.length
+      );
+      console.log(
+        "[ChatScreen] Content preview (first 200 chars):",
+        responseContent.substring(0, 200)
+      );
+
       // Add assistant response
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: response.response,
+        content: responseContent,
         timestamp: new Date(),
       };
 
@@ -525,13 +391,6 @@ const styles = StyleSheet.create({
     marginRight: 10,
     marginTop: 4,
   },
-  avatarOrb: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarOrbImage: {
-    // Size is controlled by the AnimatedOrb component
-  },
   avatar: {
     width: 32,
     height: 32,
@@ -547,6 +406,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 20,
     maxWidth: width * 0.7,
+    flexShrink: 1,
   },
   userBubble: {
     backgroundColor: "#522861",
@@ -566,6 +426,7 @@ const styles = StyleSheet.create({
   messageText: {
     fontSize: 15,
     lineHeight: 22,
+    flexShrink: 1,
   },
   userMessageText: {
     color: "#fff",
