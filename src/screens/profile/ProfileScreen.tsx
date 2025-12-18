@@ -213,6 +213,8 @@ export default function ProfileScreen() {
   // Slider state
   const [sliderWidth, setSliderWidth] = useState(0);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const thumbPosition = useRef(new Animated.Value(0)).current;
   const isDragging = useRef(false);
   const sliderWidthRef = useRef(0);
@@ -436,13 +438,16 @@ export default function ProfileScreen() {
         />
       </View>
 
-      {/* Header with logout */}
+      {/* Header with settings */}
       <View style={styles.appHeader}>
         <View style={styles.appHeaderLeft} />
         <View style={styles.appHeaderCenter} />
         <TouchableOpacity
           style={styles.appHeaderRight}
-          onPress={handleSignOut}
+          onPress={() => {
+            setShowSettingsModal(true);
+            setExpandedSection(null);
+          }}
           activeOpacity={0.7}
         >
           <LinearGradient
@@ -451,7 +456,7 @@ export default function ProfileScreen() {
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           >
-            <Feather name="log-out" size={18} color="#522861" />
+            <Feather name="settings" size={18} color="#522861" />
           </LinearGradient>
         </TouchableOpacity>
       </View>
@@ -675,6 +680,395 @@ export default function ProfileScreen() {
           <Text style={styles.signOutButtonText}>Sign Out</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Settings Modal */}
+      <Modal
+        visible={showSettingsModal}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setShowSettingsModal(false)}
+      >
+        <View style={styles.settingsModalOverlay}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => {
+              setShowSettingsModal(false);
+              setExpandedSection(null);
+            }}
+          />
+          <View style={styles.settingsModalContent}>
+            <View style={styles.settingsModalHeader}>
+              <Text style={styles.settingsModalTitle}>Settings</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowSettingsModal(false);
+                  setExpandedSection(null);
+                }}
+                activeOpacity={0.7}
+              >
+                <Feather name="x" size={24} color="#522861" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              style={styles.settingsScrollView}
+              showsVerticalScrollIndicator={true}
+              contentContainerStyle={styles.settingsScrollContent}
+            >
+              {/* About App Section */}
+              <View style={styles.settingsDropdownSection}>
+                <TouchableOpacity
+                  style={styles.settingsDropdownHeader}
+                  onPress={() =>
+                    setExpandedSection(
+                      expandedSection === "about" ? null : "about"
+                    )
+                  }
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.settingsSectionTitle}>About SIMI</Text>
+                  <Feather
+                    name={
+                      expandedSection === "about"
+                        ? "chevron-up"
+                        : "chevron-down"
+                    }
+                    size={20}
+                    color="#522861"
+                  />
+                </TouchableOpacity>
+                {expandedSection === "about" && (
+                  <View style={styles.settingsDropdownContent}>
+                    <ScrollView
+                      nestedScrollEnabled={true}
+                      showsVerticalScrollIndicator={false}
+                    >
+                      <Text style={styles.settingsSectionText}>
+                        SIMI is your intelligent personal assistant designed to
+                        help you manage tasks, understand your emotional state,
+                        and make better decisions about your daily activities.
+                        SIMI uses advanced AI to parse your tasks, understand
+                        your feelings, and provide personalized recommendations
+                        that align with your core values and energy levels.
+                      </Text>
+                      <Text style={styles.settingsSectionText}>
+                        Our mission is to help you achieve balance, reduce
+                        emotional friction, and make progress on what truly
+                        matters to you.
+                      </Text>
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
+
+              {/* Privacy Policy Section */}
+              <View style={styles.settingsDropdownSection}>
+                <TouchableOpacity
+                  style={styles.settingsDropdownHeader}
+                  onPress={() =>
+                    setExpandedSection(
+                      expandedSection === "privacy" ? null : "privacy"
+                    )
+                  }
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.settingsSectionTitle}>
+                    Privacy Policy
+                  </Text>
+                  <Feather
+                    name={
+                      expandedSection === "privacy"
+                        ? "chevron-up"
+                        : "chevron-down"
+                    }
+                    size={20}
+                    color="#522861"
+                  />
+                </TouchableOpacity>
+                {expandedSection === "privacy" && (
+                  <View style={styles.settingsDropdownContent}>
+                    <ScrollView
+                      nestedScrollEnabled={true}
+                      showsVerticalScrollIndicator={false}
+                    >
+                      <Text style={styles.settingsSectionText}>
+                        <Text style={styles.settingsBoldText}>
+                          Information We Collect:
+                        </Text>
+                        {"\n"}
+                        We collect information you provide directly to us,
+                        including your name, email address, tasks, energy
+                        levels, core values, and emotional feedback. We also
+                        collect usage data and device information to improve our
+                        services.
+                      </Text>
+                      <Text style={styles.settingsSectionText}>
+                        <Text style={styles.settingsBoldText}>
+                          How We Use Your Data:
+                        </Text>
+                        {"\n"}
+                        Your data is used to provide personalized task
+                        management, emotional insights, and recommendations. We
+                        do not sell your personal information to third parties.
+                      </Text>
+                      <Text style={styles.settingsSectionText}>
+                        <Text style={styles.settingsBoldText}>
+                          Data Security:
+                        </Text>
+                        {"\n"}
+                        We implement industry-standard security measures to
+                        protect your information. However, no method of
+                        transmission over the internet is 100% secure.
+                      </Text>
+                      <Text style={styles.settingsSectionText}>
+                        <Text style={styles.settingsBoldText}>
+                          Your Rights:
+                        </Text>
+                        {"\n"}
+                        You have the right to access, update, or delete your
+                        personal information at any time through the app
+                        settings or by contacting us.
+                      </Text>
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
+
+              {/* User Agreement Section */}
+              <View style={styles.settingsDropdownSection}>
+                <TouchableOpacity
+                  style={styles.settingsDropdownHeader}
+                  onPress={() =>
+                    setExpandedSection(
+                      expandedSection === "agreement" ? null : "agreement"
+                    )
+                  }
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.settingsSectionTitle}>
+                    User Agreement
+                  </Text>
+                  <Feather
+                    name={
+                      expandedSection === "agreement"
+                        ? "chevron-up"
+                        : "chevron-down"
+                    }
+                    size={20}
+                    color="#522861"
+                  />
+                </TouchableOpacity>
+                {expandedSection === "agreement" && (
+                  <View style={styles.settingsDropdownContent}>
+                    <ScrollView
+                      nestedScrollEnabled={true}
+                      showsVerticalScrollIndicator={false}
+                    >
+                      <Text style={styles.settingsSectionText}>
+                        <Text style={styles.settingsBoldText}>
+                          Acceptance of Terms:
+                        </Text>
+                        {"\n"}
+                        By using SIMI, you agree to be bound by this User
+                        Agreement. If you do not agree, please do not use the
+                        service.
+                      </Text>
+                      <Text style={styles.settingsSectionText}>
+                        <Text style={styles.settingsBoldText}>
+                          Account Responsibility:
+                        </Text>
+                        {"\n"}
+                        You are responsible for maintaining the confidentiality
+                        of your account credentials and for all activities that
+                        occur under your account.
+                      </Text>
+                      <Text style={styles.settingsSectionText}>
+                        <Text style={styles.settingsBoldText}>
+                          Acceptable Use:
+                        </Text>
+                        {"\n"}
+                        You agree not to use SIMI for any unlawful purpose or in
+                        any way that could damage, disable, or impair the
+                        service.
+                      </Text>
+                      <Text style={styles.settingsSectionText}>
+                        <Text style={styles.settingsBoldText}>
+                          Service Modifications:
+                        </Text>
+                        {"\n"}
+                        We reserve the right to modify or discontinue the
+                        service at any time with or without notice.
+                      </Text>
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
+
+              {/* Terms of Use Section */}
+              <View style={styles.settingsDropdownSection}>
+                <TouchableOpacity
+                  style={styles.settingsDropdownHeader}
+                  onPress={() =>
+                    setExpandedSection(
+                      expandedSection === "terms" ? null : "terms"
+                    )
+                  }
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.settingsSectionTitle}>Terms of Use</Text>
+                  <Feather
+                    name={
+                      expandedSection === "terms"
+                        ? "chevron-up"
+                        : "chevron-down"
+                    }
+                    size={20}
+                    color="#522861"
+                  />
+                </TouchableOpacity>
+                {expandedSection === "terms" && (
+                  <View style={styles.settingsDropdownContent}>
+                    <ScrollView
+                      nestedScrollEnabled={true}
+                      showsVerticalScrollIndicator={false}
+                    >
+                      <Text style={styles.settingsSectionText}>
+                        <Text style={styles.settingsBoldText}>
+                          License to Use:
+                        </Text>
+                        {"\n"}
+                        SIMI grants you a limited, non-exclusive,
+                        non-transferable license to use the app for personal,
+                        non-commercial purposes.
+                      </Text>
+                      <Text style={styles.settingsSectionText}>
+                        <Text style={styles.settingsBoldText}>
+                          Intellectual Property:
+                        </Text>
+                        {"\n"}
+                        All content, features, and functionality of SIMI are
+                        owned by us and are protected by copyright, trademark,
+                        and other intellectual property laws.
+                      </Text>
+                      <Text style={styles.settingsSectionText}>
+                        <Text style={styles.settingsBoldText}>
+                          Limitation of Liability:
+                        </Text>
+                        {"\n"}
+                        SIMI is provided "as is" without warranties of any kind.
+                        We are not liable for any damages arising from your use
+                        of the service.
+                      </Text>
+                      <Text style={styles.settingsSectionText}>
+                        <Text style={styles.settingsBoldText}>
+                          Termination:
+                        </Text>
+                        {"\n"}
+                        We may terminate or suspend your access to SIMI at any
+                        time for violation of these terms.
+                      </Text>
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
+
+              {/* How to Use Section */}
+              <View style={styles.settingsDropdownSection}>
+                <TouchableOpacity
+                  style={styles.settingsDropdownHeader}
+                  onPress={() =>
+                    setExpandedSection(
+                      expandedSection === "howto" ? null : "howto"
+                    )
+                  }
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.settingsSectionTitle}>
+                    How to Use SIMI
+                  </Text>
+                  <Feather
+                    name={
+                      expandedSection === "howto"
+                        ? "chevron-up"
+                        : "chevron-down"
+                    }
+                    size={20}
+                    color="#522861"
+                  />
+                </TouchableOpacity>
+                {expandedSection === "howto" && (
+                  <View style={styles.settingsDropdownContent}>
+                    <ScrollView
+                      nestedScrollEnabled={true}
+                      showsVerticalScrollIndicator={false}
+                    >
+                      <Text style={styles.settingsSectionText}>
+                        <Text style={styles.settingsBoldText}>
+                          1. Getting Started:
+                        </Text>
+                        {"\n"}
+                        After creating your account, set your baseline energy
+                        level and select your core values in the Profile
+                        section. This helps SIMI understand your preferences.
+                      </Text>
+                      <Text style={styles.settingsSectionText}>
+                        <Text style={styles.settingsBoldText}>
+                          2. Adding Tasks:
+                        </Text>
+                        {"\n"}
+                        Use the "Add Task" button to create tasks. You can
+                        describe your task naturally using voice or text. SIMI
+                        will parse your task and ask how you feel about it to
+                        better understand your emotional state.
+                      </Text>
+                      <Text style={styles.settingsSectionText}>
+                        <Text style={styles.settingsBoldText}>
+                          3. Magic Parse:
+                        </Text>
+                        {"\n"}
+                        The Magic Parse feature allows you to describe tasks in
+                        natural language. SIMI will extract the task title,
+                        estimate energy cost, and identify emotional friction.
+                        You can then provide feedback on how you feel about the
+                        task.
+                      </Text>
+                      <Text style={styles.settingsSectionText}>
+                        <Text style={styles.settingsBoldText}>
+                          4. Task Management:
+                        </Text>
+                        {"\n"}
+                        View all your tasks in the Tasks screen. Mark tasks as
+                        done, edit them, or delete them as needed. The calendar
+                        view helps you see tasks by date.
+                      </Text>
+                      <Text style={styles.settingsSectionText}>
+                        <Text style={styles.settingsBoldText}>
+                          5. Chat with SIMI:
+                        </Text>
+                        {"\n"}
+                        Use the Chat feature to have conversations with SIMI
+                        about your tasks, get advice, or ask questions. SIMI can
+                        help you prioritize and understand your emotional
+                        responses to tasks.
+                      </Text>
+                      <Text style={styles.settingsSectionText}>
+                        <Text style={styles.settingsBoldText}>
+                          6. Profile Settings:
+                        </Text>
+                        {"\n"}
+                        Regularly update your baseline energy level and core
+                        values as they change. This ensures SIMI's
+                        recommendations remain accurate and helpful.
+                      </Text>
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       {/* Logout Confirmation Modal */}
       <Modal
@@ -1227,5 +1621,92 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "#fff",
+  },
+  // Settings Modal Styles
+  settingsModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  settingsModalContent: {
+    width: "100%",
+    maxWidth: 500,
+    height: Dimensions.get("window").height * 0.85,
+    backgroundColor: "#fff",
+    borderRadius: 24,
+    padding: 24,
+    shadowColor: "#522861",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 24,
+    elevation: 8,
+  },
+  settingsModalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(82, 40, 97, 0.1)",
+  },
+  settingsModalTitle: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#522861",
+    letterSpacing: -0.5,
+  },
+  settingsScrollView: {
+    height: Dimensions.get("window").height * 0.65,
+  },
+  settingsScrollContent: {
+    paddingBottom: 20,
+  },
+  settingsDropdownSection: {
+    marginBottom: 12,
+    backgroundColor: "rgba(240, 235, 245, 0.5)",
+    borderRadius: 16,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(82, 40, 97, 0.1)",
+  },
+  settingsDropdownHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.8)",
+  },
+  settingsDropdownContent: {
+    maxHeight: 300,
+    backgroundColor: "rgba(255, 255, 255, 0.6)",
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 20,
+  },
+  settingsSection: {
+    marginBottom: 28,
+  },
+  settingsSectionTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#522861",
+    marginBottom: 12,
+    letterSpacing: -0.3,
+    flex: 1,
+  },
+  settingsSectionText: {
+    fontSize: 15,
+    lineHeight: 24,
+    color: "#3d1e49",
+    marginBottom: 12,
+  },
+  settingsBoldText: {
+    fontWeight: "700",
+    color: "#522861",
+    fontSize: 15,
   },
 });
