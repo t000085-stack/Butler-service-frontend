@@ -11,6 +11,7 @@ import {
   Dimensions,
   Animated,
   Easing,
+  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -211,6 +212,7 @@ export default function ProfileScreen() {
 
   // Slider state
   const [sliderWidth, setSliderWidth] = useState(0);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const thumbPosition = useRef(new Animated.Value(0)).current;
   const isDragging = useRef(false);
   const sliderWidthRef = useRef(0);
@@ -346,14 +348,16 @@ export default function ProfileScreen() {
   };
 
   const handleSignOut = () => {
-    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Sign Out",
-        style: "destructive",
-        onPress: signOut,
-      },
-    ]);
+    setShowLogoutModal(true);
+  };
+
+  const confirmLogout = async () => {
+    setShowLogoutModal(false);
+    try {
+      await signOut();
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Failed to logout");
+    }
   };
 
   const toggleCoreValue = (value: string) => {
@@ -447,7 +451,7 @@ export default function ProfileScreen() {
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           >
-            <Feather name="power" size={18} color="#522861" />
+            <Feather name="log-out" size={18} color="#522861" />
           </LinearGradient>
         </TouchableOpacity>
       </View>
@@ -506,7 +510,6 @@ export default function ProfileScreen() {
             </View>
           </View>
         )}
-
 
         {/* Energy Level Section */}
         <View style={styles.section}>
@@ -672,6 +675,57 @@ export default function ProfileScreen() {
           <Text style={styles.signOutButtonText}>Sign Out</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Logout Confirmation Modal */}
+      <Modal
+        visible={showLogoutModal}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setShowLogoutModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.logoutModalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowLogoutModal(false)}
+        >
+          <View
+            style={styles.logoutModalContent}
+            onStartShouldSetResponder={() => true}
+          >
+            <Text style={styles.logoutModalTitle}>Logout</Text>
+            <Text style={styles.logoutModalMessage}>
+              Are you sure you want to logout?
+            </Text>
+            <View style={styles.logoutModalButtons}>
+              <View style={styles.logoutModalButtonWrapper}>
+                <TouchableOpacity
+                  style={styles.logoutModalCancelButton}
+                  onPress={() => setShowLogoutModal(false)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.logoutModalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.logoutModalButtonWrapper}>
+                <TouchableOpacity
+                  style={styles.logoutModalConfirmButton}
+                  onPress={confirmLogout}
+                  activeOpacity={0.7}
+                >
+                  <LinearGradient
+                    colors={["#522861", "#7a4d84"]}
+                    style={styles.logoutModalConfirmGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    <Text style={styles.logoutModalConfirmText}>Logout</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1093,5 +1147,85 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "#dc2626",
+  },
+  // Logout Modal Styles
+  logoutModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 16,
+  },
+  logoutModalContent: {
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    borderRadius: 28,
+    padding: 24,
+    width: "100%",
+    maxWidth: width - 64,
+    shadowColor: "#522861",
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.25,
+    shadowRadius: 30,
+    elevation: 15,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.8)",
+  },
+  logoutModalTitle: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#522861",
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  logoutModalMessage: {
+    fontSize: 16,
+    color: "#71717a",
+    textAlign: "center",
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  logoutModalButtons: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  logoutModalButtonWrapper: {
+    flex: 1,
+  },
+  logoutModalCancelButton: {
+    width: "100%",
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    backgroundColor: "rgba(82, 40, 97, 0.08)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: "rgba(82, 40, 97, 0.2)",
+  },
+  logoutModalCancelText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#522861",
+  },
+  logoutModalConfirmButton: {
+    width: "100%",
+    borderRadius: 16,
+    overflow: "hidden",
+    shadowColor: "#522861",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  logoutModalConfirmGradient: {
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  logoutModalConfirmText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#fff",
   },
 });

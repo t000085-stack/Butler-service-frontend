@@ -1,4 +1,10 @@
-import React, { useEffect, useState, useMemo, useRef } from "react";
+import React, {
+  useEffect,
+  useState,
+  useMemo,
+  useRef,
+  useCallback,
+} from "react";
 import {
   View,
   Text,
@@ -16,18 +22,40 @@ import {
   Animated,
   GestureResponderEvent,
   Image,
+  Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialIcons } from "@expo/vector-icons";
 import { useTasks } from "../../contexts/TaskContext";
 import { useAuth } from "../../contexts/AuthContext";
 import { COLORS, EMOTIONAL_FRICTION } from "../../constants/config";
+import { useRoute, useFocusEffect } from "@react-navigation/native";
 import MagicTaskInput, {
   ParsedTaskData,
 } from "../../components/MagicTaskInput";
 import type { Task, EmotionalFriction } from "../../types";
+
+// Speech recognition setup (same as MagicTaskInput)
+let ExpoSpeechRecognitionModule: any = null;
+let useSpeechRecognitionEvent: any = null;
+let voiceAvailable = false;
+
+try {
+  const speechModule = require("expo-speech-recognition");
+  ExpoSpeechRecognitionModule = speechModule.ExpoSpeechRecognitionModule;
+  useSpeechRecognitionEvent = speechModule.useSpeechRecognitionEvent;
+  voiceAvailable =
+    ExpoSpeechRecognitionModule != null &&
+    typeof ExpoSpeechRecognitionModule.requestPermissionsAsync === "function";
+} catch (e) {
+  console.log(
+    "expo-speech-recognition not available (requires development build)"
+  );
+}
+
+const { width } = Dimensions.get("window");
 
 // Calendar day type
 interface CalendarDay {
@@ -785,11 +813,20 @@ const feelingStyles = StyleSheet.create({
   descriptionContainer: {
     marginBottom: 20,
   },
+  descriptionLabelContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
   descriptionLabel: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#3d1e49",
-    marginBottom: 8,
+    color: "#522861",
+    flex: 1,
+  },
+  descriptionInputWrapper: {
+    position: "relative",
   },
   descriptionInput: {
     backgroundColor: "rgba(240, 235, 245, 0.8)",
@@ -802,8 +839,56 @@ const feelingStyles = StyleSheet.create({
     minHeight: 80,
     textAlignVertical: "top",
   },
+  listeningIndicator: {
+    position: "absolute",
+    top: 14,
+    left: 14,
+    backgroundColor: "rgba(82, 40, 97, 0.1)",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    zIndex: 1,
+  },
+  listeningText: {
+    fontSize: 12,
+    color: "#522861",
+    fontWeight: "600",
+  },
+  voiceButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(82, 40, 97, 0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(82, 40, 97, 0.2)",
+  },
+  voiceButtonActive: {
+    backgroundColor: "#522861",
+    borderColor: "#522861",
+  },
+  voiceButtonDisabled: {
+    opacity: 0.5,
+  },
   actions: {
     flexDirection: "row",
+    gap: 12,
+  },
+  manualButton: {
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 14,
+    backgroundColor: "rgba(82, 40, 97, 0.08)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: "rgba(82, 40, 97, 0.2)",
+  },
+  manualButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#522861",
   },
   continueButton: {
     flex: 1,
@@ -853,6 +938,7 @@ const feelingStyles = StyleSheet.create({
 
 export default function TaskListScreen() {
   const { signOut } = useAuth();
+  const route = useRoute();
   const {
     tasks,
     isLoading,
@@ -868,20 +954,16 @@ export default function TaskListScreen() {
 
   // Handle logout
   const handleLogout = () => {
-    Alert.alert("Logout", "Are you sure you want to logout?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Logout",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await signOut();
-          } catch (err: any) {
-            Alert.alert("Error", err.message || "Failed to logout");
-          }
-        },
-      },
-    ]);
+    setShowLogoutModal(true);
+  };
+
+  const confirmLogout = async () => {
+    setShowLogoutModal(false);
+    try {
+      await signOut();
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Failed to logout");
+    }
   };
 
   // Form state
@@ -901,10 +983,14 @@ export default function TaskListScreen() {
   const [feelingDescription, setFeelingDescription] = useState("");
   const [pendingParsedData, setPendingParsedData] =
     useState<ParsedTaskData | null>(null);
+  const [isListeningFeeling, setIsListeningFeeling] = useState(false);
+  const [feelingTranscript, setFeelingTranscript] = useState("");
+  const feelingPulseAnim = useRef(new Animated.Value(1)).current;
 
   // Full calendar popup state
   const [showCalendarModal, setShowCalendarModal] = useState(false);
   const [calendarViewDate, setCalendarViewDate] = useState(new Date());
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   // Calendar strip scroll ref
   const calendarScrollRef = useRef<ScrollView>(null);
@@ -923,6 +1009,20 @@ export default function TaskListScreen() {
   useEffect(() => {
     fetchTasks(true); // Include completed tasks
   }, [fetchTasks]);
+
+  // Check for navigation params to open modal
+  useFocusEffect(
+    useCallback(() => {
+      const params = route.params as { openModal?: boolean } | undefined;
+      if (params?.openModal) {
+        setShowModal(true);
+        // Clear the param to prevent reopening on subsequent focuses
+        if (route.params) {
+          (route.params as any).openModal = false;
+        }
+      }
+    }, [route.params])
+  );
 
   const resetForm = () => {
     setTitle("");
@@ -1085,6 +1185,100 @@ export default function TaskListScreen() {
     }
   };
 
+  // Voice input for feeling description (same as MagicTaskInput)
+  useEffect(() => {
+    if (!useSpeechRecognitionEvent) return;
+
+    useSpeechRecognitionEvent("result", (event: any) => {
+      if (!isListeningFeeling) return;
+      const newTranscript = event.results?.[0]?.transcript || "";
+      setFeelingTranscript(newTranscript);
+      if (event.isFinal) {
+        setFeelingDescription(newTranscript);
+        setIsListeningFeeling(false);
+      }
+    });
+
+    useSpeechRecognitionEvent("end", () => {
+      setIsListeningFeeling(false);
+    });
+
+    useSpeechRecognitionEvent("error", (event: any) => {
+      console.error("Speech error:", event);
+      setIsListeningFeeling(false);
+      Alert.alert("Voice recognition error", "Failed to process voice input");
+    });
+  }, [isListeningFeeling]);
+
+  // Pulse animation for mic button when listening
+  useEffect(() => {
+    if (isListeningFeeling) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(feelingPulseAnim, {
+            toValue: 1.2,
+            duration: 500,
+            useNativeDriver: true,
+          }),
+          Animated.timing(feelingPulseAnim, {
+            toValue: 1,
+            duration: 500,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    } else {
+      feelingPulseAnim.setValue(1);
+    }
+  }, [isListeningFeeling]);
+
+  const startListeningFeeling = async () => {
+    if (!voiceAvailable) {
+      Alert.alert(
+        "Voice Not Available",
+        "Voice input requires a development build.\n\nTo enable:\n1. Run: npx expo run:android\n\nFor now, type your description instead."
+      );
+      return;
+    }
+
+    try {
+      const result =
+        await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+      if (!result.granted) {
+        Alert.alert(
+          "Permission Denied",
+          "Microphone permission is required for voice input"
+        );
+        return;
+      }
+
+      setIsListeningFeeling(true);
+      setFeelingTranscript("");
+
+      ExpoSpeechRecognitionModule.start({
+        lang: "en-US",
+        interimResults: true,
+        maxAlternatives: 1,
+      });
+    } catch (error: any) {
+      console.error("Speech recognition error:", error);
+      setIsListeningFeeling(false);
+      Alert.alert("Error", "Failed to start voice recognition");
+    }
+  };
+
+  const stopListeningFeeling = () => {
+    if (ExpoSpeechRecognitionModule) {
+      ExpoSpeechRecognitionModule.stop();
+    }
+    setIsListeningFeeling(false);
+
+    // Use transcript if available
+    if (feelingTranscript) {
+      setFeelingDescription(feelingTranscript);
+    }
+  };
+
   // Skip feeling popup and go directly to form for manual input
   const handleSkipFeeling = () => {
     if (!pendingParsedData) return;
@@ -1189,63 +1383,89 @@ export default function TaskListScreen() {
   };
 
   const renderItem = ({ item }: { item: Task }) => (
-    <View style={[styles.card, item.is_completed && styles.cardCompleted]}>
-      {/* Completed indicator */}
-      {item.is_completed && (
-        <View style={styles.completedBadge}>
-          <Feather name="check" size={12} color="#fff" />
-          <Text style={styles.completedBadgeText}>Done</Text>
-        </View>
-      )}
-      <View style={styles.cardContent}>
-        <Text
-          style={[
-            styles.taskTitle,
-            item.is_completed && styles.taskTitleCompleted,
-          ]}
-        >
-          {item.title}
-        </Text>
-        <View style={styles.taskMeta}>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>Energy: {item.energy_cost}</Text>
-          </View>
-          <View
+    <View style={styles.taskItem}>
+      {/* Checkbox - marks task as done */}
+      <TouchableOpacity
+        style={styles.taskCheckbox}
+        onPress={() => handleComplete(item)}
+        activeOpacity={0.7}
+      >
+        {item.is_completed ? (
+          <Feather name="check-circle" size={22} color="#4CAF50" />
+        ) : (
+          <Feather name="circle" size={22} color="#522861" />
+        )}
+      </TouchableOpacity>
+      {/* Task content - opens edit modal */}
+      <TouchableOpacity
+        style={styles.taskContentTouchable}
+        onPress={() => handleEdit(item)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.taskContent}>
+          <Text
             style={[
-              styles.badge,
-              {
-                backgroundColor: frictionColors[item.emotional_friction] + "20",
-              },
+              styles.taskTitle,
+              item.is_completed && styles.taskTitleCompleted,
             ]}
+            numberOfLines={1}
           >
-            <Text
+            {item.title}
+          </Text>
+          <View style={styles.taskMeta}>
+            <View
               style={[
-                styles.badgeText,
-                { color: frictionColors[item.emotional_friction] },
+                styles.taskEnergy,
+                {
+                  backgroundColor:
+                    item.energy_cost <= 3
+                      ? "#E8F5E9"
+                      : item.energy_cost <= 6
+                      ? "#FFF3E0"
+                      : "#FFEBEE",
+                },
               ]}
             >
-              {item.emotional_friction}
-            </Text>
-          </View>
-          {item.associated_value && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{item.associated_value}</Text>
+              <Text
+                style={[
+                  styles.taskEnergyText,
+                  {
+                    color:
+                      item.energy_cost <= 3
+                        ? "#4CAF50"
+                        : item.energy_cost <= 6
+                        ? "#FF9800"
+                        : "#F44336",
+                  },
+                ]}
+              >
+                ⚡ {item.energy_cost}
+              </Text>
             </View>
-          )}
+            <Text style={styles.taskFriction}>{item.emotional_friction}</Text>
+            {item.associated_value && (
+              <Text style={styles.taskAssociatedValue}>
+                {item.associated_value}
+              </Text>
+            )}
+          </View>
         </View>
-      </View>
-      <View style={styles.cardActions}>
+      </TouchableOpacity>
+      {/* Edit and Delete buttons */}
+      <View style={styles.taskActions}>
         <TouchableOpacity
-          style={styles.editButton}
+          style={styles.taskEditButton}
           onPress={() => handleEdit(item)}
+          activeOpacity={0.7}
         >
           <Feather name="edit-2" size={16} color="#522861" />
         </TouchableOpacity>
         <TouchableOpacity
-          style={styles.deleteButton}
+          style={styles.taskDeleteButton}
           onPress={() => handleDelete(item)}
+          activeOpacity={0.7}
         >
-          <Text style={styles.deleteButtonText}>×</Text>
+          <Text style={styles.taskDeleteButtonText}>×</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -1272,31 +1492,11 @@ export default function TaskListScreen() {
         end={{ x: 1, y: 1 }}
       />
 
-      {/* Simple Header - Just Signout */}
+      {/* Header with Title and Add Button */}
       <View style={styles.appHeader}>
-        <View style={styles.appHeaderLeft} />
-        <View style={styles.appHeaderCenter} />
-        <TouchableOpacity
-          style={styles.appHeaderRight}
-          onPress={handleLogout}
-          activeOpacity={0.7}
-        >
-          <LinearGradient
-            colors={["rgba(82, 40, 97, 0.15)", "rgba(122, 77, 132, 0.1)"]}
-            style={styles.logoutGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            <Feather name="power" size={18} color="#522861" />
-          </LinearGradient>
-        </TouchableOpacity>
-      </View>
-
-      {/* Title Section */}
-      <View style={styles.titleSection}>
-        <View style={styles.titleLeft}>
-          <Text style={styles.title}>Your Tasks</Text>
-          <Text style={styles.subtitle}>
+        <View style={styles.headerLeft}>
+          <Text style={styles.headerTitle}>Your Tasks</Text>
+          <Text style={styles.headerSubtitle}>
             {filteredTasks.filter((t) => !t.is_completed).length} remaining,{" "}
             {filteredTasks.filter((t) => t.is_completed).length} done for{" "}
             {selectedDate.toLocaleDateString("en-US", {
@@ -1306,7 +1506,7 @@ export default function TaskListScreen() {
           </Text>
         </View>
         <TouchableOpacity
-          style={styles.addButton}
+          style={styles.headerAddButton}
           onPress={() => {
             resetForm();
             setDueDate(selectedDate);
@@ -1316,7 +1516,7 @@ export default function TaskListScreen() {
         >
           <LinearGradient
             colors={["#522861", "#7a4d84"]}
-            style={styles.addButtonGradient}
+            style={styles.headerAddButtonGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           >
@@ -1342,7 +1542,7 @@ export default function TaskListScreen() {
             }}
             activeOpacity={0.7}
           >
-            <Feather name="calendar" size={18} color="#522861" />
+            <Feather name="calendar" size={16} color="#522861" />
           </TouchableOpacity>
         </View>
         <ScrollView
@@ -1395,22 +1595,37 @@ export default function TaskListScreen() {
       </View>
 
       {/* Magic Task Input - AI-powered voice/text task creation */}
-      <MagicTaskInput
-        onTaskParsed={handleMagicTaskParsed}
-        onError={handleMagicError}
-        placeholder="Describe your task... e.g., 'Call mom tomorrow, it's emotionally hard'"
-      />
+      <View style={styles.magicInputSection}>
+        <Text style={styles.magicInputTitle}>Add your task using SIMI</Text>
+        <MagicTaskInput
+          onTaskParsed={handleMagicTaskParsed}
+          onError={handleMagicError}
+          placeholder="Describe your task... e.g., 'Call mom tomorrow, it's emotionally hard'"
+        />
+      </View>
 
+      {/* Tasks List - Scrollable */}
       {error ? (
         <View style={styles.centered}>
           <Text style={styles.errorText}>{error}</Text>
         </View>
+      ) : filteredTasks.length === 0 ? (
+        <View style={styles.empty}>
+          <Feather name="calendar" size={32} color={COLORS.textMuted} />
+          <Text style={styles.emptyText}>No tasks for this day</Text>
+          <Text style={styles.emptySubtext}>
+            Tap "+ Add" to create a task for{" "}
+            {selectedDate.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            })}
+          </Text>
+        </View>
       ) : (
-        <FlatList
-          data={filteredTasks}
-          keyExtractor={(item) => item._id}
-          renderItem={renderItem}
-          contentContainerStyle={styles.list}
+        <ScrollView
+          style={styles.tasksScrollView}
+          contentContainerStyle={styles.tasksScrollContent}
+          showsVerticalScrollIndicator={true}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -1418,20 +1633,13 @@ export default function TaskListScreen() {
               tintColor="#522861"
             />
           }
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <Feather name="calendar" size={40} color={COLORS.textMuted} />
-              <Text style={styles.emptyText}>No tasks for this day</Text>
-              <Text style={styles.emptySubtext}>
-                Tap "+ Add" to create a task for{" "}
-                {selectedDate.toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                })}
-              </Text>
-            </View>
-          }
-        />
+        >
+          <View style={styles.list}>
+            {filteredTasks.map((item) => (
+              <View key={item._id}>{renderItem({ item })}</View>
+            ))}
+          </View>
+        </ScrollView>
       )}
 
       {/* Feeling Popup Modal */}
@@ -1471,9 +1679,6 @@ export default function TaskListScreen() {
                   <View style={feelingStyles.header}>
                     <Text style={feelingStyles.title}>
                       How Do You Feel About It?
-                    </Text>
-                    <Text style={feelingStyles.subtitle}>
-                      "{pendingParsedData?.title}"
                     </Text>
                   </View>
 
@@ -1521,23 +1726,80 @@ export default function TaskListScreen() {
 
                   {/* Description Input */}
                   <View style={feelingStyles.descriptionContainer}>
-                    <Text style={feelingStyles.descriptionLabel}>
-                      Tell us more (optional)
-                    </Text>
-                    <TextInput
-                      style={feelingStyles.descriptionInput}
-                      placeholder="Why do you feel this way about the task?"
-                      placeholderTextColor={COLORS.textMuted}
-                      value={feelingDescription}
-                      onChangeText={setFeelingDescription}
-                      multiline
-                      numberOfLines={3}
-                      editable={!feelingLoading}
-                    />
+                    <View style={feelingStyles.descriptionLabelContainer}>
+                      <Text style={feelingStyles.descriptionLabel}>
+                        Tell us more (optional)
+                      </Text>
+                      <Animated.View
+                        style={{ transform: [{ scale: feelingPulseAnim }] }}
+                      >
+                        <TouchableOpacity
+                          style={[
+                            feelingStyles.voiceButton,
+                            isListeningFeeling &&
+                              feelingStyles.voiceButtonActive,
+                            !voiceAvailable &&
+                              feelingStyles.voiceButtonDisabled,
+                          ]}
+                          onPress={
+                            isListeningFeeling
+                              ? stopListeningFeeling
+                              : startListeningFeeling
+                          }
+                          disabled={feelingLoading}
+                          activeOpacity={0.7}
+                        >
+                          <MaterialIcons
+                            name={isListeningFeeling ? "mic" : "mic-none"}
+                            size={18}
+                            color={
+                              isListeningFeeling
+                                ? "#fff"
+                                : voiceAvailable
+                                ? "#522861"
+                                : COLORS.textMuted
+                            }
+                          />
+                        </TouchableOpacity>
+                      </Animated.View>
+                    </View>
+                    <View style={feelingStyles.descriptionInputWrapper}>
+                      <TextInput
+                        style={feelingStyles.descriptionInput}
+                        placeholder="Why do you feel this way about the task?"
+                        placeholderTextColor={COLORS.textMuted}
+                        value={
+                          isListeningFeeling && feelingTranscript
+                            ? feelingTranscript
+                            : feelingDescription
+                        }
+                        onChangeText={setFeelingDescription}
+                        multiline
+                        numberOfLines={3}
+                        editable={!feelingLoading && !isListeningFeeling}
+                      />
+                      {isListeningFeeling && (
+                        <View style={feelingStyles.listeningIndicator}>
+                          <Text style={feelingStyles.listeningText}>
+                            Listening...
+                          </Text>
+                        </View>
+                      )}
+                    </View>
                   </View>
 
                   {/* Action Buttons */}
                   <View style={feelingStyles.actions}>
+                    <TouchableOpacity
+                      style={feelingStyles.manualButton}
+                      onPress={handleSkipFeeling}
+                      disabled={feelingLoading}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={feelingStyles.manualButtonText}>
+                        Manually Edit
+                      </Text>
+                    </TouchableOpacity>
                     <TouchableOpacity
                       style={[
                         feelingStyles.continueButton,
@@ -1663,6 +1925,32 @@ export default function TaskListScreen() {
                         ]}
                       >
                         No date
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.dueDateButton,
+                        dueDate &&
+                          getDateString(dueDate) ===
+                            getDateString(new Date()) &&
+                          styles.dueDateButtonActive,
+                      ]}
+                      onPress={() => {
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        setDueDate(today);
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.dueDateButtonText,
+                          dueDate &&
+                            getDateString(dueDate) ===
+                              getDateString(new Date()) &&
+                            styles.dueDateButtonTextActive,
+                        ]}
+                      >
+                        Today
                       </Text>
                     </TouchableOpacity>
                     {generateCalendarDays(selectedDate)
@@ -1856,6 +2144,57 @@ export default function TaskListScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Logout Confirmation Modal */}
+      <Modal
+        visible={showLogoutModal}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setShowLogoutModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.logoutModalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowLogoutModal(false)}
+        >
+          <View
+            style={styles.logoutModalContent}
+            onStartShouldSetResponder={() => true}
+          >
+            <Text style={styles.logoutModalTitle}>Logout</Text>
+            <Text style={styles.logoutModalMessage}>
+              Are you sure you want to logout?
+            </Text>
+            <View style={styles.logoutModalButtons}>
+              <View style={styles.logoutModalButtonWrapper}>
+                <TouchableOpacity
+                  style={styles.logoutModalCancelButton}
+                  onPress={() => setShowLogoutModal(false)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.logoutModalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.logoutModalButtonWrapper}>
+                <TouchableOpacity
+                  style={styles.logoutModalConfirmButton}
+                  onPress={confirmLogout}
+                  activeOpacity={0.7}
+                >
+                  <LinearGradient
+                    colors={["#522861", "#7a4d84"]}
+                    style={styles.logoutModalConfirmGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    <Text style={styles.logoutModalConfirmText}>Logout</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1886,15 +2225,36 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     backgroundColor: "transparent",
   },
-  appHeaderLeft: {
-    width: 44,
-  },
-  appHeaderCenter: {
+  headerLeft: {
     flex: 1,
   },
-  appHeaderRight: {
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#522861",
+    letterSpacing: -0.5,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: "#522861",
+    marginTop: 2,
+    fontWeight: "500",
+  },
+  headerAddButton: {
+    overflow: "hidden",
+    borderRadius: 14,
+    shadowColor: "#522861",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  headerAddButtonGradient: {
+    width: 44,
+    height: 44,
     alignItems: "center",
     justifyContent: "center",
+    borderRadius: 14,
   },
   logoutGradient: {
     width: 42,
@@ -1914,40 +2274,40 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    marginBottom: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginBottom: 6,
   },
   titleLeft: {
     flex: 1,
   },
   title: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: "700",
     color: "#522861",
     letterSpacing: -0.5,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 12,
     color: "#7a4d84",
-    marginTop: 4,
+    marginTop: 2,
     fontWeight: "500",
   },
   addButton: {
     overflow: "hidden",
-    borderRadius: 14,
+    borderRadius: 12,
     shadowColor: "#522861",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   addButtonGradient: {
-    width: 44,
-    height: 44,
+    width: 36,
+    height: 36,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 14,
+    borderRadius: 12,
   },
   edit: {
     color: "#522861",
@@ -1959,29 +2319,60 @@ const styles = StyleSheet.create({
   },
   // Calendar styles - Glass effect
   calendarContainer: {
-    marginBottom: 12,
+    marginBottom: 8,
     marginHorizontal: 16,
     backgroundColor: "rgba(255, 255, 255, 0.7)",
-    borderRadius: 20,
-    padding: 12,
+    borderRadius: 16,
+    padding: 10,
     borderWidth: 1.5,
     borderColor: "rgba(255, 255, 255, 0.8)",
     shadowColor: "#522861",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  calendarHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  calendarMonthText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#522861",
+  },
+  calendarExpandButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: "rgba(82, 40, 97, 0.08)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  // Magic Input Section
+  magicInputSection: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+  },
+  magicInputTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#522861",
+    marginBottom: 8,
+    paddingHorizontal: 4,
   },
   calendarContent: {
     gap: 6,
   },
   calendarDay: {
     alignItems: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 14,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 12,
     backgroundColor: "rgba(240, 235, 245, 0.8)",
-    minWidth: 50,
+    minWidth: 48,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.6)",
   },
@@ -2000,18 +2391,18 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(82, 40, 97, 0.1)",
   },
   calendarDayName: {
-    fontSize: 11,
-    color: "#7a4d84",
+    fontSize: 10,
+    color: "#522861",
     fontWeight: "500",
-    marginBottom: 4,
+    marginBottom: 3,
   },
   calendarDayNameSelected: {
     color: "#fff",
   },
   calendarDayNumber: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
-    color: "#3d1e49",
+    color: "#522861",
   },
   calendarDayNumberSelected: {
     color: "#fff",
@@ -2029,106 +2420,97 @@ const styles = StyleSheet.create({
   calendarDotSelected: {
     backgroundColor: "#fff",
   },
+  tasksScrollView: {
+    flex: 1,
+  },
+  tasksScrollContent: {
+    paddingBottom: 16,
+  },
   list: {
     paddingHorizontal: 16,
     paddingTop: 8,
-    paddingBottom: 24,
+    gap: 8,
   },
-  card: {
-    backgroundColor: "rgba(255, 255, 255, 0.7)",
-    borderRadius: 20,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1.5,
-    borderColor: "rgba(255, 255, 255, 0.8)",
+  taskItem: {
     flexDirection: "row",
     alignItems: "center",
-    shadowColor: "#522861",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  cardCompleted: {
-    opacity: 0.85,
-    backgroundColor: "rgba(232, 245, 233, 0.8)",
-    borderColor: "#4CAF50",
-  },
-  completedBadge: {
-    position: "absolute",
-    top: 8,
-    right: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#4CAF50",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    backgroundColor: "rgba(240, 235, 245, 0.8)",
+    padding: 10,
     borderRadius: 12,
-    gap: 4,
+    marginBottom: 8,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.6)",
   },
-  completedBadgeText: {
-    color: "#fff",
-    fontSize: 11,
-    fontWeight: "600",
+  taskCheckbox: {
+    width: 24,
+    height: 24,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  cardContent: {
+  taskContentTouchable: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  taskContent: {
     flex: 1,
   },
   taskTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#3d1e49",
-    marginBottom: 8,
+    fontSize: 13,
+    fontWeight: "500",
+    color: COLORS.text,
+    marginBottom: 2,
   },
   taskTitleCompleted: {
     textDecorationLine: "line-through",
-    color: "#9b6fa1",
+    opacity: 0.6,
   },
   taskMeta: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
+    alignItems: "center",
+    gap: 6,
   },
-  badge: {
-    backgroundColor: "rgba(240, 235, 245, 0.9)",
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.6)",
+  taskEnergy: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
   },
-  badgeText: {
-    fontSize: 12,
-    color: "#7a4d84",
-    fontWeight: "500",
+  taskEnergyText: {
+    fontSize: 10,
+    fontWeight: "600",
   },
-  cardActions: {
+  taskFriction: {
+    fontSize: 10,
+    color: "#522861",
+  },
+  taskAssociatedValue: {
+    fontSize: 10,
+    color: "#522861",
+  },
+  taskActions: {
     flexDirection: "row",
-    gap: 8,
-    marginLeft: 12,
+    gap: 6,
+    alignItems: "center",
   },
-  editButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: "rgba(82, 40, 97, 0.15)",
+  taskEditButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: "rgba(82, 40, 97, 0.1)",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.6)",
   },
-  deleteButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: "rgba(239, 68, 68, 0.15)",
+  taskDeleteButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: "rgba(239, 68, 68, 0.1)",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.6)",
   },
-  deleteButtonText: {
-    fontSize: 22,
+  taskDeleteButtonText: {
+    fontSize: 20,
     color: COLORS.error,
     fontWeight: "400",
   },
@@ -2138,9 +2520,9 @@ const styles = StyleSheet.create({
   },
   empty: {
     alignItems: "center",
-    paddingVertical: 40,
+    paddingVertical: 32,
     backgroundColor: "rgba(255, 255, 255, 0.5)",
-    borderRadius: 20,
+    borderRadius: 16,
     marginHorizontal: 16,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.6)",
@@ -2347,29 +2729,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#fff",
   },
-  // Calendar header styles
-  calendarHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-    paddingHorizontal: 4,
-  },
-  calendarMonthText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#522861",
-  },
-  calendarExpandButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: "rgba(82, 40, 97, 0.1)",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "rgba(82, 40, 97, 0.15)",
-  },
   // Full calendar modal styles
   calendarModalOverlay: {
     flex: 1,
@@ -2491,5 +2850,85 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "500",
     color: "#7a4d84",
+  },
+  // Logout Modal Styles
+  logoutModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 16,
+  },
+  logoutModalContent: {
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    borderRadius: 28,
+    padding: 24,
+    width: "100%",
+    maxWidth: width - 64,
+    shadowColor: "#522861",
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.25,
+    shadowRadius: 30,
+    elevation: 15,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.8)",
+  },
+  logoutModalTitle: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#522861",
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  logoutModalMessage: {
+    fontSize: 16,
+    color: "#71717a",
+    textAlign: "center",
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  logoutModalButtons: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  logoutModalButtonWrapper: {
+    flex: 1,
+  },
+  logoutModalCancelButton: {
+    width: "100%",
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    backgroundColor: "rgba(82, 40, 97, 0.08)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: "rgba(82, 40, 97, 0.2)",
+  },
+  logoutModalCancelText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#522861",
+  },
+  logoutModalConfirmButton: {
+    width: "100%",
+    borderRadius: 16,
+    overflow: "hidden",
+    shadowColor: "#522861",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  logoutModalConfirmGradient: {
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  logoutModalConfirmText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#fff",
   },
 });

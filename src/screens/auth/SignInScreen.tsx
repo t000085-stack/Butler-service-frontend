@@ -171,7 +171,7 @@ const ThemeToggleButton = ({
 
 export default function SignInScreen() {
   const navigation = useNavigation<NavigationProp>();
-  const { signIn } = useAuth();
+  const { signIn, signUp } = useAuth();
   const { theme, isDark, toggleTheme } = useTheme();
   const insets = useSafeAreaInsets();
 
@@ -313,6 +313,47 @@ export default function SignInScreen() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleDemoMode = async () => {
+    setError(null);
+    setIsLoading(true);
+
+    try {
+      // Try to sign in with demo credentials first
+      await signIn("demo@simi.com", "demo123");
+    } catch (loginErr: any) {
+      // If login fails, try to create demo account
+      try {
+        await signUp("Demo User", "demo@simi.com", "demo123");
+        // After successful signup, automatically sign in
+        await signIn("demo@simi.com", "demo123");
+      } catch (signUpErr: any) {
+        // Check if error is because account already exists
+        const errorMsg = signUpErr.message?.toLowerCase() || "";
+        if (
+          errorMsg.includes("already exists") ||
+          errorMsg.includes("email") ||
+          errorMsg.includes("duplicate") ||
+          errorMsg.includes("taken")
+        ) {
+          // Account exists but password might be wrong
+          setError(
+            "Demo account exists but password is incorrect. Please try creating your own account."
+          );
+        } else {
+          // Other signup error - show the actual error
+          setError(
+            signUpErr.message ||
+              "Unable to create demo account. Please create an account manually."
+          );
+        }
+        setIsLoading(false);
+        return;
+      }
+    }
+
+    setIsLoading(false);
   };
 
   // Dynamic styles based on theme
@@ -626,6 +667,14 @@ export default function SignInScreen() {
                       </>
                     )}
                   </TouchableOpacity>
+
+                  {/* Demo Mode Button */}
+                  <TouchableOpacity
+                    onPress={handleDemoMode}
+                    style={styles.demoBtn}
+                  >
+                    <Text style={styles.demoText}>Continue in Demo Mode</Text>
+                  </TouchableOpacity>
                 </View>
               </BlurView>
             </View>
@@ -745,6 +794,18 @@ const styles = StyleSheet.create({
     fontSize: 18,
     marginLeft: 8,
     color: "#ffffff",
+  },
+  demoBtn: {
+    marginTop: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  demoText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#7a4d84",
   },
   registerLink: {
     marginTop: 20,

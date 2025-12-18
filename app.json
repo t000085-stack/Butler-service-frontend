@@ -1,9 +1,9 @@
 {
   "expo": {
-    "name": "ai-butler",
-    "icon": "./assets/simiicon.png",
+    "name": "eSIMI",
     "slug": "ai-butler",
-    "version": "1.0.0",
+    "icon": "./assets/simiicon.png",
+    "version": "1.0.1",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "splash": {
@@ -13,9 +13,10 @@
     },
     "ios": {
       "bundleIdentifier": "com.simi.simi",
-      "buildNumber": "0.0.2",
-      "supportsTablet": true,
+      "buildNumber": "4",
+      "supportsTablet": false,
       "infoPlist": {
+        "CFBundleDisplayName": "eSIMI",
         "NSPhotoLibraryUsageDescription": "SIMI uses photo access only if you choose to upload or attach images to your tasks or notes.",
         "NSSpeechRecognitionUsageDescription": "Allow $(PRODUCT_NAME) to use speech recognition.",
         "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to use the microphone.",
@@ -29,7 +30,7 @@
       },
       "usesCleartextTraffic": true,
       "permissions": ["android.permission.RECORD_AUDIO"],
-      "package": "com.anonymous.aibutler"
+      "package": "com.simi.simi"
     },
     "web": {
       "favicon": "./assets/favicon.png"

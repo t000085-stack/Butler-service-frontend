@@ -718,7 +718,7 @@ const getTasksForDay = (allTasks: Task[], date: Date) => {
 };
 
 export default function ConsultationScreen() {
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const {
     tasks,
     fetchTasks,
@@ -1159,24 +1159,6 @@ export default function ConsultationScreen() {
     }
   };
 
-  // Handle logout
-  const handleLogout = () => {
-    Alert.alert("Logout", "Are you sure you want to logout?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Logout",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await signOut();
-          } catch (err: any) {
-            Alert.alert("Error", err.message || "Failed to logout");
-          }
-        },
-      },
-    ]);
-  };
-
   const floatTranslateY = floatAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [0, -8],
@@ -1225,25 +1207,12 @@ export default function ConsultationScreen() {
       {/* App Header */}
       <View style={styles.appHeader}>
         <View style={styles.appHeaderLeft}>
-          <Text style={styles.headerGreeting}>
+          <Text style={styles.headerGreeting} numberOfLines={2}>
             {getGreeting()}, {user?.username || "there"}
           </Text>
         </View>
         <View style={styles.appHeaderCenter} />
-        <TouchableOpacity
-          style={styles.appHeaderRight}
-          onPress={handleLogout}
-          activeOpacity={0.7}
-        >
-          <LinearGradient
-            colors={["rgba(82, 40, 97, 0.15)", "rgba(122, 77, 132, 0.1)"]}
-            style={styles.logoutGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            <Feather name="power" size={18} color="#522861" />
-          </LinearGradient>
-        </TouchableOpacity>
+        <View style={styles.appHeaderRight} />
       </View>
 
       <ScrollView
@@ -1353,7 +1322,12 @@ export default function ConsultationScreen() {
             </View>
             <TouchableOpacity
               style={styles.addTaskButton}
-              onPress={() => navigation.navigate("Tasks" as never)}
+              onPress={() =>
+                navigation.navigate(
+                  "Tasks" as never,
+                  { openModal: true } as never
+                )
+              }
               activeOpacity={0.7}
             >
               <Feather name="plus" size={18} color="#fff" />
@@ -1930,13 +1904,13 @@ const styles = StyleSheet.create({
   },
   appHeaderLeft: {
     flex: 1,
+    minWidth: 0,
   },
   headerGreeting: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: "600",
     color: "#522861",
     letterSpacing: 0.3,
-    opacity: 0.7,
   },
   appHeaderCenter: {
     flex: 1,
@@ -1944,20 +1918,6 @@ const styles = StyleSheet.create({
   appHeaderRight: {
     alignItems: "center",
     justifyContent: "center",
-  },
-  logoutGradient: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1.5,
-    borderColor: "rgba(82, 40, 97, 0.2)",
-    shadowColor: "#522861",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
   },
   content: {
     flex: 1,
@@ -2154,7 +2114,7 @@ const styles = StyleSheet.create({
   moodQuestion: {
     fontSize: 15,
     fontWeight: "300",
-    color: COLORS.text,
+    color: "#522861",
     textAlign: "center",
     letterSpacing: 0.5,
     fontStyle: "italic",
@@ -2351,7 +2311,7 @@ const styles = StyleSheet.create({
   taskTitle: {
     fontSize: 13,
     fontWeight: "500",
-    color: COLORS.text,
+    color: "#522861",
     marginBottom: 2,
   },
   taskMeta: {
@@ -2370,7 +2330,7 @@ const styles = StyleSheet.create({
   },
   taskFriction: {
     fontSize: 10,
-    color: COLORS.textSecondary,
+    color: "#522861",
   },
   viewAllTasksButton: {
     flexDirection: "row",

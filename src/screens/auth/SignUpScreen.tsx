@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
   Text,
@@ -12,20 +12,20 @@ import {
   Animated,
   Easing,
   ScrollView,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { StatusBar } from 'expo-status-bar';
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useAuth } from '../../contexts/AuthContext';
-import type { AuthStackParamList } from '../../navigation/AuthStack';
-import { COLORS } from '../../constants/config';
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
+import { StatusBar } from "expo-status-bar";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { useAuth } from "../../contexts/AuthContext";
+import type { AuthStackParamList } from "../../navigation/AuthStack";
+import { COLORS } from "../../constants/config";
 
-const { width, height } = Dimensions.get('window');
+const { width, height } = Dimensions.get("window");
 const ORB_SIZE = width * 0.5;
 
-type NavigationProp = NativeStackNavigationProp<AuthStackParamList, 'SignUp'>;
+type NavigationProp = NativeStackNavigationProp<AuthStackParamList, "SignUp">;
 
 // Twinkling Star Component
 const Star = ({
@@ -101,38 +101,41 @@ interface FieldErrors {
 
 const validateUsername = (value: string): string | undefined => {
   const trimmed = value.trim();
-  if (!trimmed) return 'Username is required';
-  if (trimmed.length < 3) return 'Username must be at least 3 characters';
+  if (!trimmed) return "Username is required";
+  if (trimmed.length < 3) return "Username must be at least 3 characters";
   return undefined;
 };
 
 const validateEmail = (value: string): string | undefined => {
   const trimmed = value.trim();
-  if (!trimmed) return 'Email is required';
-  if (!EMAIL_REGEX.test(trimmed)) return 'Please enter a valid email address';
+  if (!trimmed) return "Email is required";
+  if (!EMAIL_REGEX.test(trimmed)) return "Please enter a valid email address";
   return undefined;
 };
 
 const validatePassword = (value: string): string | undefined => {
-  if (!value) return 'Password is required';
-  if (value.length < 6) return 'Password must be at least 6 characters';
+  if (!value) return "Password is required";
+  if (value.length < 6) return "Password must be at least 6 characters";
   return undefined;
 };
 
-const validateConfirmPassword = (password: string, confirmPassword: string): string | undefined => {
-  if (!confirmPassword) return 'Please confirm your password';
-  if (password !== confirmPassword) return 'Passwords do not match';
+const validateConfirmPassword = (
+  password: string,
+  confirmPassword: string
+): string | undefined => {
+  if (!confirmPassword) return "Please confirm your password";
+  if (password !== confirmPassword) return "Passwords do not match";
   return undefined;
 };
 
 export default function SignUpScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { signUp } = useAuth();
-  
-  const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -208,28 +211,28 @@ export default function SignUpScreen() {
 
   const spin = rotateAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
+    outputRange: ["0deg", "360deg"],
   });
 
   // Validate a single field and update errors
   const validateField = (field: keyof FieldErrors, value?: string) => {
     let error: string | undefined;
-    
+
     switch (field) {
-      case 'username':
+      case "username":
         error = validateUsername(value ?? username);
         break;
-      case 'email':
+      case "email":
         error = validateEmail(value ?? email);
         break;
-      case 'password':
+      case "password":
         error = validatePassword(value ?? password);
         break;
-      case 'confirmPassword':
+      case "confirmPassword":
         error = validateConfirmPassword(password, value ?? confirmPassword);
         break;
     }
-    
+
     setFieldErrors((prev) => ({ ...prev, [field]: error }));
     return error;
   };
@@ -248,10 +251,15 @@ export default function SignUpScreen() {
       password: validatePassword(password),
       confirmPassword: validateConfirmPassword(password, confirmPassword),
     };
-    
+
     setFieldErrors(errors);
-    setTouched({ username: true, email: true, password: true, confirmPassword: true });
-    
+    setTouched({
+      username: true,
+      email: true,
+      password: true,
+      confirmPassword: true,
+    });
+
     return !Object.values(errors).some((e) => e !== undefined);
   };
 
@@ -267,17 +275,17 @@ export default function SignUpScreen() {
     try {
       await signUp(username.trim(), email.trim().toLowerCase(), password);
     } catch (err: any) {
-      setError(err.message || 'Something went wrong');
+      setError(err.message || "Something went wrong");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
       <KeyboardAvoidingView
         style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <StatusBar style="dark" />
 
@@ -292,7 +300,7 @@ export default function SignUpScreen() {
 
         {/* Subtle background gradient */}
         <LinearGradient
-          colors={['#ffffff', '#faf5ff', '#fdf4ff', '#ffffff']}
+          colors={["#ffffff", "#faf5ff", "#fdf4ff", "#ffffff"]}
           style={styles.backgroundGradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
@@ -333,7 +341,7 @@ export default function SignUpScreen() {
               <View style={styles.orbGlowInner} />
             </View>
             <Animated.Image
-              source={require('../../../assets/signinImage.png')}
+              source={require("../../../assets/signinImage.png")}
               style={[styles.orbImage, { transform: [{ rotate: spin }] }]}
               resizeMode="contain"
             />
@@ -351,16 +359,20 @@ export default function SignUpScreen() {
           >
             <Text style={styles.title}>Create Account</Text>
             <Text style={styles.subtitle}>
-              Join us and let Simi{'\n'}guide your journey.
+              Join us and let Simi{"\n"}guide your journey.
             </Text>
 
             {/* Form */}
             <View style={styles.form}>
               <View>
-                <View style={[
-                  styles.inputWrapper,
-                  touched.username && fieldErrors.username && styles.inputError
-                ]}>
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    touched.username &&
+                      fieldErrors.username &&
+                      styles.inputError,
+                  ]}
+                >
                   <TextInput
                     style={styles.input}
                     placeholder="Username (min 3 characters)"
@@ -368,23 +380,27 @@ export default function SignUpScreen() {
                     value={username}
                     onChangeText={(text) => {
                       setUsername(text);
-                      if (touched.username) validateField('username', text);
+                      if (touched.username) validateField("username", text);
                     }}
-                    onBlur={() => handleBlur('username')}
+                    onBlur={() => handleBlur("username")}
                     autoCapitalize="none"
                     autoCorrect={false}
                   />
                 </View>
                 {touched.username && fieldErrors.username && (
-                  <Text style={styles.fieldErrorText}>{fieldErrors.username}</Text>
+                  <Text style={styles.fieldErrorText}>
+                    {fieldErrors.username}
+                  </Text>
                 )}
               </View>
 
               <View>
-                <View style={[
-                  styles.inputWrapper,
-                  touched.email && fieldErrors.email && styles.inputError
-                ]}>
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    touched.email && fieldErrors.email && styles.inputError,
+                  ]}
+                >
                   <TextInput
                     style={styles.input}
                     placeholder="Email"
@@ -392,9 +408,9 @@ export default function SignUpScreen() {
                     value={email}
                     onChangeText={(text) => {
                       setEmail(text);
-                      if (touched.email) validateField('email', text);
+                      if (touched.email) validateField("email", text);
                     }}
-                    onBlur={() => handleBlur('email')}
+                    onBlur={() => handleBlur("email")}
                     keyboardType="email-address"
                     autoCapitalize="none"
                     autoCorrect={false}
@@ -406,10 +422,14 @@ export default function SignUpScreen() {
               </View>
 
               <View>
-                <View style={[
-                  styles.inputWrapper,
-                  touched.password && fieldErrors.password && styles.inputError
-                ]}>
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    touched.password &&
+                      fieldErrors.password &&
+                      styles.inputError,
+                  ]}
+                >
                   <TextInput
                     style={styles.input}
                     placeholder="Password (min 6 characters)"
@@ -417,25 +437,32 @@ export default function SignUpScreen() {
                     value={password}
                     onChangeText={(text) => {
                       setPassword(text);
-                      if (touched.password) validateField('password', text);
+                      if (touched.password) validateField("password", text);
                       // Also revalidate confirm password if it's been touched
-                      if (touched.confirmPassword) validateField('confirmPassword', confirmPassword);
+                      if (touched.confirmPassword)
+                        validateField("confirmPassword", confirmPassword);
                     }}
-                    onBlur={() => handleBlur('password')}
+                    onBlur={() => handleBlur("password")}
                     secureTextEntry
                     autoCapitalize="none"
                   />
                 </View>
                 {touched.password && fieldErrors.password && (
-                  <Text style={styles.fieldErrorText}>{fieldErrors.password}</Text>
+                  <Text style={styles.fieldErrorText}>
+                    {fieldErrors.password}
+                  </Text>
                 )}
               </View>
 
               <View>
-                <View style={[
-                  styles.inputWrapper,
-                  touched.confirmPassword && fieldErrors.confirmPassword && styles.inputError
-                ]}>
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    touched.confirmPassword &&
+                      fieldErrors.confirmPassword &&
+                      styles.inputError,
+                  ]}
+                >
                   <TextInput
                     style={styles.input}
                     placeholder="Confirm Password"
@@ -443,15 +470,18 @@ export default function SignUpScreen() {
                     value={confirmPassword}
                     onChangeText={(text) => {
                       setConfirmPassword(text);
-                      if (touched.confirmPassword) validateField('confirmPassword', text);
+                      if (touched.confirmPassword)
+                        validateField("confirmPassword", text);
                     }}
-                    onBlur={() => handleBlur('confirmPassword')}
+                    onBlur={() => handleBlur("confirmPassword")}
                     secureTextEntry
                     autoCapitalize="none"
                   />
                 </View>
                 {touched.confirmPassword && fieldErrors.confirmPassword && (
-                  <Text style={styles.fieldErrorText}>{fieldErrors.confirmPassword}</Text>
+                  <Text style={styles.fieldErrorText}>
+                    {fieldErrors.confirmPassword}
+                  </Text>
                 )}
               </View>
 
@@ -485,7 +515,7 @@ export default function SignUpScreen() {
               activeOpacity={0.6}
             >
               <Text style={styles.signInText}>
-                Already have an account?{' '}
+                Already have an account?{" "}
                 <Text style={styles.signInHighlight}>Sign In</Text>
               </Text>
             </TouchableOpacity>
@@ -505,17 +535,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   backButton: {
-    position: 'absolute',
+    position: "absolute",
     top: 10,
     left: 20,
     zIndex: 10,
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
+    backgroundColor: "rgba(255, 255, 255, 0.8)",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -524,24 +554,24 @@ const styles = StyleSheet.create({
   backIcon: {
     fontSize: 20,
     color: COLORS.text,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   backgroundGradient: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
   },
   starsContainer: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
   },
   star: {
-    position: 'absolute',
+    position: "absolute",
     backgroundColor: COLORS.primaryLight,
     shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 0 },
@@ -553,33 +583,33 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   orbContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginTop: height * 0.06,
     height: ORB_SIZE * 1.1,
   },
   orbGlowBorder: {
-    position: 'absolute',
+    position: "absolute",
     width: ORB_SIZE + 10,
     height: ORB_SIZE + 10,
     borderRadius: (ORB_SIZE + 10) / 2,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.5)',
-    shadowColor: '#ffffff',
+    borderColor: "rgba(255, 255, 255, 0.5)",
+    shadowColor: "#ffffff",
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.4,
     shadowRadius: 15,
     elevation: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   orbGlowInner: {
     width: ORB_SIZE + 4,
     height: ORB_SIZE + 4,
     borderRadius: (ORB_SIZE + 4) / 2,
     borderWidth: 0.5,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-    shadowColor: '#ffffff',
+    borderColor: "rgba(255, 255, 255, 0.3)",
+    shadowColor: "#ffffff",
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.6,
     shadowRadius: 10,
@@ -595,15 +625,15 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 26,
-    fontWeight: '600',
+    fontWeight: "600",
     color: COLORS.text,
-    textAlign: 'center',
+    textAlign: "center",
     letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 15,
     color: COLORS.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: 10,
     lineHeight: 22,
   },
@@ -635,7 +665,7 @@ const styles = StyleSheet.create({
   errorText: {
     color: COLORS.error,
     fontSize: 13,
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: 4,
   },
   signUpButton: {
@@ -643,9 +673,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 16,
     paddingHorizontal: 24,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     marginTop: 20,
     borderWidth: 1,
     borderColor: COLORS.borderDark,
@@ -655,7 +685,7 @@ const styles = StyleSheet.create({
   },
   signUpButtonText: {
     fontSize: 15,
-    fontWeight: '500',
+    fontWeight: "500",
     color: COLORS.text,
   },
   signUpArrow: {
@@ -665,7 +695,7 @@ const styles = StyleSheet.create({
   },
   signInLink: {
     marginTop: 20,
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: 8,
   },
   signInText: {
@@ -674,7 +704,6 @@ const styles = StyleSheet.create({
   },
   signInHighlight: {
     color: COLORS.primary,
-    fontWeight: '500',
+    fontWeight: "500",
   },
 });
-
