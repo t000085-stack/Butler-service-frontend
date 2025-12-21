@@ -365,9 +365,10 @@ const energyStyles = StyleSheet.create({
 // Styles for the emoji mood selector
 const moodSelectorStyles = StyleSheet.create({
   container: {
-    paddingVertical: 12,
+    paddingVertical: 4,
     paddingHorizontal: 4,
     direction: "ltr",
+    marginTop: -8,
   },
   lineContainer: {
     position: "absolute",
@@ -489,63 +490,68 @@ interface ConsultationResult {
 // Mood options with custom face images (Great to Terrible for RTL display)
 const MOODS = [
   {
-    id: "happy",
+    id: "great",
     image: require("../../../assets/great.png"),
     label: "Great",
     color: "#10B981",
   },
   {
-    id: "calm",
+    id: "good",
     image: require("../../../assets/good.png"),
-    label: "Good",
+    label: "good",
     color: "#22C55E",
   },
   {
-    id: "neutral",
+    id: "okay",
     image: require("../../../assets/okey.png"),
-    label: "Okay",
+    label: "okay",
     color: "#EAB308",
   },
   {
-    id: "stressed",
+    id: "bad",
     image: require("../../../assets/bad.png"),
-    label: "Bad",
+    label: "bad",
     color: "#F97316",
   },
   {
-    id: "sad",
+    id: "terrible",
     image: require("../../../assets/terrible.png"),
-    label: "Terrible",
+    label: "terrible",
     color: "#EF4444",
   },
 ];
 
 // Face images for each mood
 const MOOD_FACES: Record<string, any> = {
-  happy: require("../../../assets/happy1.png"),
-  calm: require("../../../assets/normal1.png"),
-  neutral: require("../../../assets/normal1.png"),
-  stressed: require("../../../assets/normal1.png"),
-  sad: require("../../../assets/sad1.png"),
+  great: require("../../../assets/Great1.png"),
+  good: require("../../../assets/good1.png"),
+  okay: require("../../../assets/Okey1.png"),
+  bad: require("../../../assets/Sad11.png"),
+  terrible: require("../../../assets/Terrible1.png"),
 };
 
 // Check if a task is for today (comparing date strings to avoid timezone issues)
 const isTaskForToday = (task: Task) => {
-  if (!task.due_date) {
-    // Tasks without due_date show on today
-    return true;
-  }
-
   const today = new Date();
   const todayStr = `${today.getFullYear()}-${String(
     today.getMonth() + 1
   ).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
-  // Extract just the date part from due_date (YYYY-MM-DD) to avoid timezone issues
-  // This handles both "2024-12-17" and "2024-12-17T00:00:00.000Z" formats
-  const taskDateStr = task.due_date.substring(0, 10);
+  if (task.due_date) {
+    // Extract just the date part from due_date (YYYY-MM-DD) to avoid timezone issues
+    // This handles both "2024-12-17" and "2024-12-17T00:00:00.000Z" formats
+    const taskDateStr = task.due_date.substring(0, 10);
+    return taskDateStr === todayStr;
+  }
 
-  return taskDateStr === todayStr;
+  // Tasks without due_date: only count if created today (consistent with getDailyStats)
+  if (task.created_at) {
+    const createdDateStr = task.created_at.substring(0, 10);
+    return createdDateStr === todayStr;
+  }
+
+  // No date info, don't count as today
+  return false;
 };
 
 // Filter tasks for "My Tasks Today" - shows only today's incomplete tasks
@@ -557,13 +563,13 @@ const getFilteredTasks = (allTasks: Task[], mood: string | null) => {
   );
 
   switch (mood) {
-    case "sad":
-    case "stressed":
+    case "terrible":
+    case "bad":
       // When feeling bad or terrible: only show low energy tasks (energy_cost <= 3)
       return todayIncompleteTasks.filter((t) => t.energy_cost <= 3);
-    case "happy":
-    case "calm":
-    case "neutral":
+    case "great":
+    case "good":
+    case "okay":
     default:
       // Great/Good/Okay mood: Show all today's incomplete tasks
       return todayIncompleteTasks;
@@ -629,7 +635,7 @@ const getAISuggestion = (
   }
 
   switch (mood) {
-    case "happy":
+    case "great":
       return {
         icon: "🚀",
         title: "You're on fire!",
@@ -637,7 +643,7 @@ const getAISuggestion = (
           remaining > 1 ? "s" : ""
         }. Go for the challenging ones!`,
       };
-    case "calm":
+    case "good":
       return {
         icon: "🧘",
         title: "Steady progress",
@@ -645,7 +651,7 @@ const getAISuggestion = (
           remaining > 1 ? "s" : ""
         } left - take them one at a time.`,
       };
-    case "neutral":
+    case "okay":
       return {
         icon: "💪",
         title: "Keep going",
@@ -653,14 +659,14 @@ const getAISuggestion = (
           remaining > 1 ? "s" : ""
         } remaining. Start with something easy to build momentum.`,
       };
-    case "stressed":
+    case "bad":
       return {
         icon: "🌿",
         title: "Take it slow",
         message:
           "Focus on just one small task. I've filtered out the overwhelming ones for you.",
       };
-    case "sad":
+    case "terrible":
       return {
         icon: "💜",
         title: "Be gentle with yourself",
@@ -731,8 +737,8 @@ export default function ConsultationScreen() {
   const [error, setError] = useState<string | null>(null);
   const [isCompleting, setIsCompleting] = useState(false);
   const [isRerolling, setIsRerolling] = useState(false);
-  const [selectedMood, setSelectedMood] = useState<string | null>("neutral");
-  const [displayedMood, setDisplayedMood] = useState<string>("neutral");
+  const [selectedMood, setSelectedMood] = useState<string | null>("okay");
+  const [displayedMood, setDisplayedMood] = useState<string | null>("okay");
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
   const [energyLevel, setEnergyLevel] = useState<number>(5);
 
@@ -776,8 +782,7 @@ export default function ConsultationScreen() {
   const floatAnim = useRef(new Animated.Value(0)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const faceOpacity = useRef(new Animated.Value(1)).current;
-  const faceScale = useRef(new Animated.Value(1)).current;
-  const faceRotate = useRef(new Animated.Value(0)).current;
+  const nextFaceOpacity = useRef(new Animated.Value(0)).current;
 
   // Container entrance animations
   const moodSectionAnim = useRef(new Animated.Value(0)).current;
@@ -798,17 +803,6 @@ export default function ConsultationScreen() {
       useNativeDriver: false,
       listener: (event: any) => {
         const offsetY = event.nativeEvent.contentOffset.y;
-
-        // Trigger tasks section animation when scrolled past 200px
-        if (offsetY > 150 && !tasksVisible) {
-          setTasksVisible(true);
-          Animated.spring(tasksScrollAnim, {
-            toValue: 1,
-            friction: 6,
-            tension: 50,
-            useNativeDriver: true,
-          }).start();
-        }
 
         // Trigger weekly section animation when scrolled past 400px
         if (offsetY > 350 && !weeklyVisible) {
@@ -852,65 +846,39 @@ export default function ConsultationScreen() {
     ]).start();
   }, []);
 
-  // Smooth face transition when mood changes - realistic morph effect
+  // Smooth professional cross-fade transition when mood changes
   useEffect(() => {
     if (selectedMood && selectedMood !== displayedMood) {
-      // Phase 1: Shrink, fade, and rotate out
+      // Reset next face opacity
+      nextFaceOpacity.setValue(0);
+
+      // Smooth cross-fade: both images visible during transition for clarity
+      // New image fades in quickly, old image fades out slightly slower
       Animated.parallel([
+        Animated.timing(nextFaceOpacity, {
+          toValue: 1,
+          duration: 150,
+          easing: Easing.ease,
+          useNativeDriver: true,
+        }),
         Animated.timing(faceOpacity, {
           toValue: 0,
-          duration: 180,
-          easing: Easing.bezier(0.4, 0, 0.2, 1),
-          useNativeDriver: true,
-        }),
-        Animated.timing(faceScale, {
-          toValue: 0.6,
           duration: 200,
-          easing: Easing.bezier(0.4, 0, 0.2, 1),
-          useNativeDriver: true,
-        }),
-        Animated.timing(faceRotate, {
-          toValue: 1,
-          duration: 200,
-          easing: Easing.bezier(0.4, 0, 0.2, 1),
+          easing: Easing.ease,
           useNativeDriver: true,
         }),
       ]).start(() => {
-        // Change the face image
+        // Update displayed mood and reset opacities
         setDisplayedMood(selectedMood);
-        // Reset rotation
-        faceRotate.setValue(-1);
-
-        // Phase 2: Grow back with elastic bounce
-        Animated.parallel([
-          Animated.spring(faceOpacity, {
-            toValue: 1,
-            tension: 60,
-            friction: 6,
-            useNativeDriver: true,
-          }),
-          Animated.spring(faceScale, {
-            toValue: 1,
-            tension: 80,
-            friction: 5,
-            useNativeDriver: true,
-          }),
-          Animated.spring(faceRotate, {
-            toValue: 0,
-            tension: 60,
-            friction: 6,
-            useNativeDriver: true,
-          }),
-        ]).start();
+        faceOpacity.setValue(1);
+        nextFaceOpacity.setValue(0);
       });
+    } else if (selectedMood === displayedMood && displayedMood) {
+      // Ensure current mood is visible when matching
+      faceOpacity.setValue(1);
+      nextFaceOpacity.setValue(0);
     }
   }, [selectedMood]);
-
-  // Rotation interpolation for face transition
-  const faceRotateInterpolate = faceRotate.interpolate({
-    inputRange: [-1, 0, 1],
-    outputRange: ["-15deg", "0deg", "15deg"],
-  });
 
   const startAnimations = () => {
     // Card entrance
@@ -956,7 +924,7 @@ export default function ConsultationScreen() {
 
     try {
       const response = await butlerApi.consult({
-        current_mood: "neutral",
+        current_mood: "okay",
         current_energy: 5,
         raw_input: "I need help deciding what to do next",
       });
@@ -1005,7 +973,7 @@ export default function ConsultationScreen() {
 
     try {
       const response = await butlerApi.consult({
-        current_mood: "neutral",
+        current_mood: "okay",
         current_energy: 5,
         raw_input:
           "Give me a different suggestion, I can't do the previous one right now",
@@ -1089,7 +1057,7 @@ export default function ConsultationScreen() {
     if (!editingTask || !editTitle.trim()) return;
 
     const isHighDifficulty = editDifficulty >= 3; // Hard or Very Hard
-    const isLowMood = selectedMood === "sad" || selectedMood === "stressed";
+    const isLowMood = selectedMood === "terrible" || selectedMood === "bad";
 
     // If mood is low and task is high difficulty, ask to transfer to tomorrow
     if (isHighDifficulty && isLowMood) {
@@ -1239,8 +1207,6 @@ export default function ConsultationScreen() {
             },
           ]}
         >
-          <Text style={styles.moodQuestion}>How are you feeling today?</Text>
-
           {/* Centered Orb Image with Face */}
           <Animated.View
             style={[
@@ -1253,21 +1219,35 @@ export default function ConsultationScreen() {
               style={[styles.moodOrbImage, { transform: [{ rotate: spin }] }]}
               resizeMode="contain"
             />
-            {/* Face overlay - changes based on selected mood with smooth transition */}
-            <Animated.Image
-              source={MOOD_FACES[displayedMood]}
-              style={[
-                styles.moodFaceOverlay,
-                {
-                  opacity: faceOpacity,
-                  transform: [
-                    { scale: faceScale },
-                    { rotate: faceRotateInterpolate },
-                  ],
-                },
-              ]}
-              resizeMode="contain"
-            />
+            {/* Face overlay - smooth professional cross-fade transition */}
+            {/* Current mood image */}
+            {displayedMood && MOOD_FACES[displayedMood] && (
+              <Animated.Image
+                source={MOOD_FACES[displayedMood]}
+                style={[
+                  styles.moodFaceOverlay,
+                  {
+                    opacity: faceOpacity,
+                  },
+                ]}
+                resizeMode="contain"
+              />
+            )}
+            {/* Next mood image (during transition) */}
+            {selectedMood &&
+              selectedMood !== displayedMood &&
+              MOOD_FACES[selectedMood] && (
+                <Animated.Image
+                  source={MOOD_FACES[selectedMood]}
+                  style={[
+                    styles.moodFaceOverlay,
+                    {
+                      opacity: nextFaceOpacity,
+                    },
+                  ]}
+                  resizeMode="contain"
+                />
+              )}
           </Animated.View>
 
           <MoodImageSelector
@@ -1284,37 +1264,12 @@ export default function ConsultationScreen() {
         </Animated.View>
 
         {/* My Tasks Today Section */}
-        <Animated.View
-          style={[
-            styles.tasksSection,
-            styles.glassContainer,
-            {
-              opacity: tasksScrollAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0, 1],
-              }),
-              transform: [
-                {
-                  translateY: tasksScrollAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [50, 0],
-                  }),
-                },
-                {
-                  scale: tasksScrollAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.9, 1],
-                  }),
-                },
-              ],
-            },
-          ]}
-        >
+        <View style={[styles.tasksSection, styles.glassContainer]}>
           <View style={styles.tasksSectionHeader}>
             <View>
               <Text style={styles.tasksSectionTitle}>My Tasks Today</Text>
               <Text style={styles.tasksSectionDate}>{formatDate()}</Text>
-              {(selectedMood === "sad" || selectedMood === "stressed") && (
+              {(selectedMood === "terrible" || selectedMood === "bad") && (
                 <Text style={styles.moodTaskHint}>
                   💜 Showing low energy tasks only
                 </Text>
@@ -1322,12 +1277,9 @@ export default function ConsultationScreen() {
             </View>
             <TouchableOpacity
               style={styles.addTaskButton}
-              onPress={() =>
-                navigation.navigate(
-                  "Tasks" as never,
-                  { openModal: true } as never
-                )
-              }
+              onPress={() => {
+                (navigation as any).navigate("Tasks", { openModal: true });
+              }}
               activeOpacity={0.7}
             >
               <Feather name="plus" size={18} color="#fff" />
@@ -1357,7 +1309,11 @@ export default function ConsultationScreen() {
                       activeOpacity={0.7}
                     >
                       {completingTaskId === task._id ? (
-                        <ActivityIndicator size="small" color="#522861" />
+                        <Feather
+                          name="check-circle"
+                          size={22}
+                          color="#522861"
+                        />
                       ) : (
                         <Feather name="circle" size={22} color="#522861" />
                       )}
@@ -1413,7 +1369,9 @@ export default function ConsultationScreen() {
               {getFilteredTasks(tasks, selectedMood).length > 5 && (
                 <TouchableOpacity
                   style={styles.viewAllTasksButton}
-                  onPress={() => navigation.navigate("Tasks" as never)}
+                  onPress={() => {
+                    (navigation as any).navigate("Tasks");
+                  }}
                 >
                   <Text style={styles.viewAllTasksText}>
                     View all {getFilteredTasks(tasks, selectedMood).length}{" "}
@@ -1428,7 +1386,7 @@ export default function ConsultationScreen() {
               )}
             </View>
           )}
-        </Animated.View>
+        </View>
 
         {/* Today's Progress Section */}
         <View style={styles.progressSection}>
@@ -2063,6 +2021,7 @@ const styles = StyleSheet.create({
   headerSection: {
     alignItems: "center",
     marginBottom: 10,
+    marginTop: -40,
     paddingHorizontal: 0,
   },
   greetingSection: {
@@ -2120,23 +2079,27 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
   },
   moodOrbContainer: {
-    width: 160,
-    height: 160,
+    width: 350,
+    height: 350,
     alignSelf: "center",
-    marginVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+    marginTop: 8,
   },
   moodOrbImage: {
-    width: 160,
-    height: 160,
+    width: 280,
+    height: 280,
+    alignSelf: "center",
   },
   moodFaceOverlay: {
     position: "absolute",
-    width: 140,
-    height: 140,
+    width: 350,
+    height: 350,
     top: "50%",
     left: "50%",
-    marginTop: -70,
-    marginLeft: -70,
+    marginTop: -175,
+    marginLeft: -175,
   },
   moodOptions: {
     flexDirection: "row",
