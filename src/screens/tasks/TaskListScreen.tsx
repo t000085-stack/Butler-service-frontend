@@ -1001,7 +1001,7 @@ export default function TaskListScreen() {
     [selectedDate]
   );
 
-  // Filtered tasks for selected date
+  // Filtered tasks for selected date - includes both completed and non-completed tasks
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => isTaskOnDate(task, selectedDate));
   }, [tasks, selectedDate]);
@@ -1515,12 +1515,12 @@ export default function TaskListScreen() {
           activeOpacity={0.7}
         >
           <LinearGradient
-            colors={["#522861", "#7a4d84"]}
+            colors={["rgba(82, 40, 97, 0.15)", "rgba(122, 77, 132, 0.1)"]}
             style={styles.headerAddButtonGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           >
-            <Feather name="plus" size={18} color="#fff" />
+            <Feather name="plus" size={18} color="#522861" />
           </LinearGradient>
         </TouchableOpacity>
       </View>
@@ -2241,20 +2241,22 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   headerAddButton: {
-    overflow: "hidden",
-    borderRadius: 14,
-    shadowColor: "#522861",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  headerAddButtonGradient: {
-    width: 44,
-    height: 44,
     alignItems: "center",
     justifyContent: "center",
+  },
+  headerAddButtonGradient: {
+    width: 42,
+    height: 42,
     borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: "rgba(82, 40, 97, 0.2)",
+    shadowColor: "#522861",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
   logoutGradient: {
     width: 42,

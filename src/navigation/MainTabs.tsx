@@ -53,6 +53,7 @@ export default function MainTabs() {
           ...styles.tabBar,
           height: 60 + insets.bottom,
           paddingBottom: insets.bottom,
+          paddingTop: 8,
         },
         tabBarLabelStyle: styles.tabLabel,
       })}
@@ -85,6 +86,7 @@ const styles = StyleSheet.create({
   tabBar: {
     backgroundColor: COLORS.background,
     borderTopColor: COLORS.border,
+    borderTopWidth: 0,
     paddingTop: 8,
   },
   tabLabel: {

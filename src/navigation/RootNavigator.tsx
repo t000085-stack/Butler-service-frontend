@@ -74,7 +74,7 @@ export default function RootNavigator() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#faf5ff" }}>
+    <View style={{ flex: 1, backgroundColor: COLORS.background }}>
       {/* Main Content - always rendered but faded */}
       {isAuthenticated && (
         <Animated.View
@@ -83,7 +83,7 @@ export default function RootNavigator() {
             {
               opacity: mainContentFadeAnim,
               zIndex: showSplash ? 0 : 1,
-              backgroundColor: "#faf5ff",
+              backgroundColor: COLORS.background,
             },
           ]}
         >

@@ -1148,7 +1148,7 @@ export default function ConsultationScreen() {
   });
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
+    <SafeAreaView style={styles.safeArea} edges={["top"]}>
       <StatusBar style="dark" />
 
       {/* Background */}
