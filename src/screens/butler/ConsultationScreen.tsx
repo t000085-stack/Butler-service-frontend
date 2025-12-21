@@ -487,37 +487,37 @@ interface ConsultationResult {
   contextLogId: string;
 }
 
-// Mood options with custom face images (Great to Terrible for RTL display)
+// Mood options with custom face images (Terrible to Great)
 const MOODS = [
+  {
+    id: "terrible",
+    image: require("../../../assets/terrible.png"),
+    label: "Terrible",
+    color: "#EF4444",
+  },
+  {
+    id: "bad",
+    image: require("../../../assets/bad.png"),
+    label: "Bad",
+    color: "#F97316",
+  },
+  {
+    id: "okay",
+    image: require("../../../assets/okey.png"),
+    label: "Okay",
+    color: "#EAB308",
+  },
+  {
+    id: "good",
+    image: require("../../../assets/good.png"),
+    label: "Good",
+    color: "#22C55E",
+  },
   {
     id: "great",
     image: require("../../../assets/great.png"),
     label: "Great",
     color: "#10B981",
-  },
-  {
-    id: "good",
-    image: require("../../../assets/good.png"),
-    label: "good",
-    color: "#22C55E",
-  },
-  {
-    id: "okay",
-    image: require("../../../assets/okey.png"),
-    label: "okay",
-    color: "#EAB308",
-  },
-  {
-    id: "bad",
-    image: require("../../../assets/bad.png"),
-    label: "bad",
-    color: "#F97316",
-  },
-  {
-    id: "terrible",
-    image: require("../../../assets/terrible.png"),
-    label: "terrible",
-    color: "#EF4444",
   },
 ];
 
@@ -997,11 +997,12 @@ export default function ConsultationScreen() {
   };
 
   // Convert emotional friction to difficulty level
+  // Maps to match button numbers: button "1" = level 0, button "2" = level 1, etc.
   const frictionToDifficulty = (friction: string): number => {
-    if (friction === "Low") return 1;
-    if (friction === "Medium") return 2;
-    if (friction === "High") return 3;
-    return 2;
+    if (friction === "Low") return 0; // Button "1" = level 0
+    if (friction === "Medium") return 2; // Button "3" = level 2
+    if (friction === "High") return 3; // Button "4" = level 3
+    return 2; // Default to Medium (button "3")
   };
 
   // Open edit modal for a task
@@ -1027,7 +1028,10 @@ export default function ConsultationScreen() {
   const handleUpdateTask = async () => {
     if (!editingTask || !editTitle.trim()) return;
 
-    const isHighDifficulty = editDifficulty >= 3; // Hard or Very Hard
+    // Ensure editDifficulty is a valid number between 0 and 4 (buttons display 1-5)
+    // Clamp to valid array index range
+    const validDifficulty = Math.max(0, Math.min(4, editDifficulty ?? 2));
+    const isHighDifficulty = validDifficulty >= 3; // Hard or Very Hard
     const isLowMood = selectedMood === "terrible" || selectedMood === "bad";
 
     // If mood is low and task is high difficulty, ask to transfer to tomorrow
@@ -1044,7 +1048,7 @@ export default function ConsultationScreen() {
                 await updateTask(editingTask._id, {
                   title: editTitle.trim(),
                   energy_cost: MOTIVATION_ENERGY[editMotivation],
-                  emotional_friction: DIFFICULTY_FRICTION[editDifficulty],
+                  emotional_friction: DIFFICULTY_FRICTION[validDifficulty],
                   due_date: getTomorrowDateString(),
                 });
                 setShowEditModal(false);
@@ -1065,11 +1069,28 @@ export default function ConsultationScreen() {
           },
           {
             text: "No, keep it",
-            onPress: () => {
-              Alert.alert(
-                "💪 Be Gentle",
-                "Your mood is not at its best right now. This task might be hard for you today. Remember to take breaks and be kind to yourself!"
-              );
+            onPress: async () => {
+              setIsUpdating(true);
+              try {
+                await updateTask(editingTask._id, {
+                  title: editTitle.trim(),
+                  energy_cost: MOTIVATION_ENERGY[editMotivation],
+                  emotional_friction: DIFFICULTY_FRICTION[validDifficulty],
+                });
+                setShowEditModal(false);
+                setEditingTask(null);
+                setEditTitle("");
+                setEditMotivation(2);
+                setEditDifficulty(2);
+                Alert.alert(
+                  "💪 Be Gentle",
+                  "Your mood is not at its best right now. This task might be hard for you today. Remember to take breaks and be kind to yourself!"
+                );
+              } catch (err: any) {
+                Alert.alert("Error", err.message || "Failed to update task");
+              } finally {
+                setIsUpdating(false);
+              }
             },
             style: "cancel",
           },
@@ -1084,7 +1105,7 @@ export default function ConsultationScreen() {
       await updateTask(editingTask._id, {
         title: editTitle.trim(),
         energy_cost: MOTIVATION_ENERGY[editMotivation],
-        emotional_friction: DIFFICULTY_FRICTION[editDifficulty],
+        emotional_friction: DIFFICULTY_FRICTION[validDifficulty],
       });
       setShowEditModal(false);
       setEditingTask(null);
@@ -1147,7 +1168,10 @@ export default function ConsultationScreen() {
       <View style={styles.appHeader}>
         <View style={styles.appHeaderLeft}>
           <Text style={styles.headerGreeting} numberOfLines={2}>
-            {getGreeting()}, {user?.username || "there"}
+            {getGreeting()},{" "}
+            <Text style={styles.headerUsername}>
+              {user?.username || "there"}
+            </Text>
           </Text>
         </View>
         <View style={styles.appHeaderCenter} />
@@ -1839,6 +1863,10 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#522861",
     letterSpacing: 0.3,
+  },
+  headerUsername: {
+    fontWeight: "700",
+    fontStyle: "italic",
   },
   appHeaderCenter: {
     flex: 1,

@@ -500,7 +500,7 @@ export default function ProfileScreen() {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionIconContainer}>
-                <Feather name="sliders" size={16} color="#522861" />
+                <Feather name="sliders" size={15} color="#522861" />
               </View>
               <Text style={styles.sectionTitle}>Preferences</Text>
             </View>
@@ -520,7 +520,7 @@ export default function ProfileScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <View style={styles.sectionIconContainer}>
-              <Feather name="zap" size={16} color="#522861" />
+              <Feather name="zap" size={15} color="#522861" />
             </View>
             <View>
               <Text style={styles.sectionTitle}>Daily Energy Level</Text>
@@ -631,7 +631,7 @@ export default function ProfileScreen() {
 
             {/* Current Level Description */}
             <View style={styles.energyDescription}>
-              <Feather name="info" size={14} color="#522861" />
+              <Feather name="info" size={13} color="#522861" />
               <Text style={styles.energyDescriptionText}>
                 {ENERGY_LEVELS.find((item) => item.level === baselineEnergy)
                   ?.description || ""}
@@ -669,16 +669,6 @@ export default function ProfileScreen() {
             </LinearGradient>
           </TouchableOpacity>
         )}
-
-        {/* Sign Out Button */}
-        <TouchableOpacity
-          style={styles.signOutButton}
-          onPress={handleSignOut}
-          activeOpacity={0.7}
-        >
-          <Feather name="log-out" size={18} color="#dc2626" />
-          <Text style={styles.signOutButtonText}>Sign Out</Text>
-        </TouchableOpacity>
       </ScrollView>
 
       {/* Settings Modal */}
@@ -1065,6 +1055,23 @@ export default function ProfileScreen() {
                   </View>
                 )}
               </View>
+
+              {/* Sign Out Button */}
+              <TouchableOpacity
+                style={styles.settingsSignOutButton}
+                onPress={handleSignOut}
+                activeOpacity={0.7}
+              >
+                <LinearGradient
+                  colors={["#522861", "#7a4d84"]}
+                  style={styles.settingsSignOutButtonGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <Feather name="log-out" size={18} color="#fff" />
+                  <Text style={styles.settingsSignOutButtonText}>Sign Out</Text>
+                </LinearGradient>
+              </TouchableOpacity>
             </ScrollView>
           </View>
         </View>
@@ -1185,72 +1192,73 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 16,
-    paddingBottom: 40,
+    paddingBottom: 24,
   },
   profileCard: {
     backgroundColor: "rgba(255, 255, 255, 0.85)",
-    borderRadius: 20,
-    padding: 24,
+    borderRadius: 18,
+    padding: 20,
     alignItems: "center",
     borderWidth: 1.5,
     borderColor: "rgba(255, 255, 255, 0.8)",
     borderTopColor: "rgba(255, 255, 255, 0.9)",
     borderLeftColor: "rgba(255, 255, 255, 0.9)",
-    marginBottom: 20,
+    marginBottom: 16,
     shadowColor: "#522861",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.2,
-    shadowRadius: 20,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.18,
+    shadowRadius: 15,
+    elevation: 8,
   },
   avatarContainer: {
-    width: 100,
-    height: 100,
+    width: 80,
+    height: 80,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 16,
+    marginBottom: 12,
   },
   avatarRing: {
     position: "absolute",
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     overflow: "hidden",
   },
   avatarRingGradient: {
     width: "100%",
     height: "100%",
-    borderRadius: 50,
+    borderRadius: 40,
     opacity: 0.3,
   },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#522861",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOpacity: 0.28,
+    shadowRadius: 10,
+    elevation: 7,
   },
   avatarText: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: "700",
     color: "#fff",
   },
   username: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: "700",
+    fontStyle: "italic",
     color: "#522861",
-    marginBottom: 4,
+    marginBottom: 3,
     letterSpacing: -0.5,
   },
   email: {
     fontSize: 14,
     color: "#7a4d84",
-    marginBottom: 16,
+    marginBottom: 12,
   },
   statsRow: {
     flexDirection: "row",
@@ -1261,11 +1269,11 @@ const styles = StyleSheet.create({
   statBadge: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 5.5,
     backgroundColor: "rgba(82, 40, 97, 0.08)",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+    paddingHorizontal: 11,
+    paddingVertical: 5.5,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: "rgba(82, 40, 97, 0.15)",
   },
@@ -1275,24 +1283,24 @@ const styles = StyleSheet.create({
     color: "#522861",
   },
   section: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    marginBottom: 12,
+    gap: 11,
+    marginBottom: 10,
   },
   sectionIconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
+    width: 30,
+    height: 30,
+    borderRadius: 9,
     backgroundColor: "rgba(82, 40, 97, 0.1)",
     alignItems: "center",
     justifyContent: "center",
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "700",
     color: "#522861",
     letterSpacing: -0.3,
@@ -1304,17 +1312,17 @@ const styles = StyleSheet.create({
   },
   sectionCard: {
     backgroundColor: "rgba(255, 255, 255, 0.85)",
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 15,
+    padding: 14,
     borderWidth: 1.5,
     borderColor: "rgba(255, 255, 255, 0.8)",
     borderTopColor: "rgba(255, 255, 255, 0.9)",
     borderLeftColor: "rgba(255, 255, 255, 0.9)",
     shadowColor: "#522861",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.2,
-    shadowRadius: 20,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.18,
+    shadowRadius: 15,
+    elevation: 8,
   },
   tagsContainer: {
     flexDirection: "row",
@@ -1364,54 +1372,54 @@ const styles = StyleSheet.create({
   energyCard: {
     backgroundColor: "rgba(255, 255, 255, 0.85)",
     borderRadius: 16,
-    padding: 20,
+    padding: 18,
     borderWidth: 1.5,
     borderColor: "rgba(255, 255, 255, 0.8)",
     borderTopColor: "rgba(255, 255, 255, 0.9)",
     borderLeftColor: "rgba(255, 255, 255, 0.9)",
     shadowColor: "#522861",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.2,
-    shadowRadius: 20,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.18,
+    shadowRadius: 15,
+    elevation: 8,
   },
   energyDisplay: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 24,
-    gap: 8,
+    marginBottom: 20,
+    gap: 7,
   },
   energyValueContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
+    width: 52,
+    height: 52,
+    borderRadius: 15,
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#522861",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.28,
     shadowRadius: 8,
-    elevation: 6,
+    elevation: 5,
   },
   energyValue: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: "700",
     color: "#fff",
   },
   energyMax: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "500",
     color: "#7a4d84",
   },
   sliderContainer: {
-    marginBottom: 16,
+    marginBottom: 14,
   },
   sliderTrack: {
-    height: 50,
+    height: 46,
     justifyContent: "center",
     position: "relative",
-    paddingVertical: 13,
+    paddingVertical: 12,
   },
   sliderTrackBackground: {
     height: 6,
@@ -1419,43 +1427,43 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 0,
     right: 0,
-    top: 22,
+    top: 20,
   },
   sliderTrackFill: {
     height: 6,
     borderRadius: 3,
     position: "absolute",
     left: 0,
-    top: 22,
+    top: 20,
     overflow: "hidden",
   },
   sliderThumb: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     position: "absolute",
-    top: 11,
-    marginLeft: -14,
+    top: 10,
+    marginLeft: -13,
     shadowColor: "#522861",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowOpacity: 0.28,
+    shadowRadius: 7,
+    elevation: 7,
     zIndex: 10,
     overflow: "hidden",
   },
   sliderThumbGradient: {
     width: "100%",
     height: "100%",
-    borderRadius: 14,
-    borderWidth: 3,
+    borderRadius: 13,
+    borderWidth: 2.8,
     borderColor: "#fff",
   },
   sliderMarker: {
     position: "absolute",
     alignItems: "center",
     justifyContent: "center",
-    top: 21,
+    top: 19,
     marginLeft: -4,
     width: 8,
     height: 8,
@@ -1483,37 +1491,37 @@ const styles = StyleSheet.create({
   energyDescription: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 7,
     backgroundColor: "rgba(82, 40, 97, 0.08)",
-    borderRadius: 12,
-    padding: 12,
+    borderRadius: 11,
+    padding: 11,
     borderWidth: 1,
     borderColor: "rgba(82, 40, 97, 0.12)",
   },
   energyDescriptionText: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 12.5,
     color: "#522861",
-    lineHeight: 18,
+    lineHeight: 17,
     fontWeight: "500",
   },
   energyHint: {
-    fontSize: 12,
+    fontSize: 11.5,
     color: "#7a4d84",
-    marginTop: 12,
-    lineHeight: 18,
+    marginTop: 10,
+    lineHeight: 17,
     textAlign: "center",
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
   },
   saveButton: {
-    marginBottom: 12,
-    borderRadius: 16,
+    marginBottom: 10,
+    borderRadius: 15,
     overflow: "hidden",
     shadowColor: "#522861",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowOpacity: 0.28,
+    shadowRadius: 10,
+    elevation: 5,
   },
   saveButtonDisabled: {
     opacity: 0.6,
@@ -1522,12 +1530,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
+    gap: 7,
+    paddingVertical: 14,
+    paddingHorizontal: 22,
   },
   saveButtonText: {
-    fontSize: 16,
+    fontSize: 15.5,
     fontWeight: "600",
     color: "#fff",
   },
@@ -1727,5 +1735,28 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#522861",
     fontSize: 15,
+  },
+  settingsSignOutButton: {
+    marginTop: 20,
+    borderRadius: 16,
+    overflow: "hidden",
+    shadowColor: "#522861",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  settingsSignOutButtonGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+  },
+  settingsSignOutButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#fff",
   },
 });

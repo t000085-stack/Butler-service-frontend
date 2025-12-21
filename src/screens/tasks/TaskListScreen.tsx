@@ -31,7 +31,11 @@ import { Feather, MaterialIcons } from "@expo/vector-icons";
 import { useTasks } from "../../contexts/TaskContext";
 import { useAuth } from "../../contexts/AuthContext";
 import { COLORS, EMOTIONAL_FRICTION } from "../../constants/config";
-import { useRoute, useFocusEffect } from "@react-navigation/native";
+import {
+  useRoute,
+  useFocusEffect,
+  useNavigation,
+} from "@react-navigation/native";
 import MagicTaskInput, {
   ParsedTaskData,
 } from "../../components/MagicTaskInput";
@@ -939,6 +943,7 @@ const feelingStyles = StyleSheet.create({
 export default function TaskListScreen() {
   const { signOut } = useAuth();
   const route = useRoute();
+  const navigation = useNavigation();
   const {
     tasks,
     isLoading,
@@ -947,10 +952,12 @@ export default function TaskListScreen() {
     completeTask,
     deleteTask,
     createTask,
+    updateTask,
   } = useTasks();
   const [refreshing, setRefreshing] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [openedFromHomepage, setOpenedFromHomepage] = useState(false);
 
   // Handle logout
   const handleLogout = () => {
@@ -1016,6 +1023,7 @@ export default function TaskListScreen() {
       const params = route.params as { openModal?: boolean } | undefined;
       if (params?.openModal) {
         setShowModal(true);
+        setOpenedFromHomepage(true);
         // Clear the param to prevent reopening on subsequent focuses
         if (route.params) {
           (route.params as any).openModal = false;
@@ -1023,6 +1031,16 @@ export default function TaskListScreen() {
       }
     }, [route.params])
   );
+
+  // Handle closing modal - navigate back to homepage if opened from there
+  const handleCloseModal = () => {
+    setShowModal(false);
+    resetForm();
+    if (openedFromHomepage) {
+      setOpenedFromHomepage(false);
+      (navigation as any).navigate("Home");
+    }
+  };
 
   const resetForm = () => {
     setTitle("");
@@ -1077,30 +1095,15 @@ export default function TaskListScreen() {
   // Matching the moods from the home page (ConsultationScreen) with both emojis and images
   // motivation: 0=Not Motivated, 4=Highly Motivated
   // difficulty: 0=Easy, 4=Difficult
+  // Order: Terrible to Great (matching ConsultationScreen)
   const FEELING_OPTIONS = [
     {
-      id: "great",
-      image: require("../../../assets/great.png"),
-      label: "Great",
-      color: "#10B981",
-      motivation: 4 as MotivationLevel,
-      difficulty: 0 as DifficultyLevel,
-    },
-    {
-      id: "good",
-      image: require("../../../assets/good.png"),
-      label: "Good",
-      color: "#22C55E",
-      motivation: 3 as MotivationLevel,
-      difficulty: 1 as DifficultyLevel,
-    },
-    {
-      id: "okay",
-      image: require("../../../assets/okey.png"),
-      label: "Okay",
-      color: "#EAB308",
-      motivation: 2 as MotivationLevel,
-      difficulty: 2 as DifficultyLevel,
+      id: "terrible",
+      image: require("../../../assets/terrible.png"),
+      label: "Terrible",
+      color: "#EF4444",
+      motivation: 0 as MotivationLevel,
+      difficulty: 4 as DifficultyLevel,
     },
     {
       id: "bad",
@@ -1111,12 +1114,28 @@ export default function TaskListScreen() {
       difficulty: 3 as DifficultyLevel,
     },
     {
-      id: "terrible",
-      image: require("../../../assets/terrible.png"),
-      label: "Terrible",
-      color: "#EF4444",
-      motivation: 0 as MotivationLevel,
-      difficulty: 4 as DifficultyLevel,
+      id: "okay",
+      image: require("../../../assets/okey.png"),
+      label: "Okay",
+      color: "#EAB308",
+      motivation: 2 as MotivationLevel,
+      difficulty: 2 as DifficultyLevel,
+    },
+    {
+      id: "good",
+      image: require("../../../assets/good.png"),
+      label: "Good",
+      color: "#22C55E",
+      motivation: 3 as MotivationLevel,
+      difficulty: 1 as DifficultyLevel,
+    },
+    {
+      id: "great",
+      image: require("../../../assets/great.png"),
+      label: "Great",
+      color: "#10B981",
+      motivation: 4 as MotivationLevel,
+      difficulty: 0 as DifficultyLevel,
     },
   ];
 
@@ -1328,20 +1347,45 @@ export default function TaskListScreen() {
     setFormLoading(true);
 
     try {
-      await createTask({
-        title: title.trim(),
-        energy_cost: energyCost,
-        emotional_friction: DIFFICULTY_POINTS[difficulty].frictionValue,
-        associated_value:
-          associatedValues.length > 0 ? associatedValues.join(", ") : undefined,
-        due_date: dueDate ? toLocalISOString(dueDate) : undefined,
-        user_feeling: taskFeeling || undefined,
-        feeling_description: feelingDescription.trim() || undefined,
-      });
+      if (editingTask) {
+        // Update existing task
+        await updateTask(editingTask._id, {
+          title: title.trim(),
+          energy_cost: energyCost,
+          emotional_friction: DIFFICULTY_POINTS[difficulty].frictionValue,
+          associated_value:
+            associatedValues.length > 0
+              ? associatedValues.join(", ")
+              : undefined,
+          due_date: dueDate ? toLocalISOString(dueDate) : undefined,
+        });
+      } else {
+        // Create new task
+        await createTask({
+          title: title.trim(),
+          energy_cost: energyCost,
+          emotional_friction: DIFFICULTY_POINTS[difficulty].frictionValue,
+          associated_value:
+            associatedValues.length > 0
+              ? associatedValues.join(", ")
+              : undefined,
+          due_date: dueDate ? toLocalISOString(dueDate) : undefined,
+          user_feeling: taskFeeling || undefined,
+          feeling_description: feelingDescription.trim() || undefined,
+        });
+      }
       resetForm();
       setShowModal(false);
+      // Navigate back to homepage if opened from there
+      if (openedFromHomepage) {
+        setOpenedFromHomepage(false);
+        (navigation as any).navigate("Home");
+      }
     } catch (err: any) {
-      setFormError(err.message || "Failed to create task");
+      setFormError(
+        err.message ||
+          (editingTask ? "Failed to update task" : "Failed to create task")
+      );
     } finally {
       setFormLoading(false);
     }
@@ -1904,10 +1948,7 @@ export default function TaskListScreen() {
         visible={showModal}
         animationType="slide"
         transparent
-        onRequestClose={() => {
-          setShowModal(false);
-          resetForm();
-        }}
+        onRequestClose={handleCloseModal}
       >
         <KeyboardAvoidingView
           style={styles.modalOverlay}
@@ -1916,10 +1957,7 @@ export default function TaskListScreen() {
           <TouchableOpacity
             activeOpacity={1}
             style={styles.modalOverlayTouchable}
-            onPress={() => {
-              setShowModal(false);
-              resetForm();
-            }}
+            onPress={handleCloseModal}
           >
             <View
               style={styles.modalContentWrapper}
@@ -1941,12 +1979,7 @@ export default function TaskListScreen() {
                       </Text>
                     )}
                   </View>
-                  <TouchableOpacity
-                    onPress={() => {
-                      setShowModal(false);
-                      resetForm();
-                    }}
-                  >
+                  <TouchableOpacity onPress={handleCloseModal}>
                     <Text style={styles.modalClose}>✕</Text>
                   </TouchableOpacity>
                 </View>
