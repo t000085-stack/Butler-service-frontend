@@ -781,8 +781,6 @@ export default function ConsultationScreen() {
   const cardAnim = useRef(new Animated.Value(0)).current;
   const floatAnim = useRef(new Animated.Value(0)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
-  const faceOpacity = useRef(new Animated.Value(1)).current;
-  const nextFaceOpacity = useRef(new Animated.Value(0)).current;
 
   // Container entrance animations
   const moodSectionAnim = useRef(new Animated.Value(0)).current;
@@ -846,37 +844,10 @@ export default function ConsultationScreen() {
     ]).start();
   }, []);
 
-  // Smooth professional cross-fade transition when mood changes
+  // Update displayed mood immediately when selected mood changes (no animation)
   useEffect(() => {
-    if (selectedMood && selectedMood !== displayedMood) {
-      // Reset next face opacity
-      nextFaceOpacity.setValue(0);
-
-      // Smooth cross-fade: both images visible during transition for clarity
-      // New image fades in quickly, old image fades out slightly slower
-      Animated.parallel([
-        Animated.timing(nextFaceOpacity, {
-          toValue: 1,
-          duration: 150,
-          easing: Easing.ease,
-          useNativeDriver: true,
-        }),
-        Animated.timing(faceOpacity, {
-          toValue: 0,
-          duration: 200,
-          easing: Easing.ease,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        // Update displayed mood and reset opacities
-        setDisplayedMood(selectedMood);
-        faceOpacity.setValue(1);
-        nextFaceOpacity.setValue(0);
-      });
-    } else if (selectedMood === displayedMood && displayedMood) {
-      // Ensure current mood is visible when matching
-      faceOpacity.setValue(1);
-      nextFaceOpacity.setValue(0);
+    if (selectedMood) {
+      setDisplayedMood(selectedMood);
     }
   }, [selectedMood]);
 
@@ -1219,35 +1190,14 @@ export default function ConsultationScreen() {
               style={[styles.moodOrbImage, { transform: [{ rotate: spin }] }]}
               resizeMode="contain"
             />
-            {/* Face overlay - smooth professional cross-fade transition */}
-            {/* Current mood image */}
+            {/* Face overlay - instant display without animation */}
             {displayedMood && MOOD_FACES[displayedMood] && (
-              <Animated.Image
+              <Image
                 source={MOOD_FACES[displayedMood]}
-                style={[
-                  styles.moodFaceOverlay,
-                  {
-                    opacity: faceOpacity,
-                  },
-                ]}
+                style={styles.moodFaceOverlay}
                 resizeMode="contain"
               />
             )}
-            {/* Next mood image (during transition) */}
-            {selectedMood &&
-              selectedMood !== displayedMood &&
-              MOOD_FACES[selectedMood] && (
-                <Animated.Image
-                  source={MOOD_FACES[selectedMood]}
-                  style={[
-                    styles.moodFaceOverlay,
-                    {
-                      opacity: nextFaceOpacity,
-                    },
-                  ]}
-                  resizeMode="contain"
-                />
-              )}
           </Animated.View>
 
           <MoodImageSelector
@@ -1269,7 +1219,27 @@ export default function ConsultationScreen() {
             <View>
               <Text style={styles.tasksSectionTitle}>My Tasks Today</Text>
               <Text style={styles.tasksSectionDate}>{formatDate()}</Text>
-              {(selectedMood === "terrible" || selectedMood === "bad") && (
+              {selectedMood === "great" && (
+                <Text style={styles.moodTaskHint}>
+                  🚀 Great energy! All tasks visible
+                </Text>
+              )}
+              {selectedMood === "good" && (
+                <Text style={styles.moodTaskHint}>
+                  🧘 Good flow! All tasks visible
+                </Text>
+              )}
+              {selectedMood === "okay" && (
+                <Text style={styles.moodTaskHint}>
+                  💪 Keep going! All tasks visible
+                </Text>
+              )}
+              {selectedMood === "bad" && (
+                <Text style={styles.moodTaskHint}>
+                  💜 Showing low energy tasks only
+                </Text>
+              )}
+              {selectedMood === "terrible" && (
                 <Text style={styles.moodTaskHint}>
                   💜 Showing low energy tasks only
                 </Text>
@@ -2094,12 +2064,12 @@ const styles = StyleSheet.create({
   },
   moodFaceOverlay: {
     position: "absolute",
-    width: 350,
-    height: 350,
+    width: 280,
+    height: 280,
     top: "50%",
     left: "50%",
-    marginTop: -175,
-    marginLeft: -175,
+    marginTop: -140,
+    marginLeft: -140,
   },
   moodOptions: {
     flexDirection: "row",

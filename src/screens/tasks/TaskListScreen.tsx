@@ -1383,18 +1383,23 @@ export default function TaskListScreen() {
   };
 
   const renderItem = ({ item }: { item: Task }) => (
-    <View style={styles.taskItem}>
+    <View
+      style={[styles.taskItem, item.is_completed && styles.taskItemCompleted]}
+    >
       {/* Checkbox - marks task as done */}
       <TouchableOpacity
         style={styles.taskCheckbox}
         onPress={() => handleComplete(item)}
         activeOpacity={0.7}
       >
-        {item.is_completed ? (
-          <Feather name="check-circle" size={22} color="#4CAF50" />
-        ) : (
-          <Feather name="circle" size={22} color="#522861" />
-        )}
+        <View
+          style={[
+            styles.taskCheckboxCircle,
+            item.is_completed && styles.taskCheckboxCircleCompleted,
+          ]}
+        >
+          {item.is_completed && <Feather name="check" size={14} color="#fff" />}
+        </View>
       </TouchableOpacity>
       {/* Task content - opens edit modal */}
       <TouchableOpacity
@@ -1403,15 +1408,22 @@ export default function TaskListScreen() {
         activeOpacity={0.7}
       >
         <View style={styles.taskContent}>
-          <Text
-            style={[
-              styles.taskTitle,
-              item.is_completed && styles.taskTitleCompleted,
-            ]}
-            numberOfLines={1}
-          >
-            {item.title}
-          </Text>
+          <View style={styles.taskHeaderRow}>
+            <Text
+              style={[
+                styles.taskTitle,
+                item.is_completed && styles.taskTitleCompleted,
+              ]}
+              numberOfLines={2}
+            >
+              {item.title}
+            </Text>
+            {item.is_completed && (
+              <View style={styles.completedBadge}>
+                <Text style={styles.completedBadgeText}>Done</Text>
+              </View>
+            )}
+          </View>
           <View style={styles.taskMeta}>
             <View
               style={[
@@ -1419,10 +1431,10 @@ export default function TaskListScreen() {
                 {
                   backgroundColor:
                     item.energy_cost <= 3
-                      ? "#E8F5E9"
+                      ? "rgba(76, 175, 80, 0.15)"
                       : item.energy_cost <= 6
-                      ? "#FFF3E0"
-                      : "#FFEBEE",
+                      ? "rgba(255, 152, 0, 0.15)"
+                      : "rgba(244, 67, 54, 0.15)",
                 },
               ]}
             >
@@ -1442,11 +1454,15 @@ export default function TaskListScreen() {
                 ⚡ {item.energy_cost}
               </Text>
             </View>
-            <Text style={styles.taskFriction}>{item.emotional_friction}</Text>
+            <View style={styles.taskFrictionBadge}>
+              <Text style={styles.taskFriction}>{item.emotional_friction}</Text>
+            </View>
             {item.associated_value && (
-              <Text style={styles.taskAssociatedValue}>
-                {item.associated_value}
-              </Text>
+              <View style={styles.taskValueBadge}>
+                <Text style={styles.taskAssociatedValue}>
+                  {item.associated_value}
+                </Text>
+              </View>
             )}
           </View>
         </View>
@@ -1465,7 +1481,7 @@ export default function TaskListScreen() {
           onPress={() => handleDelete(item)}
           activeOpacity={0.7}
         >
-          <Text style={styles.taskDeleteButtonText}>×</Text>
+          <Feather name="trash-2" size={16} color={COLORS.error} />
         </TouchableOpacity>
       </View>
     </View>
@@ -1495,15 +1511,38 @@ export default function TaskListScreen() {
       {/* Header with Title and Add Button */}
       <View style={styles.appHeader}>
         <View style={styles.headerLeft}>
-          <Text style={styles.headerTitle}>Your Tasks</Text>
-          <Text style={styles.headerSubtitle}>
-            {filteredTasks.filter((t) => !t.is_completed).length} remaining,{" "}
-            {filteredTasks.filter((t) => t.is_completed).length} done for{" "}
-            {selectedDate.toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-            })}
-          </Text>
+          <View style={styles.headerTitleContainer}>
+            {/* Simi Orb */}
+            <View style={styles.headerOrbContainer}>
+              <Image
+                source={require("../../../assets/signinImage.png")}
+                style={styles.headerOrbImage}
+                resizeMode="contain"
+              />
+            </View>
+            <View style={styles.headerTextContainer}>
+              <Text style={styles.headerTitle}>Your Tasks</Text>
+              <View style={styles.headerStatsContainer}>
+                <View style={styles.statBadge}>
+                  <Text style={styles.statBadgeText}>
+                    {filteredTasks.filter((t) => !t.is_completed).length}{" "}
+                    remaining
+                  </Text>
+                </View>
+                <View style={[styles.statBadge, styles.statBadgeDone]}>
+                  <Text style={styles.statBadgeTextDone}>
+                    {filteredTasks.filter((t) => t.is_completed).length} done
+                  </Text>
+                </View>
+                <Text style={styles.headerSubtitle}>
+                  {selectedDate.toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                  })}
+                </Text>
+              </View>
+            </View>
+          </View>
         </View>
         <TouchableOpacity
           style={styles.headerAddButton}
@@ -1525,15 +1564,31 @@ export default function TaskListScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Calendar Strip */}
+      {/* Calendar Strip - Elegant Design */}
       <View style={styles.calendarContainer}>
+        <LinearGradient
+          colors={["rgba(255, 255, 255, 0.95)", "rgba(250, 245, 255, 0.9)"]}
+          style={styles.calendarGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        />
         <View style={styles.calendarHeader}>
-          <Text style={styles.calendarMonthText}>
-            {selectedDate.toLocaleDateString("en-US", {
-              month: "long",
-              year: "numeric",
-            })}
-          </Text>
+          <View style={styles.calendarHeaderLeft}>
+            <View style={styles.calendarHeaderIcon}>
+              <Feather name="calendar" size={18} color="#522861" />
+            </View>
+            <View>
+              <Text style={styles.calendarMonthText}>
+                {selectedDate.toLocaleDateString("en-US", {
+                  month: "long",
+                  year: "numeric",
+                })}
+              </Text>
+              <Text style={styles.calendarHeaderSubtext}>
+                {calendarDays.filter((d) => d.isSelected)[0]?.dayName || ""}
+              </Text>
+            </View>
+          </View>
           <TouchableOpacity
             style={styles.calendarExpandButton}
             onPress={() => {
@@ -1542,7 +1597,14 @@ export default function TaskListScreen() {
             }}
             activeOpacity={0.7}
           >
-            <Feather name="calendar" size={16} color="#522861" />
+            <LinearGradient
+              colors={["rgba(82, 40, 97, 0.1)", "rgba(122, 77, 132, 0.08)"]}
+              style={styles.calendarExpandButtonGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Feather name="chevron-down" size={16} color="#522861" />
+            </LinearGradient>
           </TouchableOpacity>
         </View>
         <ScrollView
@@ -1562,6 +1624,14 @@ export default function TaskListScreen() {
               onPress={() => setSelectedDate(day.date)}
               activeOpacity={0.7}
             >
+              {day.isSelected && (
+                <LinearGradient
+                  colors={["#522861", "#7a4d84"]}
+                  style={styles.calendarDayGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                />
+              )}
               <Text
                 style={[
                   styles.calendarDayName,
@@ -1596,12 +1666,16 @@ export default function TaskListScreen() {
 
       {/* Magic Task Input - AI-powered voice/text task creation */}
       <View style={styles.magicInputSection}>
-        <Text style={styles.magicInputTitle}>Add your task using SIMI</Text>
-        <MagicTaskInput
-          onTaskParsed={handleMagicTaskParsed}
-          onError={handleMagicError}
-          placeholder="Describe your task... e.g., 'Call mom tomorrow, it's emotionally hard'"
-        />
+        <View style={styles.magicInputHeader}>
+          <Text style={styles.magicInputTitle}>Add your task using SIMI</Text>
+        </View>
+        <View style={styles.magicInputWrapper}>
+          <MagicTaskInput
+            onTaskParsed={handleMagicTaskParsed}
+            onError={handleMagicError}
+            placeholder="Describe your task... e.g., 'Call mom tomorrow, it's emotionally hard'"
+          />
+        </View>
       </View>
 
       {/* Tasks List - Scrollable */}
@@ -2228,17 +2302,64 @@ const styles = StyleSheet.create({
   headerLeft: {
     flex: 1,
   },
+  headerTitleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  headerOrbContainer: {
+    width: 52,
+    height: 52,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerOrbImage: {
+    width: 52,
+    height: 52,
+  },
+  headerTextContainer: {
+    flex: 1,
+  },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: "700",
     color: "#522861",
     letterSpacing: -0.5,
+    marginBottom: 6,
+  },
+  headerStatsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flexWrap: "wrap",
+  },
+  statBadge: {
+    backgroundColor: "rgba(82, 40, 97, 0.1)",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(82, 40, 97, 0.15)",
+  },
+  statBadgeDone: {
+    backgroundColor: "rgba(76, 175, 80, 0.15)",
+    borderColor: "rgba(76, 175, 80, 0.2)",
+  },
+  statBadgeText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#522861",
+  },
+  statBadgeTextDone: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#4CAF50",
   },
   headerSubtitle: {
-    fontSize: 14,
-    color: "#522861",
-    marginTop: 2,
+    fontSize: 12,
+    color: "#7a4d84",
     fontWeight: "500",
+    marginLeft: 4,
   },
   headerAddButton: {
     alignItems: "center",
@@ -2319,108 +2440,190 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(82, 40, 97, 0.2)",
   },
-  // Calendar styles - Glass effect
+  // Calendar styles - Elegant design
   calendarContainer: {
-    marginBottom: 8,
+    marginBottom: 20,
     marginHorizontal: 16,
-    backgroundColor: "rgba(255, 255, 255, 0.7)",
-    borderRadius: 16,
+    borderRadius: 24,
+    padding: 18,
+    borderWidth: 1.5,
+    borderColor: "rgba(255, 255, 255, 0.95)",
+    shadowColor: "#522861",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 8,
+    overflow: "hidden",
+    position: "relative",
+  },
+  calendarGradient: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  calendarHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 14,
+    zIndex: 1,
+  },
+  calendarHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  calendarHeaderIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "rgba(82, 40, 97, 0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(82, 40, 97, 0.15)",
+  },
+  calendarMonthText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#522861",
+    letterSpacing: -0.3,
+  },
+  calendarHeaderSubtext: {
+    fontSize: 12,
+    color: "#7a4d84",
+    fontWeight: "500",
+    marginTop: 2,
+  },
+  calendarExpandButton: {
+    overflow: "hidden",
+    borderRadius: 12,
+  },
+  calendarExpandButtonGradient: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(82, 40, 97, 0.15)",
+  },
+  // Magic Input Section - Compact design
+  magicInputSection: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.85)",
+    borderRadius: 18,
     padding: 10,
     borderWidth: 1.5,
-    borderColor: "rgba(255, 255, 255, 0.8)",
+    borderColor: "rgba(255, 255, 255, 0.9)",
     shadowColor: "#522861",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
     shadowRadius: 12,
     elevation: 4,
   },
-  calendarHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  calendarMonthText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#522861",
-  },
-  calendarExpandButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: "rgba(82, 40, 97, 0.08)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  // Magic Input Section
-  magicInputSection: {
-    marginHorizontal: 16,
-    marginBottom: 8,
+  magicInputHeader: {
+    marginTop: 8,
+    marginBottom: 10,
   },
   magicInputTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "700",
     color: "#522861",
-    marginBottom: 8,
-    paddingHorizontal: 4,
+    letterSpacing: -0.2,
+  },
+  magicInputWrapper: {
+    marginTop: -6,
+    marginHorizontal: -6,
   },
   calendarContent: {
-    gap: 6,
+    gap: 8,
+    paddingVertical: 4,
   },
   calendarDay: {
     alignItems: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    borderRadius: 12,
-    backgroundColor: "rgba(240, 235, 245, 0.8)",
-    minWidth: 48,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.6)",
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    minWidth: 56,
+    borderWidth: 1.5,
+    borderColor: "rgba(240, 235, 245, 0.8)",
+    shadowColor: "#522861",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
+    position: "relative",
+    overflow: "hidden",
+  },
+  calendarDayGradient: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   calendarDaySelected: {
-    backgroundColor: "#522861",
     borderColor: "#522861",
     shadowColor: "#522861",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 8,
+    transform: [{ scale: 1.08 }],
+    borderWidth: 2,
   },
   calendarDayToday: {
     borderWidth: 2,
     borderColor: "#522861",
-    backgroundColor: "rgba(82, 40, 97, 0.1)",
+    backgroundColor: "rgba(82, 40, 97, 0.12)",
+    shadowColor: "#522861",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   calendarDayName: {
-    fontSize: 10,
-    color: "#522861",
-    fontWeight: "500",
-    marginBottom: 3,
+    fontSize: 11,
+    color: "#7a4d84",
+    fontWeight: "600",
+    marginBottom: 4,
+    letterSpacing: 0.3,
   },
   calendarDayNameSelected: {
     color: "#fff",
+    fontWeight: "700",
   },
   calendarDayNumber: {
-    fontSize: 14,
-    fontWeight: "600",
+    fontSize: 16,
+    fontWeight: "700",
     color: "#522861",
+    zIndex: 1,
   },
   calendarDayNumberSelected: {
     color: "#fff",
   },
   calendarDayNumberToday: {
     color: "#522861",
+    fontWeight: "800",
   },
   calendarDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
     backgroundColor: "#522861",
-    marginTop: 4,
+    marginTop: 6,
+    zIndex: 1,
   },
   calendarDotSelected: {
     backgroundColor: "#fff",
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
   },
   tasksScrollView: {
     flex: 1,
@@ -2429,26 +2632,50 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   list: {
-    paddingHorizontal: 16,
     paddingTop: 8,
-    gap: 8,
+    paddingBottom: 16,
   },
   taskItem: {
     flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(240, 235, 245, 0.8)",
-    padding: 10,
-    borderRadius: 12,
-    marginBottom: 8,
-    gap: 10,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.6)",
+    alignItems: "flex-start",
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    padding: 14,
+    borderRadius: 18,
+    marginBottom: 12,
+    marginHorizontal: 16,
+    gap: 12,
+    borderWidth: 1.5,
+    borderColor: "rgba(255, 255, 255, 0.8)",
+    shadowColor: "#522861",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  taskItemCompleted: {
+    backgroundColor: "rgba(240, 235, 245, 0.6)",
+    opacity: 0.85,
   },
   taskCheckbox: {
-    width: 24,
-    height: 24,
+    width: 28,
+    height: 28,
     justifyContent: "center",
     alignItems: "center",
+    marginTop: 2,
+  },
+  taskCheckboxCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: "#522861",
+    backgroundColor: "transparent",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  taskCheckboxCircleCompleted: {
+    backgroundColor: "#4CAF50",
+    borderColor: "#4CAF50",
   },
   taskContentTouchable: {
     flex: 1,
@@ -2458,63 +2685,104 @@ const styles = StyleSheet.create({
   taskContent: {
     flex: 1,
   },
+  taskHeaderRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    marginBottom: 8,
+    gap: 8,
+  },
   taskTitle: {
-    fontSize: 13,
-    fontWeight: "500",
+    fontSize: 15,
+    fontWeight: "600",
     color: COLORS.text,
-    marginBottom: 2,
+    flex: 1,
+    lineHeight: 20,
   },
   taskTitleCompleted: {
     textDecorationLine: "line-through",
-    opacity: 0.6,
+    opacity: 0.5,
+  },
+  completedBadge: {
+    backgroundColor: "rgba(76, 175, 80, 0.15)",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(76, 175, 80, 0.2)",
+  },
+  completedBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#4CAF50",
+    letterSpacing: 0.5,
   },
   taskMeta: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 8,
+    flexWrap: "wrap",
   },
   taskEnergy: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
   },
   taskEnergyText: {
-    fontSize: 10,
-    fontWeight: "600",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  taskFrictionBadge: {
+    backgroundColor: "rgba(82, 40, 97, 0.1)",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(82, 40, 97, 0.15)",
   },
   taskFriction: {
-    fontSize: 10,
+    fontSize: 11,
     color: "#522861",
+    fontWeight: "600",
+  },
+  taskValueBadge: {
+    backgroundColor: "rgba(122, 77, 132, 0.1)",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(122, 77, 132, 0.15)",
   },
   taskAssociatedValue: {
-    fontSize: 10,
-    color: "#522861",
+    fontSize: 11,
+    color: "#7a4d84",
+    fontWeight: "600",
   },
   taskActions: {
     flexDirection: "row",
-    gap: 6,
-    alignItems: "center",
+    gap: 8,
+    alignItems: "flex-start",
+    marginTop: 2,
   },
   taskEditButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     backgroundColor: "rgba(82, 40, 97, 0.1)",
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(82, 40, 97, 0.15)",
   },
   taskDeleteButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     backgroundColor: "rgba(239, 68, 68, 0.1)",
     alignItems: "center",
     justifyContent: "center",
-  },
-  taskDeleteButtonText: {
-    fontSize: 20,
-    color: COLORS.error,
-    fontWeight: "400",
+    borderWidth: 1,
+    borderColor: "rgba(239, 68, 68, 0.15)",
   },
   errorText: {
     color: COLORS.error,
@@ -2522,24 +2790,31 @@ const styles = StyleSheet.create({
   },
   empty: {
     alignItems: "center",
-    paddingVertical: 32,
-    backgroundColor: "rgba(255, 255, 255, 0.5)",
-    borderRadius: 16,
+    paddingVertical: 48,
+    paddingHorizontal: 24,
+    backgroundColor: "rgba(255, 255, 255, 0.85)",
+    borderRadius: 24,
     marginHorizontal: 16,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.6)",
+    borderWidth: 1.5,
+    borderColor: "rgba(255, 255, 255, 0.9)",
+    shadowColor: "#522861",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
   },
   emptyText: {
-    fontSize: 16,
-    color: "#7a4d84",
-    fontWeight: "500",
-    marginTop: 12,
+    fontSize: 18,
+    color: "#522861",
+    fontWeight: "600",
+    marginTop: 16,
   },
   emptySubtext: {
     fontSize: 14,
-    color: "#9b6fa1",
-    marginTop: 4,
+    color: "#7a4d84",
+    marginTop: 8,
     textAlign: "center",
+    lineHeight: 20,
   },
   // Modal styles - Glass effect
   modalOverlay: {
