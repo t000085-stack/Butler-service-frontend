@@ -192,8 +192,10 @@ export default function MagicTaskInput({
             placeholderTextColor={COLORS.textMuted}
             value={displayText}
             onChangeText={setText}
-            multiline
+            multiline={true}
+            numberOfLines={2}
             editable={!isListening && !isParsing}
+            textAlignVertical="top"
           />
           {isListening && (
             <View style={styles.listeningIndicator}>
@@ -216,7 +218,7 @@ export default function MagicTaskInput({
             >
               <MaterialIcons
                 name={isListening ? "mic" : "mic-none"}
-                size={24}
+                size={20}
                 color={
                   isListening
                     ? "#fff"
@@ -240,7 +242,7 @@ export default function MagicTaskInput({
             {isParsing ? (
               <ActivityIndicator color="#fff" size="small" />
             ) : (
-              <MaterialIcons name="send" size={20} color="#fff" />
+              <MaterialIcons name="send" size={18} color="#fff" />
             )}
           </TouchableOpacity>
         </View>
@@ -255,50 +257,56 @@ export default function MagicTaskInput({
 
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
+    padding: 0,
   },
   inputRow: {
     flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 12,
+    alignItems: "flex-start",
+    gap: 10,
   },
   inputWrapper: {
     flex: 1,
-    backgroundColor: COLORS.backgroundSecondary,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    minHeight: 56,
-    maxHeight: 120,
+    backgroundColor: "rgba(240, 235, 245, 0.9)",
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: "rgba(255, 255, 255, 0.7)",
+    minHeight: 50,
+    maxHeight: 80,
   },
   input: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 15,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
     color: COLORS.text,
-    minHeight: 56,
+    minHeight: 50,
+    maxHeight: 80,
+    textAlignVertical: "top",
   },
   listeningIndicator: {
     position: "absolute",
-    bottom: 8,
-    right: 12,
+    top: 6,
+    right: 10,
+    backgroundColor: "rgba(82, 40, 97, 0.1)",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
   },
   listeningText: {
-    fontSize: 11,
+    fontSize: 10,
     color: COLORS.primary,
-    fontWeight: "500",
+    fontWeight: "600",
   },
   buttons: {
     flexDirection: "row",
     gap: 8,
   },
   micButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: COLORS.backgroundSecondary,
-    borderWidth: 2,
-    borderColor: COLORS.primary,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: "rgba(82, 40, 97, 0.1)",
+    borderWidth: 1.5,
+    borderColor: "rgba(82, 40, 97, 0.2)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -308,18 +316,25 @@ const styles = StyleSheet.create({
   },
   micButtonDisabled: {
     borderColor: COLORS.textMuted,
-    opacity: 0.6,
+    opacity: 0.5,
   },
   sendButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     backgroundColor: COLORS.primary,
     alignItems: "center",
     justifyContent: "center",
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
   sendButtonDisabled: {
     backgroundColor: COLORS.textMuted,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   hint: {
     marginTop: 8,
