@@ -455,14 +455,9 @@ const buildAssociatedValue = (existingValue: string | undefined, difficulty: Dif
   // Combine user values and cleaned existing value
   const combinedValues = [userValuesStr, cleaned].filter(Boolean).join(', ').trim();
   
-  // Only store difficulty marker for ambiguous levels (1 or 3, which are buttons 2 or 4)
-  if (difficulty === 1 || difficulty === 3) {
-    const marker = `__DIFF:${difficulty}__`;
-    return combinedValues ? `${combinedValues} ${marker}` : marker;
-  }
-  
-  // For non-ambiguous levels, return combined values or undefined
-  return combinedValues || undefined;
+  // Store difficulty marker for ALL levels (0-4, buttons 1-5) to ensure exact button selection is preserved
+  const marker = `__DIFF:${difficulty}__`;
+  return combinedValues ? `${combinedValues} ${marker}` : marker;
 };
 
 // Convert EmotionalFriction to difficulty level

@@ -1015,14 +1015,9 @@ export default function ConsultationScreen() {
       ? existingValue.replace(/__DIFF:\d+__/g, "").trim()
       : "";
 
-    // Only store difficulty marker for ambiguous levels (1 or 3, which are buttons 2 or 4)
-    if (difficulty === 1 || difficulty === 3) {
-      const marker = `__DIFF:${difficulty}__`;
-      return cleaned ? `${cleaned} ${marker}` : marker;
-    }
-
-    // For non-ambiguous levels, return cleaned value or undefined
-    return cleaned || undefined;
+    // Store difficulty marker for ALL levels (0-4, buttons 1-5) to ensure exact button selection is preserved
+    const marker = `__DIFF:${difficulty}__`;
+    return cleaned ? `${cleaned} ${marker}` : marker;
   };
 
   // Convert emotional friction to difficulty level
