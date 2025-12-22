@@ -435,15 +435,53 @@ const DIFFICULTY_POINTS: DifficultyPoint[] = [
   },
 ];
 
+// Helper to extract difficulty level from associated_value
+const extractDifficultyFromAssociatedValue = (associatedValue?: string): DifficultyLevel | null => {
+  if (!associatedValue) return null;
+  const match = associatedValue.match(/__DIFF:(\d+)__/);
+  return match ? (parseInt(match[1], 10) as DifficultyLevel) : null;
+};
+
+// Helper to build associated_value with difficulty marker
+const buildAssociatedValue = (existingValue: string | undefined, difficulty: DifficultyLevel, userValues?: string[]): string | undefined => {
+  // Remove existing difficulty marker if present
+  const cleaned = existingValue ? existingValue.replace(/__DIFF:\d+__/g, '').trim() : '';
+  
+  // Get user values (excluding difficulty marker)
+  const userValuesStr = userValues && userValues.length > 0 
+    ? userValues.filter(v => !v.includes('__DIFF:')).join(', ')
+    : '';
+  
+  // Combine user values and cleaned existing value
+  const combinedValues = [userValuesStr, cleaned].filter(Boolean).join(', ').trim();
+  
+  // Only store difficulty marker for ambiguous levels (1 or 3, which are buttons 2 or 4)
+  if (difficulty === 1 || difficulty === 3) {
+    const marker = `__DIFF:${difficulty}__`;
+    return combinedValues ? `${combinedValues} ${marker}` : marker;
+  }
+  
+  // For non-ambiguous levels, return combined values or undefined
+  return combinedValues || undefined;
+};
+
 // Convert EmotionalFriction to difficulty level
-const frictionToDifficulty = (friction: EmotionalFriction): DifficultyLevel => {
+// Checks associated_value first for stored difficulty level
+const frictionToDifficulty = (friction: EmotionalFriction, associatedValue?: string): DifficultyLevel => {
+  // First, check if difficulty is stored in associated_value
+  const storedDifficulty = extractDifficultyFromAssociatedValue(associatedValue);
+  if (storedDifficulty !== null) {
+    return storedDifficulty;
+  }
+
+  // Otherwise, use default mapping
   switch (friction) {
     case "Low":
-      return 0;
+      return 0; // Button "1" = level 0
     case "Medium":
-      return 2;
+      return 2; // Button "3" = level 2
     case "High":
-      return 4;
+      return 3; // Button "4" = level 3 (default to first "High")
     default:
       return 2;
   }
@@ -1067,13 +1105,13 @@ export default function TaskListScreen() {
     setEditingTask(task);
     setTitle(task.title);
     setMotivation(energyCostToMotivation(task.energy_cost));
-    setDifficulty(frictionToDifficulty(task.emotional_friction));
-    // Handle associated_value as string or array
+    setDifficulty(frictionToDifficulty(task.emotional_friction, task.associated_value));
+    // Handle associated_value as string or array (excluding difficulty marker)
     const values = task.associated_value
       ? task.associated_value
           .split(",")
           .map((v) => v.trim())
-          .filter(Boolean)
+          .filter((v) => Boolean(v) && !v.includes('__DIFF:'))
       : [];
     setAssociatedValues(values);
     setDueDate(task.due_date ? new Date(task.due_date) : null);
@@ -1304,7 +1342,7 @@ export default function TaskListScreen() {
 
     setTitle(pendingParsedData.title);
     setMotivation(energyCostToMotivation(pendingParsedData.energy_cost));
-    setDifficulty(frictionToDifficulty(pendingParsedData.emotional_friction));
+    setDifficulty(frictionToDifficulty(pendingParsedData.emotional_friction, undefined));
     setAssociatedValues([]);
 
     // Parse date from original text using frontend parser (more reliable)
@@ -1349,26 +1387,30 @@ export default function TaskListScreen() {
     try {
       if (editingTask) {
         // Update existing task
+        const updatedAssociatedValue = buildAssociatedValue(
+          editingTask.associated_value,
+          difficulty,
+          associatedValues
+        );
         await updateTask(editingTask._id, {
           title: title.trim(),
           energy_cost: energyCost,
           emotional_friction: DIFFICULTY_POINTS[difficulty].frictionValue,
-          associated_value:
-            associatedValues.length > 0
-              ? associatedValues.join(", ")
-              : undefined,
+          associated_value: updatedAssociatedValue,
           due_date: dueDate ? toLocalISOString(dueDate) : undefined,
         });
       } else {
         // Create new task
+        const newAssociatedValue = buildAssociatedValue(
+          undefined,
+          difficulty,
+          associatedValues
+        );
         await createTask({
           title: title.trim(),
           energy_cost: energyCost,
           emotional_friction: DIFFICULTY_POINTS[difficulty].frictionValue,
-          associated_value:
-            associatedValues.length > 0
-              ? associatedValues.join(", ")
-              : undefined,
+          associated_value: newAssociatedValue,
           due_date: dueDate ? toLocalISOString(dueDate) : undefined,
           user_feeling: taskFeeling || undefined,
           feeling_description: feelingDescription.trim() || undefined,
@@ -1501,13 +1543,19 @@ export default function TaskListScreen() {
             <View style={styles.taskFrictionBadge}>
               <Text style={styles.taskFriction}>{item.emotional_friction}</Text>
             </View>
-            {item.associated_value && (
-              <View style={styles.taskValueBadge}>
-                <Text style={styles.taskAssociatedValue}>
-                  {item.associated_value}
-                </Text>
-              </View>
-            )}
+            {(() => {
+              // Filter out difficulty marker from display
+              const displayValue = item.associated_value
+                ? item.associated_value.replace(/__DIFF:\d+__/g, "").trim()
+                : "";
+              return displayValue ? (
+                <View style={styles.taskValueBadge}>
+                  <Text style={styles.taskAssociatedValue}>
+                    {displayValue}
+                  </Text>
+                </View>
+              ) : null;
+            })()}
           </View>
         </View>
       </TouchableOpacity>

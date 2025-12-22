@@ -996,12 +996,61 @@ export default function ConsultationScreen() {
     return 4;
   };
 
+  // Helper to extract difficulty level from associated_value
+  const extractDifficultyFromAssociatedValue = (
+    associatedValue?: string
+  ): number | null => {
+    if (!associatedValue) return null;
+    const match = associatedValue.match(/__DIFF:(\d+)__/);
+    return match ? parseInt(match[1], 10) : null;
+  };
+
+  // Helper to build associated_value with difficulty marker
+  const buildAssociatedValue = (
+    existingValue: string | undefined,
+    difficulty: number
+  ): string | undefined => {
+    // Remove existing difficulty marker if present
+    const cleaned = existingValue
+      ? existingValue.replace(/__DIFF:\d+__/g, "").trim()
+      : "";
+
+    // Only store difficulty marker for ambiguous levels (1 or 3, which are buttons 2 or 4)
+    if (difficulty === 1 || difficulty === 3) {
+      const marker = `__DIFF:${difficulty}__`;
+      return cleaned ? `${cleaned} ${marker}` : marker;
+    }
+
+    // For non-ambiguous levels, return cleaned value or undefined
+    return cleaned || undefined;
+  };
+
   // Convert emotional friction to difficulty level
   // Maps to match button numbers: button "1" = level 0, button "2" = level 1, etc.
-  const frictionToDifficulty = (friction: string): number => {
-    if (friction === "Low") return 0; // Button "1" = level 0
+  // Checks associated_value first for stored difficulty level
+  const frictionToDifficulty = (
+    friction: string,
+    associatedValue?: string
+  ): number => {
+    // First, check if difficulty is stored in associated_value
+    const storedDifficulty =
+      extractDifficultyFromAssociatedValue(associatedValue);
+    if (storedDifficulty !== null) {
+      return storedDifficulty;
+    }
+
+    // Otherwise, use default mapping
+    if (friction === "Low") {
+      // "Low" can be button "1" (level 0) or "2" (level 1)
+      // Default to button "1" (level 0) for "Low"
+      return 0; // Button "1" = level 0
+    }
     if (friction === "Medium") return 2; // Button "3" = level 2
-    if (friction === "High") return 3; // Button "4" = level 3
+    if (friction === "High") {
+      // "High" can be button "4" (level 3) or "5" (level 4)
+      // Default to button "4" (level 3) for "High"
+      return 3; // Button "4" = level 3
+    }
     return 2; // Default to Medium (button "3")
   };
 
@@ -1010,7 +1059,9 @@ export default function ConsultationScreen() {
     setEditingTask(task);
     setEditTitle(task.title);
     setEditMotivation(energyToMotivation(task.energy_cost));
-    setEditDifficulty(frictionToDifficulty(task.emotional_friction));
+    setEditDifficulty(
+      frictionToDifficulty(task.emotional_friction, task.associated_value)
+    );
     setShowEditModal(true);
   };
 
@@ -1045,11 +1096,16 @@ export default function ConsultationScreen() {
             onPress: async () => {
               setIsUpdating(true);
               try {
+                const updatedAssociatedValue = buildAssociatedValue(
+                  editingTask.associated_value,
+                  validDifficulty
+                );
                 await updateTask(editingTask._id, {
                   title: editTitle.trim(),
                   energy_cost: MOTIVATION_ENERGY[editMotivation],
                   emotional_friction: DIFFICULTY_FRICTION[validDifficulty],
                   due_date: getTomorrowDateString(),
+                  associated_value: updatedAssociatedValue,
                 });
                 setShowEditModal(false);
                 setEditingTask(null);
@@ -1072,10 +1128,15 @@ export default function ConsultationScreen() {
             onPress: async () => {
               setIsUpdating(true);
               try {
+                const updatedAssociatedValue = buildAssociatedValue(
+                  editingTask.associated_value,
+                  validDifficulty
+                );
                 await updateTask(editingTask._id, {
                   title: editTitle.trim(),
                   energy_cost: MOTIVATION_ENERGY[editMotivation],
                   emotional_friction: DIFFICULTY_FRICTION[validDifficulty],
+                  associated_value: updatedAssociatedValue,
                 });
                 setShowEditModal(false);
                 setEditingTask(null);
@@ -1102,10 +1163,15 @@ export default function ConsultationScreen() {
     // Normal update without mood warning
     setIsUpdating(true);
     try {
+      const updatedAssociatedValue = buildAssociatedValue(
+        editingTask.associated_value,
+        validDifficulty
+      );
       await updateTask(editingTask._id, {
         title: editTitle.trim(),
         energy_cost: MOTIVATION_ENERGY[editMotivation],
         emotional_friction: DIFFICULTY_FRICTION[validDifficulty],
+        associated_value: updatedAssociatedValue,
       });
       setShowEditModal(false);
       setEditingTask(null);
