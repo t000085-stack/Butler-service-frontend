@@ -349,14 +349,21 @@ export default function ProfileScreen() {
     }
   };
 
-  const handleSignOut = () => {
-    setShowLogoutModal(true);
+  const handleSignOut = async () => {
+    setShowSettingsModal(false);
+    setShowLogoutModal(false);
+    try {
+      await signOut(); // This removes token and sets user/token to null, which will trigger RootNavigator to show AuthStack
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Failed to logout");
+    }
   };
 
   const confirmLogout = async () => {
     setShowLogoutModal(false);
+    setShowSettingsModal(false);
     try {
-      await signOut();
+      await signOut(); // This removes token and sets user/token to null, which will trigger RootNavigator to show AuthStack
     } catch (err: any) {
       Alert.alert("Error", err.message || "Failed to logout");
     }
@@ -449,6 +456,7 @@ export default function ProfileScreen() {
             setExpandedSection(null);
           }}
           activeOpacity={0.7}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <LinearGradient
             colors={["rgba(82, 40, 97, 0.15)", "rgba(122, 77, 132, 0.1)"]}
@@ -687,7 +695,10 @@ export default function ProfileScreen() {
               setExpandedSection(null);
             }}
           />
-          <View style={styles.settingsModalContent}>
+          <View
+            style={styles.settingsModalContent}
+            onStartShouldSetResponder={() => true}
+          >
             <View style={styles.settingsModalHeader}>
               <Text style={styles.settingsModalTitle}>Settings</Text>
               <TouchableOpacity
@@ -705,6 +716,10 @@ export default function ProfileScreen() {
               style={styles.settingsScrollView}
               showsVerticalScrollIndicator={true}
               contentContainerStyle={styles.settingsScrollContent}
+              nestedScrollEnabled={true}
+              scrollEventThrottle={1}
+              decelerationRate="normal"
+              keyboardShouldPersistTaps="handled"
             >
               {/* About App Section */}
               <View style={styles.settingsDropdownSection}>
@@ -733,6 +748,16 @@ export default function ProfileScreen() {
                     <ScrollView
                       nestedScrollEnabled={true}
                       showsVerticalScrollIndicator={false}
+                      style={styles.settingsDropdownScrollView}
+                      contentContainerStyle={
+                        styles.settingsDropdownScrollContent
+                      }
+                      scrollEnabled={true}
+                      bounces={true}
+                      scrollEventThrottle={1}
+                      decelerationRate="normal"
+                      removeClippedSubviews={true}
+                      keyboardShouldPersistTaps="handled"
                     >
                       <Text style={styles.settingsSectionText}>
                         SIMI is your intelligent personal assistant designed to
@@ -781,6 +806,16 @@ export default function ProfileScreen() {
                     <ScrollView
                       nestedScrollEnabled={true}
                       showsVerticalScrollIndicator={false}
+                      style={styles.settingsDropdownScrollView}
+                      contentContainerStyle={
+                        styles.settingsDropdownScrollContent
+                      }
+                      scrollEnabled={true}
+                      bounces={true}
+                      scrollEventThrottle={1}
+                      decelerationRate="normal"
+                      removeClippedSubviews={true}
+                      keyboardShouldPersistTaps="handled"
                     >
                       <Text style={styles.settingsSectionText}>
                         <Text style={styles.settingsBoldText}>
@@ -854,6 +889,16 @@ export default function ProfileScreen() {
                     <ScrollView
                       nestedScrollEnabled={true}
                       showsVerticalScrollIndicator={false}
+                      style={styles.settingsDropdownScrollView}
+                      contentContainerStyle={
+                        styles.settingsDropdownScrollContent
+                      }
+                      scrollEnabled={true}
+                      bounces={true}
+                      scrollEventThrottle={1}
+                      decelerationRate="normal"
+                      removeClippedSubviews={true}
+                      keyboardShouldPersistTaps="handled"
                     >
                       <Text style={styles.settingsSectionText}>
                         <Text style={styles.settingsBoldText}>
@@ -922,6 +967,16 @@ export default function ProfileScreen() {
                     <ScrollView
                       nestedScrollEnabled={true}
                       showsVerticalScrollIndicator={false}
+                      style={styles.settingsDropdownScrollView}
+                      contentContainerStyle={
+                        styles.settingsDropdownScrollContent
+                      }
+                      scrollEnabled={true}
+                      bounces={true}
+                      scrollEventThrottle={1}
+                      decelerationRate="normal"
+                      removeClippedSubviews={true}
+                      keyboardShouldPersistTaps="handled"
                     >
                       <Text style={styles.settingsSectionText}>
                         <Text style={styles.settingsBoldText}>
@@ -992,6 +1047,16 @@ export default function ProfileScreen() {
                     <ScrollView
                       nestedScrollEnabled={true}
                       showsVerticalScrollIndicator={false}
+                      style={styles.settingsDropdownScrollView}
+                      contentContainerStyle={
+                        styles.settingsDropdownScrollContent
+                      }
+                      scrollEnabled={true}
+                      bounces={true}
+                      scrollEventThrottle={1}
+                      decelerationRate="normal"
+                      removeClippedSubviews={true}
+                      keyboardShouldPersistTaps="handled"
                     >
                       <Text style={styles.settingsSectionText}>
                         <Text style={styles.settingsBoldText}>
@@ -1061,6 +1126,7 @@ export default function ProfileScreen() {
                 style={styles.settingsSignOutButton}
                 onPress={handleSignOut}
                 activeOpacity={0.7}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
                 <LinearGradient
                   colors={["#522861", "#7a4d84"]}
@@ -1162,6 +1228,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     backgroundColor: "transparent",
+    zIndex: 10,
   },
   appHeaderLeft: {
     width: 44,
@@ -1656,7 +1723,8 @@ const styles = StyleSheet.create({
   settingsModalContent: {
     width: "100%",
     maxWidth: 500,
-    height: Dimensions.get("window").height * 0.85,
+    maxHeight: Dimensions.get("window").height * 0.85,
+    flex: 1,
     backgroundColor: "rgba(255, 255, 255, 0.95)",
     borderRadius: 24,
     padding: 24,
@@ -1686,7 +1754,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   settingsScrollView: {
-    height: Dimensions.get("window").height * 0.65,
+    flex: 1,
   },
   settingsScrollContent: {
     paddingBottom: 20,
@@ -1695,7 +1763,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     backgroundColor: "rgba(240, 235, 245, 0.5)",
     borderRadius: 16,
-    overflow: "hidden",
     borderWidth: 1,
     borderColor: "rgba(82, 40, 97, 0.1)",
   },
@@ -1706,13 +1773,24 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 20,
     backgroundColor: "rgba(255, 255, 255, 0.8)",
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
   },
   settingsDropdownContent: {
     maxHeight: 300,
+    flexGrow: 0,
     backgroundColor: "rgba(255, 255, 255, 0.6)",
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 20,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+  },
+  settingsDropdownScrollView: {
+    height: 264, // Fixed height: 300 (container maxHeight) - 16 (paddingTop) - 20 (paddingBottom)
+  },
+  settingsDropdownScrollContent: {
+    paddingBottom: 16,
   },
   settingsSection: {
     marginBottom: 28,
